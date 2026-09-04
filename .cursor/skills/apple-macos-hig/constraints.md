@@ -1,0 +1,73 @@
+# Shot 推荐约束
+
+结合当前代码现状。新代码按「目标」写；改旧代码时顺手把同一文件里的违规清掉。
+
+## 优先级
+
+1. **苹果官方 HIG、隐私、打包与无障碍**（见 [hig-macos.md](hig-macos.md)、[packaging.md](packaging.md)）写明的规则优先。
+2. **本文件的 Shot 硬约束** 其次。
+3. **没有明确要求的地方，交互与信息架构跟随 CleanShot X**：All-in-One overlay、底部模式条、区域就地标注、窗口抽出居中、尺寸 HUD、标注工具条分组、状态菜单结构、截取上次区域。不要复制 CleanShot 的品牌、图标、配色商标或文案。
+
+## 产品定位
+
+- Shot 是菜单栏截图工具，不是文档型 App。不要加主窗口、多标签工作区、iOS 风 tab bar。
+- 主路径：全局热键 → overlay 选区/窗口 → 就地标注 → 复制或保存。
+
+## UI 约束
+
+1. **系统外观优先**
+   SwiftUI 用 `Form` / `TabView` / 系统 `Button`；AppKit 用标准控件。禁止引入第三方 UI 库。设置与引导用系统 spacing + `scenePadding`。捕获浮层（模式条、标注条、HUD）按 CleanShot X 使用深色 HUD material，即使系统是浅色模式。
+
+2. **一条设置入口**
+   只用 SwiftUI `Settings` scene。用 `showSettingsWindow:` 打开，窗口 identifier 为 `shot.settings`，标题为「设置」。不要再创建第二套设置 `NSWindow`。
+
+3. **状态菜单**
+   顺序：截取区域 / 窗口 / 全屏 / All-in-One / 截取上次区域 → 分隔线 → 设置… → 关于 Shot → 退出 Shot。退出必须是最后一项。不要把未做完的「滚动/录屏」放进状态菜单。
+
+4. **Overlay 模式条**
+   只放当前可用模式（区域、窗口、全屏）。未实现功能从主 HUD 移除。标签字号不要低于 11 pt。选中态用 accent。条定位在 `visibleFrame` 底部居中。
+
+5. **HUD / 遮罩**
+   尺寸 HUD 用 `NSVisualEffectView` 的 `.hudWindow`（深色 HUD），不要手绘纯黑底。遮罩用深色半透明；选区描边用 `controlAccentColor`。
+
+6. **标注工具条**
+   每个工具：SF Symbol、`.help`、选中态 accent。不要放未实现的钉图。「复制」用 prominent 主按钮，「保存」次之，关闭用 xmark + Esc。
+
+7. **引导页**
+   只讲用户价值与权限原因。不要出现竞品名称或实现备注。权限步骤：状态文字 + 请求按钮 + 打开系统设置。可跳过。
+
+8. **文案与本地化**
+   用户可见字符串用 `String(localized:)`，开发语言 `zh-Hans`。专有名词白名单：Shot、All-in-One、macOS。
+
+9. **颜色与无障碍**
+   权限指示灯必须伴随文字。自定义 `NSView` 必须有 accessibility 标签。
+
+10. **多屏与安全区**
+    Overlay 覆盖 `screen.frame`；模式条、编辑器、HUD 定位用 `visibleFrame`。编辑器超出屏幕时缩小并夹紧。
+
+## 交互约束
+
+- 捕获中：Esc 取消，十字光标，Space 移动选区，Shift 正方形。
+- 全屏：点模式条「全屏」或 Return（全屏模式）才截，不要悬停即截。
+- 未授予屏幕录制时：打开引导，不要空白失败。
+- 保存：默认「图片/Shot」；`askWhereToSave` 时用 `NSSavePanel`。
+- 复制到剪贴板用 `NSPasteboard` 写 `NSImage`。
+- 全局热键录制：Esc 取消；必须有修饰键（或 F 键）。
+- 「截取上次区域」仅在已有 `lastSelection` 时可用。
+
+## 工程约束
+
+- 捕获只走 `ScreenCaptureKit` + `SCScreenshotManager`。过滤本应用窗口。
+- `NSWindow.sharingType = .none` 对 overlay、模式条、编辑器保持。
+- 热键、权限、设置读写放在 `HotkeyCenter` / `PermissionService` / `AppSettings`。可测试逻辑放 `ShotKit`。
+- 可测试逻辑改动后跑 `swift test`。UI 改动后 `make app`；无法点 GUI 时至少保证构建通过。
+- 不把 `Shot.app`、`.build`、证书、公证凭证提交进 git。图标源文件（`Support/Shot.icns`、`Support/Assets.xcassets`）要提交。
+
+## 明确不要做
+
+- 不要做 iOS 风格大圆角卡片堆叠当设置页。
+- 不要用自定义标题栏去重造交通灯，除非是无边框标注浮层。
+- 不要隐藏系统屏幕录制隐私指示。
+- 不要默认注册 Command-Shift-3/4/5。
+- 不要在未公证包上教用户关 Gatekeeper。
+- 不要复制 CleanShot X 的图标、商标或营销文案。

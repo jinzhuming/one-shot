@@ -1,0 +1,13 @@
+* text=auto eol=lf
+
+*.swift text
+*.yml text
+*.yaml text
+*.plist text
+*.xcconfig text
+*.xcstrings text
+*.entitlements text
+
+*.icns binary
+*.png binary
+*.app binary

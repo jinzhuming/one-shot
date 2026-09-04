@@ -1,0 +1,20 @@
+---
+description: Shot 必须遵守苹果 HIG、macOS 打包约束，未写明处跟随 CleanShot X
+alwaysApply: true
+---
+
+# Apple HIG / 打包
+
+改 UI、快捷键、权限、Info.plist 或 `.app` 打包时，先读并遵守项目 skill：`.cursor/skills/apple-macos-hig/`。
+
+硬约束：
+
+- 系统控件、系统字体、语义色、SF Symbols、系统 material；不要自绘 iOS/网页风皮肤。
+- 菜单栏 extra 点按出菜单；状态栏图标必须是 template。
+- 设置窗只有一条打开路径（SwiftUI Settings）；标题用「设置」。
+- 用户文案走 `zh-Hans` 本地化；不要新增长硬编码中英混写。
+- 未完成功能不要做成同等可点按钮。
+- `package-app.sh` 写入的 Info.plist 不得含未展开的 `$(PRODUCT_*)`。
+- 禁止默认占用系统截图快捷键 Command-Shift-3/4/5。
+- 捕获只用 ScreenCaptureKit；离开本机的包要 Hardened Runtime + 公证。
+- 没有明确要求的交互，跟随 CleanShot X 的操作路径，不要复制其品牌、图标或文案。

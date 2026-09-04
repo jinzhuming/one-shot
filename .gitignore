@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Xcode
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.moved-aside
+
+# Generated application and XcodeGen project
+Shot.app/
+Shot.xcodeproj/
+
+# Generated icon source
+Support/Shot.iconset/
+
+# Archives and debug symbols
+*.xcarchive/
+*.dSYM/
+*.dSYM.zip
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
