@@ -153,7 +153,7 @@ final class EditorPresenter {
         window.collectionBehavior = presentationStyle == .windowed
             ? [.moveToActiveSpace, .fullScreenAuxiliary]
             : [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.isMovableByWindowBackground = presentationStyle == .windowed
+        window.isMovableByWindowBackground = false
         window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.sharingType = .none
@@ -199,7 +199,7 @@ final class EditorPresenter {
                         measured.height
                             + EditorLayout.windowedToolbarGap
                             + EditorLayout.windowedMinimumWorkspaceHeight
-                            + EditorLayout.windowedWorkspacePadding * 3
+                            + EditorLayout.windowedWorkspacePadding * 2
                     )
                 ),
                 styleMask: styleMask
@@ -259,7 +259,7 @@ final class EditorPresenter {
             canvasFrame: layout.canvasFrame,
             toolbarFrame: layout.toolbarFrame,
             imageSize: layout.imageSize,
-            toolbarAnchor: .below,
+            toolbarAnchor: .above,
             keepsCaptureAligned: false
         )
     }

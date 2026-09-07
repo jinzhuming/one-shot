@@ -39,26 +39,6 @@ enum HUDChrome {
         }
     }
 
-    struct DockedBackground: View {
-        var body: some View {
-            let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
-            ZStack {
-                if HUDChrome.reduceTransparency {
-                    shape.fill(HUDChrome.solidFill)
-                } else {
-                    VisualEffect(cornerRadius: 12, blendingMode: .withinWindow)
-                        .clipShape(shape)
-                    shape.fill(HUDChrome.liftFill)
-                }
-            }
-            .clipShape(shape)
-            .overlay {
-                shape.strokeBorder(HUDChrome.hairline, lineWidth: 1)
-            }
-            .environment(\.colorScheme, .dark)
-        }
-    }
-
     struct IconButtonStyle: ButtonStyle {
         var isSelected = false
         var cornerRadius: CGFloat = 6

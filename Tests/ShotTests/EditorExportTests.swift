@@ -332,7 +332,7 @@ import Testing
     #expect(toolbarHit !== content.canvas)
 }
 
-@Test @MainActor func windowedEditorDocksToolbarBelowCanvasWithoutOverlap() {
+@Test @MainActor func windowedEditorDocksAdaptiveToolbarAboveCanvasWithoutOverlap() {
     let image = solidImage(color: .white, size: CGSize(width: 480, height: 300))
     let session = EditSession(image: image)
     let layout = EditorLayout.windowed(
@@ -345,7 +345,7 @@ import Testing
         canvasFrame: layout.canvasFrame,
         toolbarFrame: layout.toolbarFrame,
         imageSize: layout.imageSize,
-        toolbarAnchor: .below,
+        toolbarAnchor: .above,
         keepsCaptureAligned: false
     )
     let content = EditorChromeView(
@@ -367,19 +367,32 @@ import Testing
     window.contentView = content
     content.layoutSubtreeIfNeeded()
 
-    #expect(content.canvas.frame.minY >= layout.toolbarFrame.maxY + EditorLayout.windowedToolbarGap)
+    let initialToolbarHeight = content.toolbarFittingSize.height
+    #expect(!content.mouseDownCanMoveWindow)
+    #expect(abs(initialToolbarHeight - AnnotationChromeMetrics.windowToolbarHeight) < 0.5)
     #expect(content.canvas.frame.minX >= EditorLayout.windowedWorkspacePadding)
     #expect(content.canvas.frame.maxX <= content.bounds.maxX - EditorLayout.windowedWorkspacePadding)
-    #expect(layout.toolbarFrame.width < content.bounds.width)
 
     guard let toolbar = content.subviews.first(where: {
-        $0 !== content.canvas && $0.frame.maxY <= layout.toolbarFrame.maxY + 1
+        $0 !== content.canvas && abs($0.frame.maxY - content.bounds.maxY) < 0.5
     }) else {
-        Issue.record("The windowed editor should install a bottom-docked toolbar")
+        Issue.record("The windowed editor should install a full-width top toolbar")
         return
     }
+    #expect(abs(toolbar.frame.minX) < 0.5)
+    #expect(abs(toolbar.frame.width - content.bounds.width) < 0.5)
+    #expect(content.canvas.frame.maxY <= toolbar.frame.minY - EditorLayout.windowedWorkspacePadding + 0.5)
+    #expect(toolbar.appearance == nil)
     let toolbarHit = content.hitTest(CGPoint(x: toolbar.frame.midX, y: toolbar.frame.midY))
     #expect(toolbarHit !== content.canvas)
+
+    session.selectedTool = .select
+    content.layoutSubtreeIfNeeded()
+    #expect(abs(content.toolbarFittingSize.height - initialToolbarHeight) < 0.5)
+
+    session.selectedTool = .highlighter
+    content.layoutSubtreeIfNeeded()
+    #expect(abs(content.toolbarFittingSize.height - initialToolbarHeight) < 0.5)
 }
 
 @Test @MainActor func annotationCanvasMapsMouseEventsThroughOffsetFlippedCanvas() {

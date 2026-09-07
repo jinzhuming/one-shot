@@ -9,7 +9,7 @@ enum EditorPresentationStyle {
 }
 
 final class EditorChromeView: NSView {
-    private let canvasChrome = EditorCanvasChromeView()
+    private let canvasChrome: EditorCanvasChromeView
     let canvas = AnnotationCanvasView()
 
     private let toolbarHost: NonDraggableHostingView<AnnotationToolbar>
@@ -34,38 +34,32 @@ final class EditorChromeView: NSView {
         self.arrangement = arrangement
         self.windowedLayout = windowedLayout
         self.coordinator = CanvasCoordinator(session: session)
+        self.canvasChrome = EditorCanvasChromeView(presentationStyle: presentationStyle)
         self.toolbarHost = NonDraggableHostingView(
             rootView: AnnotationToolbar(
                 session: session,
                 onCopy: onCopy,
                 onSave: onSave,
                 onClose: onClose,
-                presentation: presentationStyle == .windowed ? .docked : .floating
+                presentation: presentationStyle == .windowed ? .windowAdaptive : .floatingHUD
             )
         )
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.backgroundColor = presentationStyle == .windowed
-            ? NSColor.underPageBackgroundColor.cgColor
-            : NSColor.clear.cgColor
         layer?.masksToBounds = false
+        updateBackgroundColor()
         canvas.delegate = coordinator
         canvas.selectedTool = session.selectedTool
         canvas.wantsLayer = true
-        canvasChrome.wantsLayer = true
-        canvasChrome.layer?.borderWidth = 1
-        canvasChrome.layer?.borderColor = NSColor.separatorColor.cgColor
-        canvasChrome.layer?.shadowColor = NSColor.black.cgColor
-        canvasChrome.layer?.shadowOpacity = 0.28
-        canvasChrome.layer?.shadowRadius = 11
-        canvasChrome.layer?.shadowOffset = CGSize(width: 0, height: -2)
         canvasChrome.setAccessibilityElement(false)
         toolbarHost.wantsLayer = true
         toolbarHost.layer?.isOpaque = false
         toolbarHost.layer?.backgroundColor = NSColor.clear.cgColor
         toolbarHost.layer?.masksToBounds = false
         toolbarHost.layer?.zPosition = 1
-        toolbarHost.appearance = NSAppearance(named: .vibrantDark)
+        if presentationStyle == .inPlace {
+            toolbarHost.appearance = NSAppearance(named: .vibrantDark)
+        }
         toolbarHost.setAccessibilityElement(true)
         toolbarHost.setAccessibilityRole(.group)
         toolbarHost.setAccessibilityLabel(String(localized: "标注工具"))
@@ -86,6 +80,11 @@ final class EditorChromeView: NSView {
     }
 
     override var mouseDownCanMoveWindow: Bool { false }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateBackgroundColor()
+    }
 
     var toolbarFittingSize: NSSize {
         let size = toolbarHost.fittingSize
@@ -146,6 +145,10 @@ final class EditorChromeView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        guard presentationStyle == .inPlace else {
+            super.mouseDown(with: event)
+            return
+        }
         dragWindow(from: event)
     }
 
@@ -182,14 +185,61 @@ final class EditorChromeView: NSView {
             }
         }
     }
+
+    private func updateBackgroundColor() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = presentationStyle == .windowed
+                ? NSColor.underPageBackgroundColor.cgColor
+                : NSColor.clear.cgColor
+        }
+    }
 }
 
 private final class EditorCanvasChromeView: NSView {
+    private let presentationStyle: EditorPresentationStyle
+
+    init(presentationStyle: EditorPresentationStyle) {
+        self.presentationStyle = presentationStyle
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.masksToBounds = false
+        updateChrome()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        layer?.borderColor = NSColor.separatorColor.cgColor
+        updateChrome()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        updateChrome()
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        updateChrome()
+    }
+
+    private func updateChrome() {
+        let scale = max(window?.backingScaleFactor ?? 1, 1)
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.borderWidth = presentationStyle == .windowed ? 1 / scale : 1
+            layer?.borderColor = NSColor.separatorColor.cgColor
+            layer?.shadowColor = presentationStyle == .windowed
+                ? NSColor.shadowColor.cgColor
+                : NSColor.black.cgColor
+            layer?.shadowOpacity = presentationStyle == .windowed ? 0.18 : 0.28
+            layer?.shadowRadius = presentationStyle == .windowed ? 8 : 11
+            layer?.shadowOffset = CGSize(width: 0, height: -2)
+        }
     }
 }
 

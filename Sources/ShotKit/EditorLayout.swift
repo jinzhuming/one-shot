@@ -64,14 +64,14 @@ public enum EditorLayout {
     public static let chromePadding: CGFloat = 28
     public static let chromeGap: CGFloat = 10
     public static let minToolbarHeight: CGFloat = 44
-    /// The annotation toolbar has a primary row and a fixed-height detail row.
-    public static let estimatedToolbarHeight: CGFloat = 84
+    /// The window toolbar has a 44 pt primary row, a one-point separator, and
+    /// a stable 36 pt contextual row so switching tools never moves the canvas.
+    public static let estimatedToolbarHeight: CGFloat = 81
     public static let minContentWidth: CGFloat = 760
-    /// Compact editor chrome follows the screenshot editor convention: a
-    /// modest inset around the canvas, with the toolbar as a separate pill
-    /// below it rather than a full-width band.
-    public static let windowedWorkspacePadding: CGFloat = 12
-    public static let windowedToolbarGap: CGFloat = 8
+    /// The standard editor uses a full-width toolbar at the top of the content
+    /// view and a neutral workspace with a modest inset around the screenshot.
+    public static let windowedWorkspacePadding: CGFloat = 16
+    public static let windowedToolbarGap: CGFloat = 0
     public static let windowedMinimumWorkspaceHeight: CGFloat = 160
 
     public static func chromeSize(toolbarHeight: CGFloat) -> CGSize {
@@ -117,8 +117,8 @@ public enum EditorLayout {
 
     /// Chooses the initial content size for the standard editor window. The
     /// image stays at 1x whenever it fits, while large captures are reduced to
-    /// the visible display area. The toolbar is docked below the canvas and
-    /// therefore determines the minimum useful width.
+    /// the visible display area. The full-width toolbar is docked above the
+    /// workspace and determines the minimum useful width.
     public static func windowedInitialContentSize(
         imageSize: CGSize,
         toolbarSize: CGSize,
@@ -133,14 +133,14 @@ public enum EditorLayout {
         let toolbar = normalizedToolbarSize(toolbarSize)
         let maxImage = CGSize(
             width: max(1, maxSize.width - padding * 2),
-            height: max(1, maxSize.height - toolbar.height - windowedToolbarGap - padding * 3)
+            height: max(1, maxSize.height - toolbar.height - windowedToolbarGap - padding * 2)
         )
         let fitted = fittedSize(imageSize: imageSize, in: maxImage)
         let minimumWidth = min(maxSize.width, max(minContentWidth, toolbar.width))
         let naturalWidth = max(fitted.width + padding * 2, minimumWidth)
         let naturalHeight = max(
-            fitted.height + toolbar.height + windowedToolbarGap + padding * 3,
-            toolbar.height + windowedToolbarGap + minimumWorkspaceHeight + padding * 3
+            fitted.height + toolbar.height + windowedToolbarGap + padding * 2,
+            toolbar.height + windowedToolbarGap + minimumWorkspaceHeight + padding * 2
         )
         return CGSize(
             width: min(maxSize.width, max(1, naturalWidth)),
@@ -148,8 +148,8 @@ public enum EditorLayout {
         )
     }
 
-    /// Computes the docked-toolbar and canvas frames for the current content
-    /// size. This is called again after every window resize.
+    /// Computes the top toolbar and canvas frames for the current content size.
+    /// This is called again after every window resize.
     public static func windowed(
         imageSize: CGSize,
         toolbarSize: CGSize,
@@ -158,22 +158,18 @@ public enum EditorLayout {
     ) -> EditorWindowLayout {
         let size = CGSize(width: max(1, contentSize.width), height: max(1, contentSize.height))
         let toolbar = normalizedToolbarSize(toolbarSize)
-        let toolbarWidth = min(
-            toolbar.width,
-            max(1, size.width - padding * 2)
-        )
         let toolbarHeight = min(toolbar.height, size.height)
         let toolbarFrame = CGRect(
-            x: (size.width - toolbarWidth) / 2,
-            y: padding,
-            width: toolbarWidth,
+            x: 0,
+            y: size.height - toolbarHeight,
+            width: size.width,
             height: toolbarHeight
         )
         let workspace = CGRect(
             x: 0,
-            y: toolbarFrame.maxY + windowedToolbarGap,
+            y: 0,
             width: size.width,
-            height: max(1, size.height - toolbarFrame.maxY - windowedToolbarGap)
+            height: max(1, toolbarFrame.minY - windowedToolbarGap)
         )
         let maxImage = CGSize(
             width: max(1, workspace.width - padding * 2),
@@ -220,7 +216,7 @@ public enum EditorLayout {
         return CGSize(width: max(1, width), height: max(1, height))
     }
 
-    /// Window / fullscreen editor: scale to fit, center in `visibleFrame`, toolbar below.
+    /// Centered floating editor fallback: scale to fit, center in `visibleFrame`, toolbar below.
     public static func centered(
         imageSize: CGSize,
         toolbarSize: CGSize,

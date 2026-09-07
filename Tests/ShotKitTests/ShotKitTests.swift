@@ -398,7 +398,7 @@ import Testing
     #expect(!canvas.intersects(toolbar))
 }
 
-@Test func windowedEditorDocksToolbarBelowCanvasAndPreservesImageBounds() {
+@Test func windowedEditorDocksToolbarAboveCanvasAndPreservesImageBounds() {
     let contentSize = EditorLayout.windowedInitialContentSize(
         imageSize: CGSize(width: 640, height: 400),
         toolbarSize: CGSize(width: 800, height: 84),
@@ -411,13 +411,17 @@ import Testing
     )
 
     #expect(layout.contentSize == contentSize)
-    #expect(layout.canvasFrame.minY >= layout.toolbarFrame.maxY)
+    #expect(abs(layout.toolbarFrame.maxY - layout.contentSize.height) < 0.001)
+    #expect(abs(layout.toolbarFrame.minX) < 0.001)
+    #expect(abs(layout.toolbarFrame.width - layout.contentSize.width) < 0.001)
+    #expect(layout.canvasFrame.maxY <= layout.toolbarFrame.minY)
     #expect(!layout.toolbarFrame.intersects(layout.canvasFrame))
-    #expect(layout.toolbarFrame.width < layout.contentSize.width)
     #expect(layout.canvasFrame.width == 640)
     #expect(layout.canvasFrame.height == 400)
     #expect(layout.canvasFrame.minX >= EditorLayout.windowedWorkspacePadding)
     #expect(layout.canvasFrame.maxX <= contentSize.width - EditorLayout.windowedWorkspacePadding)
+    #expect(layout.canvasFrame.minY >= EditorLayout.windowedWorkspacePadding)
+    #expect(layout.canvasFrame.maxY <= layout.toolbarFrame.minY - EditorLayout.windowedWorkspacePadding)
 }
 
 @Test func windowedEditorResizesCanvasWithoutUpscalingOrLeavingWorkspace() {
@@ -437,9 +441,9 @@ import Testing
     #expect(resized.imageSize.width <= 1200)
     #expect(resized.imageSize.height <= 800)
     #expect(compact.canvasFrame.minX >= EditorLayout.windowedWorkspacePadding - 0.5)
-    #expect(compact.canvasFrame.minY >= compact.toolbarFrame.maxY + EditorLayout.windowedToolbarGap + EditorLayout.windowedWorkspacePadding - 0.5)
+    #expect(compact.canvasFrame.minY >= EditorLayout.windowedWorkspacePadding - 0.5)
     #expect(compact.canvasFrame.maxX <= compact.contentSize.width - EditorLayout.windowedWorkspacePadding + 0.5)
-    #expect(compact.canvasFrame.maxY <= compact.contentSize.height - EditorLayout.windowedWorkspacePadding + 0.5)
+    #expect(compact.canvasFrame.maxY <= compact.toolbarFrame.minY - EditorLayout.windowedToolbarGap - EditorLayout.windowedWorkspacePadding + 0.5)
     #expect(resized.canvasFrame.width > compact.canvasFrame.width)
 }
 
@@ -460,7 +464,9 @@ import Testing
     #expect(layout.canvasFrame.minX >= 0)
     #expect(layout.canvasFrame.minY >= 0)
     #expect(layout.canvasFrame.maxX <= size.width)
-    #expect(layout.canvasFrame.minY >= layout.toolbarFrame.maxY)
+    #expect(layout.canvasFrame.maxY <= layout.toolbarFrame.minY)
+    #expect(abs(layout.toolbarFrame.maxY - size.height) < 0.001)
+    #expect(abs(layout.toolbarFrame.width - size.width) < 0.001)
 }
 
 @Test func inPlaceEditorFlipsToolbarOffTheCapture() {
