@@ -3,11 +3,29 @@ import QuartzCore
 import ShotKit
 
 final class OverlayWindow: NSWindow {
+    var onRequestCancel: (() -> Void)?
+
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
     override func selectNextKeyView(_ sender: Any?) {}
     override func selectPreviousKeyView(_ sender: Any?) {}
+
+    // Keep Escape working even if AppKit routes the cancel operation directly
+    // to the window instead of the overlay view (for example after a focus
+    // change or while a custom field editor is active).
+    override func cancelOperation(_ sender: Any?) {
+        onRequestCancel?()
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command),
+           event.charactersIgnoringModifiers?.lowercased() == "q" {
+            NSApp.terminate(nil)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
 }
 
 struct OverlayVisualState: Equatable {
@@ -36,6 +54,9 @@ final class SelectionOverlayView: NSView {
         didSet { needsDisplay = true }
     }
     var magnifierSourceRect: CGRect? {
+        didSet { needsDisplay = true }
+    }
+    var magnifierCursor: CGPoint? {
         didSet { needsDisplay = true }
     }
     var visual = OverlayVisualState() {
@@ -118,6 +139,9 @@ final class SelectionOverlayView: NSView {
         overlay.fill()
 
         if let hole {
+            if visual.holeIsWindow {
+                drawWindowHighlight(inside: hole, radius: radius)
+            }
             drawHighlight(around: hole, radius: radius, isWindow: visual.holeIsWindow)
         }
         drawMagnifier()
@@ -163,23 +187,8 @@ final class SelectionOverlayView: NSView {
     }
 
     private func drawHighlight(around hole: CGRect, radius: CGFloat, isWindow: Bool) {
+        guard !isWindow else { return }
         let accent = NSColor.controlAccentColor
-        if isWindow {
-            let glow = NSBezierPath(roundedRect: hole.insetBy(dx: -3, dy: -3), xRadius: radius + 3, yRadius: radius + 3)
-            glow.lineWidth = 8
-            accent.withAlphaComponent(0.35).setStroke()
-            glow.stroke()
-
-            let border = NSBezierPath(
-                roundedRect: hole.insetBy(dx: -1, dy: -1),
-                xRadius: radius + 1,
-                yRadius: radius + 1
-            )
-            border.lineWidth = 2
-            accent.setStroke()
-            border.stroke()
-            return
-        }
 
         let frameRect = hole.insetBy(dx: -1, dy: -1)
         let border = NSBezierPath(roundedRect: frameRect, xRadius: 2, yRadius: 2)
@@ -208,6 +217,42 @@ final class SelectionOverlayView: NSView {
         focus.lineCapStyle = .round
         accent.setStroke()
         focus.stroke()
+    }
+
+    private func drawWindowHighlight(inside hole: CGRect, radius: CGFloat) {
+        // Window capture is a hover/focus state, not a filled selection. Keep
+        // the tint quiet so the window's content remains the visual anchor.
+        let highlight = NSBezierPath(
+            roundedRect: hole.insetBy(dx: 0.5, dy: 0.5),
+            xRadius: max(0, radius - 0.5),
+            yRadius: max(0, radius - 0.5)
+        )
+        let opacity = OverlayFocusStyle.windowHighlightOpacity(
+            reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        )
+        NSColor.controlAccentColor.withAlphaComponent(opacity).setFill()
+        highlight.fill()
+
+        // A neutral contrast keyline keeps the accent ring readable over both
+        // bright and dark window contents. This is intentionally a crisp ring
+        // instead of a large glow, matching native macOS focus treatment.
+        let contrast = NSBezierPath(
+            roundedRect: hole.insetBy(dx: -1, dy: -1),
+            xRadius: radius + 1,
+            yRadius: radius + 1
+        )
+        contrast.lineWidth = 4
+        NSColor.black.withAlphaComponent(0.72).setStroke()
+        contrast.stroke()
+
+        let border = NSBezierPath(
+            roundedRect: hole.insetBy(dx: -0.5, dy: -0.5),
+            xRadius: radius + 0.5,
+            yRadius: radius + 0.5
+        )
+        border.lineWidth = 1.5
+        NSColor.controlAccentColor.setStroke()
+        border.stroke()
     }
 
     private func animateMaskOpacity() {
@@ -260,6 +305,7 @@ final class SelectionOverlayView: NSView {
         guard let backgroundImage,
               let magnifierFrame,
               let magnifierSourceRect,
+              let magnifierCursor,
               magnifierFrame.width > 1,
               magnifierFrame.height > 1,
               magnifierSourceRect.width > 1,
@@ -293,14 +339,28 @@ final class SelectionOverlayView: NSView {
         NSColor.controlAccentColor.setStroke()
         border.stroke()
 
-        let center = CGPoint(x: frame.midX, y: frame.midY)
+        let cursor = MagnifierLayout.cursorPosition(
+            cursor: magnifierCursor,
+            sourceRect: magnifierSourceRect,
+            destinationFrame: frame
+        )
         let crosshair = NSBezierPath()
-        crosshair.move(to: CGPoint(x: center.x - 12, y: center.y))
-        crosshair.line(to: CGPoint(x: center.x + 12, y: center.y))
-        crosshair.move(to: CGPoint(x: center.x, y: center.y - 12))
-        crosshair.line(to: CGPoint(x: center.x, y: center.y + 12))
-        crosshair.lineWidth = 1
+        crosshair.move(to: CGPoint(x: cursor.x - 12, y: cursor.y))
+        crosshair.line(to: CGPoint(x: cursor.x + 12, y: cursor.y))
+        crosshair.move(to: CGPoint(x: cursor.x, y: cursor.y - 12))
+        crosshair.line(to: CGPoint(x: cursor.x, y: cursor.y + 12))
+        crosshair.lineCapStyle = .round
+        // A dark under-stroke keeps the white cursor marker visible over
+        // white or light captured content while preserving a white center on
+        // dark content.
+        NSGraphicsContext.saveGraphicsState()
+        NSBezierPath(roundedRect: frame, xRadius: 12, yRadius: 12).addClip()
+        crosshair.lineWidth = 4
+        NSColor.black.withAlphaComponent(0.85).setStroke()
+        crosshair.stroke()
+        crosshair.lineWidth = 1.5
         NSColor.white.withAlphaComponent(0.9).setStroke()
         crosshair.stroke()
+        NSGraphicsContext.restoreGraphicsState()
     }
 }

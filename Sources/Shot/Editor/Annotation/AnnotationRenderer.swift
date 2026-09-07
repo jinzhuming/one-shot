@@ -13,17 +13,19 @@ enum AnnotationRenderer {
         case .arrow(let start, let end, let style):
             strokeLine(from: start, to: end, style: style, arrow: true)
         case .rect(let rect, let style):
-            stroke(NSBezierPath(rect: rect), style: style)
+            stroke(NSBezierPath(rect: rect), style: style, pattern: .solid)
         case .ellipse(let rect, let style):
-            stroke(NSBezierPath(ovalIn: rect), style: style)
+            stroke(NSBezierPath(ovalIn: rect), style: style, pattern: .solid)
         case .line(let start, let end, let style):
             strokeLine(from: start, to: end, style: style, arrow: false)
         case .pen(let points, let style):
-            strokePolyline(points, style: style, alpha: 1, widthMultiplier: 1)
+            strokePolyline(points, style: style, alpha: style.penOpacity, widthMultiplier: 1)
         case .highlighter(let points, let style):
             strokePolyline(points, style: style, alpha: style.highlighterOpacity, widthMultiplier: 3)
         case .text(let string, let origin, let style):
             drawText(string, at: origin, style: style)
+        case .callout(let string, let rect, let style):
+            drawCallout(string, in: rect, style: style)
         case .counter(let value, let center, let style):
             drawCounter(value, at: center, style: style)
         case .mosaic(let rect, let blockSize):
@@ -33,35 +35,76 @@ enum AnnotationRenderer {
         }
     }
 
-    private static func stroke(_ path: NSBezierPath, style: AnnotationStyle) {
+    private static func stroke(
+        _ path: NSBezierPath,
+        style: AnnotationStyle,
+        pattern: AnnotationStrokePattern? = nil
+    ) {
         style.color.setStroke()
         path.lineWidth = style.lineWidth
         path.lineJoinStyle = .round
         path.lineCapStyle = .round
+        applyLinePattern(pattern ?? style.strokePattern, to: path, lineWidth: style.lineWidth)
         path.stroke()
     }
 
     private static func strokeLine(from start: CGPoint, to end: CGPoint, style: AnnotationStyle, arrow: Bool) {
         let path = NSBezierPath()
         path.move(to: start)
-        path.line(to: end)
-        stroke(path, style: style)
-        guard arrow else { return }
-        let angle = atan2(end.y - start.y, end.x - start.x)
-        let length = max(10, style.lineWidth * 4)
-        let spread = CGFloat.pi / 7
+        guard arrow else {
+            path.line(to: end)
+            stroke(path, style: style)
+            return
+        }
+
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let distance = hypot(dx, dy)
+        guard distance > 0.01 else { return }
+        let ux = dx / distance
+        let uy = dy / distance
+        let px = -uy
+        let py = ux
+        let requestedLength = max(10, style.lineWidth * 4.2) * max(0.6, style.arrowHeadScale)
+        let headLength = min(requestedLength, max(4, distance * 0.58))
+        let headWidth = max(style.lineWidth * 1.8, headLength * 0.42)
+        let base = CGPoint(x: end.x - ux * headLength, y: end.y - uy * headLength)
+
+        // Stop the shaft at the base of the head. This keeps the tip crisp
+        // instead of letting a round line cap bleed through the triangle.
+        path.line(to: base)
+        stroke(path, style: style, pattern: .solid)
+
+        let left = CGPoint(x: base.x + px * headWidth, y: base.y + py * headWidth)
+        let right = CGPoint(x: base.x - px * headWidth, y: base.y - py * headWidth)
         let head = NSBezierPath()
-        head.move(to: end)
-        head.line(to: CGPoint(x: end.x - length * cos(angle - spread), y: end.y - length * sin(angle - spread)))
-        head.line(to: CGPoint(x: end.x - length * cos(angle + spread), y: end.y - length * sin(angle + spread)))
-        head.close()
-        style.color.setFill()
-        head.fill()
+        switch style.arrowHeadStyle {
+        case .filled:
+            head.move(to: end)
+            head.line(to: left)
+            head.line(to: right)
+            head.close()
+            style.color.setFill()
+            head.fill()
+        case .open:
+            head.move(to: left)
+            head.line(to: end)
+            head.line(to: right)
+            head.lineWidth = style.lineWidth
+            head.lineJoinStyle = .round
+            head.lineCapStyle = .round
+            style.color.setStroke()
+            head.stroke()
+        }
     }
 
     private static func strokePolyline(_ points: [CGPoint], style: AnnotationStyle, alpha: CGFloat, widthMultiplier: CGFloat) {
         guard points.count >= 2 else { return }
-        let points = AnnotationGeometry.smoothedPath(points)
+        let smoothing = style.penSmoothing.isFinite ? style.penSmoothing : 0.5
+        let points = AnnotationGeometry.smoothedPath(
+            points,
+            minimumDistance: 0.6 + min(max(smoothing, 0), 1) * 2.4
+        )
         let path = NSBezierPath()
         path.move(to: points[0])
         if points.count == 2 {
@@ -88,7 +131,25 @@ enum AnnotationRenderer {
         path.lineWidth = max(1, style.lineWidth * widthMultiplier)
         path.lineJoinStyle = .round
         path.lineCapStyle = .round
+        applyLinePattern(.solid, to: path, lineWidth: path.lineWidth)
         path.stroke()
+    }
+
+    private static func applyLinePattern(_ pattern: AnnotationStrokePattern, to path: NSBezierPath, lineWidth: CGFloat) {
+        switch pattern {
+        case .solid:
+            path.setLineDash(nil, count: 0, phase: 0)
+        case .dashed:
+            let length = max(4, lineWidth * 3.5)
+            let gap = max(3, lineWidth * 2.2)
+            let pattern = [length, gap]
+            path.setLineDash(pattern, count: pattern.count, phase: 0)
+        case .dotted:
+            let dot = max(1, lineWidth * 0.9)
+            let gap = max(3, lineWidth * 2.4)
+            let pattern = [dot, gap]
+            path.setLineDash(pattern, count: pattern.count, phase: 0)
+        }
     }
 
     private static func drawText(_ string: String, at origin: CGPoint, style: AnnotationStyle) {
@@ -102,6 +163,28 @@ enum AnnotationRenderer {
             .foregroundColor: style.color
         ]
         (string as NSString).draw(at: origin, withAttributes: attributes)
+    }
+
+    private static func drawCallout(_ string: String, in rect: CGRect, style: AnnotationStyle) {
+        let layout = AnnotationCalloutLayout.layout(
+            text: string,
+            in: rect,
+            style: style,
+            wrapsText: style.calloutWrapText
+        )
+        guard layout.body.width > 1, layout.body.height > 1 else { return }
+        let bubble = AnnotationCalloutLayout.path(for: layout, lineWidth: style.lineWidth)
+        style.color.withAlphaComponent(style.calloutFillOpacity).setFill()
+        bubble.fill()
+        stroke(bubble, style: style, pattern: .solid)
+
+        let font = AnnotationCalloutLayout.font(for: style)
+        let attributes = AnnotationCalloutLayout.textAttributes(
+            font: font,
+            color: style.color,
+            wrapsText: style.calloutWrapText
+        )
+        (string as NSString).draw(in: layout.textRect, withAttributes: attributes)
     }
 
     private static func drawCounter(_ value: Int, at center: CGPoint, style: AnnotationStyle) {

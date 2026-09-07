@@ -20,81 +20,197 @@ private func roundedStroke(_ path: NSBezierPath, width: CGFloat) {
     path.stroke()
 }
 
-private func drawViewfinderMark(in rect: NSRect) {
-    let size = min(rect.width, rect.height)
-    let left = rect.midX - size * 0.31
-    let right = rect.midX + size * 0.31
-    let bottom = rect.midY - size * 0.31
-    let top = rect.midY + size * 0.31
-    let arm = size * 0.15
-    let stroke = size * 0.072
+private enum IconDetail: Equatable {
+    case full
+    case compact
 
-    NSColor.white.setStroke()
+    var frameScale: CGFloat {
+        switch self {
+        case .full: 0.48
+        case .compact: 0.45
+        }
+    }
+
+    var armScale: CGFloat {
+        switch self {
+        case .full: 0.078
+        case .compact: 0.082
+        }
+    }
+
+    var strokeScale: CGFloat {
+        switch self {
+        case .full: 0.028
+        case .compact: 0.054
+        }
+    }
+
+    var lensScale: CGFloat {
+        switch self {
+        case .full: 0.34
+        case .compact: 0.29
+        }
+    }
+}
+
+private func drawViewfinderMark(
+    in rect: NSRect,
+    detail: IconDetail,
+    color: NSColor
+) {
+    let size = min(rect.width, rect.height)
+    let frame = size * detail.frameScale
+    let left = rect.midX - frame / 2
+    let right = rect.midX + frame / 2
+    let bottom = rect.midY - frame / 2
+    let top = rect.midY + frame / 2
+    let arm = size * detail.armScale
+    let stroke = size * detail.strokeScale
+    let cornerRadius = stroke * 0.9
+
+    color.setStroke()
     let topLeft = NSBezierPath()
     topLeft.move(to: NSPoint(x: left + arm, y: top))
-    topLeft.line(to: NSPoint(x: left, y: top))
+    topLeft.line(to: NSPoint(x: left + cornerRadius, y: top))
+    topLeft.curve(
+        to: NSPoint(x: left, y: top - cornerRadius),
+        controlPoint1: NSPoint(x: left + cornerRadius * 0.45, y: top),
+        controlPoint2: NSPoint(x: left, y: top - cornerRadius * 0.45)
+    )
     topLeft.line(to: NSPoint(x: left, y: top - arm))
     roundedStroke(topLeft, width: stroke)
 
     let topRight = NSBezierPath()
     topRight.move(to: NSPoint(x: right - arm, y: top))
-    topRight.line(to: NSPoint(x: right, y: top))
+    topRight.line(to: NSPoint(x: right - cornerRadius, y: top))
+    topRight.curve(
+        to: NSPoint(x: right, y: top - cornerRadius),
+        controlPoint1: NSPoint(x: right - cornerRadius * 0.45, y: top),
+        controlPoint2: NSPoint(x: right, y: top - cornerRadius * 0.45)
+    )
     topRight.line(to: NSPoint(x: right, y: top - arm))
     roundedStroke(topRight, width: stroke)
 
     let bottomLeft = NSBezierPath()
     bottomLeft.move(to: NSPoint(x: left + arm, y: bottom))
-    bottomLeft.line(to: NSPoint(x: left, y: bottom))
+    bottomLeft.line(to: NSPoint(x: left + cornerRadius, y: bottom))
+    bottomLeft.curve(
+        to: NSPoint(x: left, y: bottom + cornerRadius),
+        controlPoint1: NSPoint(x: left + cornerRadius * 0.45, y: bottom),
+        controlPoint2: NSPoint(x: left, y: bottom + cornerRadius * 0.45)
+    )
     bottomLeft.line(to: NSPoint(x: left, y: bottom + arm))
     roundedStroke(bottomLeft, width: stroke)
 
     let bottomRight = NSBezierPath()
     bottomRight.move(to: NSPoint(x: right - arm, y: bottom))
-    bottomRight.line(to: NSPoint(x: right, y: bottom))
+    bottomRight.line(to: NSPoint(x: right - cornerRadius, y: bottom))
+    bottomRight.curve(
+        to: NSPoint(x: right, y: bottom + cornerRadius),
+        controlPoint1: NSPoint(x: right - cornerRadius * 0.45, y: bottom),
+        controlPoint2: NSPoint(x: right, y: bottom + cornerRadius * 0.45)
+    )
     bottomRight.line(to: NSPoint(x: right, y: bottom + arm))
     roundedStroke(bottomRight, width: stroke)
-
-    let lensRadius = size * 0.125
-    let lens = NSBezierPath(ovalIn: NSRect(
-        x: rect.midX - lensRadius,
-        y: rect.midY - lensRadius,
-        width: lensRadius * 2,
-        height: lensRadius * 2
-    ))
-    roundedStroke(lens, width: stroke)
-
-    NSColor.white.setFill()
-    NSBezierPath(ovalIn: NSRect(
-        x: rect.midX - size * 0.032,
-        y: rect.midY - size * 0.032,
-        width: size * 0.064,
-        height: size * 0.064
-    )).fill()
 }
 
-func renderIcon(size: CGFloat) -> NSImage {
+private func drawLens(in rect: NSRect, detail: IconDetail) {
+    let size = min(rect.width, rect.height)
+    let diameter = size * detail.lensScale
+    let lensRect = NSRect(
+        x: rect.midX - diameter / 2,
+        y: rect.midY - diameter / 2,
+        width: diameter,
+        height: diameter
+    )
+
+    NSGraphicsContext.saveGraphicsState()
+    let shadow = NSShadow()
+    shadow.shadowColor = NSColor.black.withAlphaComponent(0.18)
+    shadow.shadowBlurRadius = size * 0.026
+    shadow.shadowOffset = NSSize(width: 0, height: -size * 0.008)
+    shadow.set()
+    NSColor.white.withAlphaComponent(0.12).setFill()
+    NSBezierPath(ovalIn: lensRect).fill()
+    NSGraphicsContext.restoreGraphicsState()
+
+    NSColor.white.withAlphaComponent(0.11).setFill()
+    NSBezierPath(ovalIn: lensRect).fill()
+
+    NSGraphicsContext.saveGraphicsState()
+    NSBezierPath(ovalIn: lensRect.insetBy(dx: diameter * 0.045, dy: diameter * 0.045)).addClip()
+    let lensGradient = NSGradient(colors: [
+        NSColor(calibratedRed: 0.68, green: 0.90, blue: 1.0, alpha: 0.44),
+        NSColor(calibratedRed: 0.08, green: 0.25, blue: 0.68, alpha: 0.72)
+    ])
+    lensGradient?.draw(in: lensRect, angle: 135)
+    NSGraphicsContext.restoreGraphicsState()
+
+    NSColor.white.withAlphaComponent(0.56).setStroke()
+    let ring = NSBezierPath(ovalIn: lensRect.insetBy(dx: size * 0.008, dy: size * 0.008))
+    ring.lineWidth = size * 0.014
+    ring.stroke()
+
+    if detail == .full {
+        NSColor.white.withAlphaComponent(0.20).setFill()
+        NSBezierPath(ovalIn: NSRect(
+            x: lensRect.minX + diameter * 0.20,
+            y: lensRect.maxY - diameter * 0.34,
+            width: diameter * 0.22,
+            height: diameter * 0.10
+        )).fill()
+
+        NSColor(calibratedRed: 0.06, green: 0.20, blue: 0.56, alpha: 0.48).setFill()
+        let aperture = diameter * 0.40
+        NSBezierPath(ovalIn: NSRect(
+            x: rect.midX - aperture / 2,
+            y: rect.midY - aperture / 2,
+            width: aperture,
+            height: aperture
+        )).fill()
+
+        NSColor.white.withAlphaComponent(0.86).setFill()
+        let dot = size * 0.025
+        NSBezierPath(ovalIn: NSRect(
+            x: rect.midX - dot / 2,
+            y: rect.midY - dot / 2,
+            width: dot,
+            height: dot
+        )).fill()
+    }
+}
+
+private func renderIcon(size: CGFloat, detail: IconDetail) -> NSImage {
     let image = NSImage(size: NSSize(width: size, height: size))
     image.lockFocus()
 
     let rect = NSRect(x: 0, y: 0, width: size, height: size)
     let gradient = NSGradient(colors: [
-        NSColor(calibratedRed: 0.36, green: 0.34, blue: 0.91, alpha: 1),
-        NSColor(calibratedRed: 0.08, green: 0.43, blue: 0.82, alpha: 1)
+        NSColor(calibratedRed: 0.08, green: 0.13, blue: 0.43, alpha: 1),
+        NSColor(calibratedRed: 0.09, green: 0.30, blue: 0.70, alpha: 1),
+        NSColor(calibratedRed: 0.03, green: 0.52, blue: 0.82, alpha: 1)
     ])
-    gradient?.draw(in: rect, angle: 35)
+    gradient?.draw(in: rect, angle: 34)
 
-    // A restrained light sweep adds depth without baking in a rounded-rectangle
-    // mask; macOS applies the app-icon shape in Finder and the Dock.
-    NSColor.white.withAlphaComponent(0.10).setFill()
+    // Keep the background square and unmasked; macOS applies the app-icon shape
+    // in Finder and the Dock. Use a small glow instead of a large decorative
+    // shape so the lens remains the visual focus.
+    NSColor.white.withAlphaComponent(0.035).setFill()
     NSBezierPath(ovalIn: NSRect(
-        x: size * -0.28,
-        y: size * 0.56,
-        width: size * 0.95,
-        height: size * 0.72
+        x: size * 0.02,
+        y: size * 0.72,
+        width: size * 0.40,
+        height: size * 0.30
     )).fill()
 
     NSGraphicsContext.current?.shouldAntialias = true
-    drawViewfinderMark(in: rect)
+    drawLens(in: rect, detail: detail)
+
+    drawViewfinderMark(
+        in: rect,
+        detail: detail,
+        color: NSColor.white.withAlphaComponent(0.64)
+    )
 
     image.unlockFocus()
     return image
@@ -121,7 +237,25 @@ func pngData(_ image: NSImage, pixels: Int) -> Data {
     return rep.representation(using: .png, properties: [:])!
 }
 
-let master = renderIcon(size: 1024)
+private func maskedIcon(_ image: NSImage) -> NSImage {
+    let size = image.size.width
+    let rect = NSRect(origin: .zero, size: image.size)
+    let masked = NSImage(size: image.size)
+    masked.lockFocus()
+
+    // The asset catalog receives the unmasked square source above. The
+    // SwiftPM fallback is an icns file, so apply the macOS rounded-rectangle
+    // shape here for legacy packaging that does not contain Assets.car.
+    NSGraphicsContext.saveGraphicsState()
+    let radius = size * 0.215
+    NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).addClip()
+    image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
+    NSGraphicsContext.restoreGraphicsState()
+
+    masked.unlockFocus()
+    return masked
+}
+
 let entries: [(name: String, pixels: Int)] = [
     ("icon_16x16.png", 16),
     ("icon_16x16@2x.png", 32),
@@ -135,10 +269,20 @@ let entries: [(name: String, pixels: Int)] = [
     ("icon_512x512@2x.png", 1024)
 ]
 
+let icnsIconset = FileManager.default.temporaryDirectory
+    .appendingPathComponent("Shot-iconset-\(UUID().uuidString).iconset")
+try FileManager.default.createDirectory(at: icnsIconset, withIntermediateDirectories: true)
+
 for entry in entries {
-    let data = pngData(master, pixels: entry.pixels)
+    let detail: IconDetail = entry.pixels <= 64 ? .compact : .full
+    let renderScale: CGFloat = entry.pixels <= 64 ? 8 : 1
+    let image = renderIcon(size: CGFloat(entry.pixels) * renderScale, detail: detail)
+    let data = pngData(image, pixels: entry.pixels)
     try data.write(to: iconset.appendingPathComponent(entry.name))
     try data.write(to: xcassets.appendingPathComponent(entry.name))
+
+    let icnsData = pngData(maskedIcon(image), pixels: entry.pixels)
+    try icnsData.write(to: icnsIconset.appendingPathComponent(entry.name))
 }
 
 let contents = """
@@ -174,11 +318,13 @@ try catalog.write(
 let icns = support.appendingPathComponent("Shot.icns")
 let process = Process()
 process.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
-process.arguments = ["-c", "icns", "-o", icns.path, iconset.path]
+process.arguments = ["-c", "icns", "-o", icns.path, icnsIconset.path]
 try process.run()
 process.waitUntilExit()
-guard process.terminationStatus == 0 else {
+if process.terminationStatus != 0 {
+    try? FileManager.default.removeItem(at: icnsIconset)
     throw NSError(domain: "generate-icon", code: Int(process.terminationStatus))
 }
+try FileManager.default.removeItem(at: icnsIconset)
 
 print("Wrote \(icns.path)")

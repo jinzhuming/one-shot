@@ -9,6 +9,7 @@ enum HotkeyAction: String, CaseIterable, Identifiable {
     case captureArea
     case captureWindow
     case captureFullscreen
+    case scrolling
 
     var id: String { rawValue }
 
@@ -19,6 +20,7 @@ enum HotkeyAction: String, CaseIterable, Identifiable {
         case .captureArea: return 3
         case .captureWindow: return 4
         case .captureFullscreen: return 5
+        case .scrolling: return 6
         }
     }
 
@@ -29,6 +31,7 @@ enum HotkeyAction: String, CaseIterable, Identifiable {
         case .captureArea: return String(localized: "截取区域")
         case .captureWindow: return String(localized: "截取窗口")
         case .captureFullscreen: return String(localized: "截取全屏")
+        case .scrolling: return String(localized: "滚动截图")
         }
     }
 
@@ -39,6 +42,7 @@ enum HotkeyAction: String, CaseIterable, Identifiable {
         case .captureArea: return .area
         case .captureWindow: return .window
         case .captureFullscreen: return .fullscreen
+        case .scrolling: return .area
         }
     }
 
@@ -203,6 +207,9 @@ final class HotkeyCenter: ObservableObject {
         if action == .recording {
             return .defaultRecording
         }
+        if action == .scrolling {
+            return .defaultScrolling
+        }
         return nil
     }
 
@@ -339,6 +346,8 @@ final class HotkeyCenter: ObservableObject {
         guard let action = HotkeyAction.allCases.first(where: { $0.carbonID == id }) else { return }
         if action == .recording {
             AppCoordinator.shared.toggleRecording()
+        } else if action == .scrolling {
+            AppCoordinator.shared.startScrollingCapture()
         } else {
             AppCoordinator.shared.startCapture(action.captureMode)
         }

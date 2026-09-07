@@ -12,9 +12,10 @@ enum CaptureWindowLevels {
     }
 
     static var editor: NSWindow.Level {
-        // Keep the annotation canvas above status/floating windows created by
-        // other apps, while staying below the actual screen-saver level and
-        // the system's privacy indicators.
-        NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.screenSaverWindow)) - 1)
+        // In-place annotation has to stay above our dimming overlay, but it
+        // must not sit near the screen-saver range. Keeping the level just
+        // above our own capture chrome limits the blast radius if a teardown
+        // path fails and still leaves system UI and privacy indicators alone.
+        NSWindow.Level(rawValue: modeBar.rawValue + 1)
     }
 }

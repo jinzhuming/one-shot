@@ -23,8 +23,12 @@ struct StatusItemLabel: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        Image(systemName: "viewfinder")
-            .imageScale(.medium)
+        Image(systemName: "camera.viewfinder")
+            // Use the standard status-item artwork height explicitly. The
+            // symbol's internal whitespace makes relative image scaling look
+            // smaller than neighboring menu bar icons.
+            .font(.system(size: 18, weight: .medium))
+            .scaleEffect(1.25)
             .symbolRenderingMode(.monochrome)
             .accessibilityLabel("Shot")
             .help("Shot")
@@ -55,6 +59,16 @@ struct StatusItemMenuView: View {
         }
         actionButton("All-in-One", hotkey: .allInOne) {
             AppCoordinator.shared.startCapture(.allInOne)
+        }
+        if CaptureSession.shared.isScrollingCapture {
+            Button(String(localized: "完成滚动截图")) {
+                CaptureSession.shared.finishScrolling()
+            }
+            .help(String(localized: "结束采集并拼接当前内容"))
+        } else {
+            actionButton(String(localized: "滚动截图"), hotkey: .scrolling) {
+                AppCoordinator.shared.startScrollingCapture()
+            }
         }
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             actionButton(recordingTitle, hotkey: .recording) {

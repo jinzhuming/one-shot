@@ -6,7 +6,7 @@ import Testing
 @Test func annotationToolMetadataIsCompleteAndShortcutMappingRoundTrips() {
     let tools = AnnotationToolID.allCases
 
-    #expect(tools.count == 11)
+    #expect(tools.count == 12)
     #expect(Set(tools.map(\.shortcut)).count == tools.count)
     #expect(Set(tools.map(\.shortcutKeyCode)).count == tools.count)
 
@@ -252,4 +252,152 @@ import Testing
         return
     }
     #expect(text == "After")
+}
+
+@Test @MainActor func calloutTextCanBeCommittedAndReplacedWithoutChangingItsObjectID() {
+    let session = EditSession(image: NSImage(size: CGSize(width: 320, height: 180)))
+    let rect = CGRect(x: 24, y: 18, width: 160, height: 72)
+
+    session.selectedTool = .callout
+    session.beginCallout(at: rect)
+    session.commitCallout("说明", in: rect)
+
+    guard case .callout(let text, let committedRect, _) = session.document.elements[0].element else {
+        Issue.record("The callout tool must commit a callout element")
+        return
+    }
+    #expect(text == "说明")
+    #expect(committedRect == rect)
+
+    let id = session.document.elements[0].id
+    session.selectedTool = .select
+    session.beginCallout(at: rect, replacing: id)
+    session.commitCallout("更新", in: rect, replacing: id)
+
+    #expect(session.document.elements[0].id == id)
+    guard case .callout(let replacedText, _, _) = session.document.elements[0].element else {
+        Issue.record("The callout must remain a callout after text replacement")
+        return
+    }
+    #expect(replacedText == "更新")
+}
+
+@Test func calloutLayoutFollowsTextAndSupportsOptionalWrapping() {
+    let rect = CGRect(x: 24, y: 18, width: 160, height: 72)
+    let style = AnnotationStyle()
+    let short = AnnotationCalloutLayout.layout(
+        text: "说明",
+        in: rect,
+        style: style,
+        wrapsText: true
+    )
+    let long = AnnotationCalloutLayout.layout(
+        text: String(repeating: "这是一段需要换行的说明。", count: 4),
+        in: rect,
+        style: style,
+        wrapsText: true
+    )
+
+    #expect(long.body.width == short.body.width)
+    #expect(long.body.height > short.body.height)
+    #expect(long.textRect.minX >= long.body.minX)
+    #expect(long.textRect.maxX <= long.body.maxX)
+    #expect(long.textRect.minY >= long.body.minY)
+    #expect(long.textRect.maxY <= long.body.maxY)
+
+    let singleLine = AnnotationCalloutLayout.layout(
+        text: String(repeating: "更长的单行说明 ", count: 8),
+        in: rect,
+        style: style,
+        wrapsText: false
+    )
+    #expect(singleLine.body.width > rect.width)
+}
+
+@Test func calloutObjectBoundsRecomputeWhenTextChanges() {
+    let rect = CGRect(x: 24, y: 18, width: 160, height: 72)
+    let object = AnnotationObject(element: .callout(
+        "短文本",
+        rect: rect,
+        style: AnnotationStyle()
+    ))
+    let expanded = object.replacingText(String(repeating: "自动换行内容。", count: 5))
+    let contracted = expanded.replacingText("短文本")
+
+    #expect(expanded.bounds.height > object.bounds.height)
+    #expect(contracted.bounds == object.bounds)
+}
+
+@Test @MainActor func secondaryAnnotationPreferencesAreAppliedToNewElements() {
+    let session = EditSession(image: NSImage(size: CGSize(width: 320, height: 180)))
+
+    session.selectedTool = .arrow
+    session.arrowHeadStyle = .open
+    session.arrowHeadScale = 1.6
+    session.handle(.down(CGPoint(x: 20, y: 20), shift: false))
+    session.handle(.up(CGPoint(x: 120, y: 80), shift: false))
+
+    guard case .arrow(_, _, let arrowStyle) = session.document.elements[0].element else {
+        Issue.record("The arrow tool must preserve its secondary settings")
+        return
+    }
+    #expect(arrowStyle.arrowHeadStyle == .open)
+    #expect(arrowStyle.arrowHeadScale == 1.6)
+
+    session.selectedTool = .pen
+    session.penSmoothing = 0.9
+    session.penOpacity = 0.5
+    session.handle(.down(CGPoint(x: 20, y: 100), shift: false))
+    session.handle(.drag(CGPoint(x: 50, y: 110), shift: false))
+    session.handle(.up(CGPoint(x: 90, y: 120), shift: false))
+
+    guard case .pen(_, let penStyle) = session.document.elements[1].element else {
+        Issue.record("The pen tool must preserve its secondary settings")
+        return
+    }
+    #expect(penStyle.penSmoothing == 0.9)
+    #expect(penStyle.penOpacity == 0.5)
+}
+
+@Test @MainActor func arrowsAndCalloutsCanBeRenderedInAnExportSnapshot() {
+    let context = CGContext(
+        data: nil,
+        width: 320,
+        height: 180,
+        bitsPerComponent: 8,
+        bytesPerRow: 320 * 4,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    context.setFillColor(NSColor.white.cgColor)
+    context.fill(CGRect(x: 0, y: 0, width: 320, height: 180))
+    let image = NSImage(cgImage: context.makeImage()!, size: CGSize(width: 320, height: 180))
+    var document = AnnotationDocument(baseImage: image)
+    var arrowStyle = AnnotationStyle()
+    arrowStyle.arrowHeadStyle = .open
+    arrowStyle.arrowHeadScale = 1.4
+    document.commit(.arrow(
+        start: CGPoint(x: 20, y: 20),
+        end: CGPoint(x: 180, y: 90),
+        style: arrowStyle
+    ))
+    document.commit(.callout(
+        "说明",
+        rect: CGRect(x: 80, y: 100, width: 160, height: 60),
+        style: AnnotationStyle()
+    ))
+
+    #expect(document.flattenedCGImage() != nil)
+}
+
+@Test func olderAnnotationPreferencesDecodeWithNewDefaults() throws {
+    let data = Data(#"{"penLineWidth":11,"highlighterOpacity":0.25}"#.utf8)
+    let preferences = try JSONDecoder().decode(AnnotationPreferences.self, from: data)
+
+    #expect(preferences.penLineWidth == 11)
+    #expect(preferences.highlighterOpacity == 0.25)
+    #expect(preferences.arrowHeadStyle == .filled)
+    #expect(preferences.linePattern == .solid)
+    #expect(preferences.calloutFillOpacity == 0.14)
+    #expect(preferences.calloutWrapText)
 }

@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import CoreGraphics
 import Foundation
 import ShotKit
@@ -168,6 +169,95 @@ import Testing
     #expect(nextURL.lastPathComponent == "\(expectedBase) (2).mp4")
 }
 
+@Test @MainActor func temporaryRecordingIsFinalizedIntoConfiguredDirectory() async throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("ShotRecordingFinalizeTests-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let sourceURL = try VideoExporter.temporaryRecordingURL(
+        in: directory.appendingPathComponent("source", isDirectory: true),
+        date: Date(timeIntervalSince1970: 1_756_890_307)
+    )
+    try Data([0x00, 0x01, 0x02]).write(to: sourceURL)
+
+    let finalURL = try await VideoExporter.finalizeRecording(
+        sourceURL: sourceURL,
+        in: directory
+    )
+
+    #expect(finalURL.deletingLastPathComponent() == directory)
+    #expect(FileManager.default.fileExists(atPath: finalURL.path))
+    #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
+}
+
+@Test @MainActor func temporaryRecordingURLsAreUniqueForTheSameTimestamp() throws {
+    let date = Date(timeIntervalSince1970: 1_756_890_307)
+    let firstURL = try VideoExporter.temporaryRecordingURL(date: date)
+    let secondURL = try VideoExporter.temporaryRecordingURL(date: date)
+
+    #expect(firstURL != secondURL)
+    #expect(firstURL.pathExtension == "mp4")
+    #expect(secondURL.pathExtension == "mp4")
+}
+
+@Test @MainActor func asyncTimeoutReturnsWhenAnOperationExceedsItsDeadline() async {
+    do {
+        try await AsyncTimeout.run(
+            timeout: .milliseconds(10),
+            timeoutError: CaptureError.timedOut
+        ) {
+            try await Task.sleep(for: .seconds(1))
+        }
+        Issue.record("超时操作不应正常完成")
+    } catch is CaptureError {
+        // Expected.
+    } catch {
+        Issue.record("超时应返回截图超时错误，实际为：\(error)")
+    }
+}
+
+@Test @MainActor func recordingControlBarIsInteractiveButExcludedFromCapture() {
+    let window = RecordingControlBarWindow(
+        contentRect: CGRect(x: 0, y: 0, width: 420, height: 58),
+        styleMask: [.borderless, .nonactivatingPanel],
+        backing: .buffered,
+        defer: false
+    )
+    defer { window.close() }
+
+    window.sharingType = .none
+    #expect(window.canBecomeKey)
+    #expect(!window.canBecomeMain)
+    #expect(window.sharingType == .none)
+}
+
+@Test @MainActor func recordingSegmentsMergeIntoOneVideo() async throws {
+    let date = Date(timeIntervalSince1970: 1_756_890_307)
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("ShotRecordingMergeTests-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let firstURL = try VideoExporter.temporaryRecordingURL(in: directory, date: date)
+    let secondURL = try VideoExporter.temporaryRecordingURL(in: directory, date: date.addingTimeInterval(1))
+    defer {
+        try? FileManager.default.removeItem(at: firstURL)
+        try? FileManager.default.removeItem(at: secondURL)
+    }
+    try await writeTestVideo(to: firstURL, color: (0, 120, 240))
+    try await writeTestVideo(to: secondURL, color: (240, 120, 0))
+
+    let mergedURL = try await VideoExporter.mergeRecordingSegments(
+        [firstURL, secondURL],
+        temporaryDirectory: directory
+    )
+    defer { try? FileManager.default.removeItem(at: mergedURL) }
+    let asset = AVURLAsset(url: mergedURL)
+    let duration = try await asset.load(.duration)
+    let tracks = try await asset.loadTracks(withMediaType: .video)
+
+    #expect(!tracks.isEmpty)
+    #expect(duration.seconds > 0.05)
+}
+
 @Test @MainActor func selectionOverlayDrawsMaskAboveBackgroundImage() {
     let viewSize = CGSize(width: 200, height: 200)
     let view = SelectionOverlayView(frame: CGRect(origin: .zero, size: viewSize))
@@ -199,6 +289,11 @@ import Testing
 
     #expect(brightness(of: outside) < 0.8)
     #expect(brightness(of: inside) > 0.9)
+    if let rgb = inside?.usingColorSpace(.deviceRGB) {
+        #expect([rgb.redComponent, rgb.greenComponent, rgb.blueComponent].contains { $0 < 0.99 })
+    } else {
+        Issue.record("选中窗口应当渲染半透明高亮层")
+    }
 }
 
 @Test func windowSnapshotBuilderRejectsDockBeforeFrontmostApplicationWindow() {
@@ -507,6 +602,81 @@ private func cachedBitmap(for view: NSView, size: CGSize) -> NSBitmapImageRep {
 private func brightness(of color: NSColor?) -> CGFloat {
     guard let rgb = color?.usingColorSpace(.deviceRGB) else { return 0 }
     return max(rgb.redComponent, rgb.greenComponent, rgb.blueComponent)
+}
+
+private func writeTestVideo(to url: URL, color: (UInt8, UInt8, UInt8)) async throws {
+    let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+    let input = AVAssetWriterInput(
+        mediaType: .video,
+        outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: 16,
+            AVVideoHeightKey: 16
+        ]
+    )
+    input.expectsMediaDataInRealTime = false
+    guard writer.canAdd(input) else { throw VideoExporter.ExportError.segmentMergeFailed }
+    writer.add(input)
+    let pixelBufferAttributes: [String: Any] = [
+        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+        kCVPixelBufferWidthKey as String: 16,
+        kCVPixelBufferHeightKey as String: 16,
+        kCVPixelBufferCGImageCompatibilityKey as String: true,
+        kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
+    ]
+    let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+        assetWriterInput: input,
+        sourcePixelBufferAttributes: pixelBufferAttributes
+    )
+    guard writer.startWriting() else {
+        throw writer.error ?? VideoExporter.ExportError.segmentMergeFailed
+    }
+    writer.startSession(atSourceTime: .zero)
+
+    let attributes = pixelBufferAttributes as CFDictionary
+    for frame in 0..<3 {
+        var pixelBuffer: CVPixelBuffer?
+        guard CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            16,
+            16,
+            kCVPixelFormatType_32BGRA,
+            attributes,
+            &pixelBuffer
+        ) == kCVReturnSuccess,
+        let pixelBuffer else {
+            throw VideoExporter.ExportError.segmentMergeFailed
+        }
+        CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        if let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) {
+            let bytes = baseAddress.assumingMemoryBound(to: UInt8.self)
+            let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+            for row in 0..<16 {
+                for column in 0..<16 {
+                    let offset = row * bytesPerRow + column * 4
+                    bytes[offset] = color.2
+                    bytes[offset + 1] = color.1
+                    bytes[offset + 2] = color.0
+                    bytes[offset + 3] = 255
+                }
+            }
+        }
+        CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+        while !input.isReadyForMoreMediaData {
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        guard adaptor.append(
+            pixelBuffer,
+            withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: 30)
+        ) else {
+            throw writer.error ?? VideoExporter.ExportError.segmentMergeFailed
+        }
+    }
+    input.markAsFinished()
+    await writer.finishWriting()
+    guard writer.status == .completed else {
+        throw writer.error ?? VideoExporter.ExportError.segmentMergeFailed
+    }
 }
 
 @MainActor

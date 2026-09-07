@@ -3,6 +3,7 @@ import Testing
 
 @Test func settingsWindowIdentityMatchesSwiftUIAndShotIdentifiers() {
     #expect(SettingsWindowIdentity.identifier == "shot.settings")
+    #expect(SettingsWindowIdentity.helperIdentifier == "shot.settings-helper")
     #expect(SettingsWindowIdentity.matches(identifier: "shot.settings"))
     #expect(SettingsWindowIdentity.matches(identifier: "com_apple_SwiftUI_Settings_window"))
     #expect(SettingsWindowIdentity.matches(identifier: "com_apple_SwiftUI_Settings_window_1"))
@@ -13,5 +14,7 @@ import Testing
     ))
     #expect(!SettingsWindowIdentity.matches(identifier: nil))
     #expect(!SettingsWindowIdentity.matches(identifier: "shot.settings-helper"))
+    #expect(SettingsWindowIdentity.isHelper(identifier: "shot.settings-helper"))
+    #expect(!SettingsWindowIdentity.isHelper(identifier: "shot.settings"))
     #expect(!SettingsWindowIdentity.matches(identifier: "NSStatusItemWindow"))
 }

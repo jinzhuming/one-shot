@@ -45,11 +45,13 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     private var hoverTask: Task<Void, Never>?
     private var windowSnapshotRevision = 0
     private var isSnapshotBacked = false
+    private var modeBarEnabled = true
     private var hint: String?
     private var hintTask: Task<Void, Never>?
     private var screenParametersObserver: NSObjectProtocol?
     private var modeShortcutMonitor: Any?
     private let preparationHUD = CapturePreparationHUD()
+    private let scrollingHUD = ScrollCaptureHUD()
     private var preparationHUDTask: Task<Void, Never>?
     private var visualUpdateTask: Task<Void, Never>?
 
@@ -78,7 +80,12 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         visualUpdateTask?.cancel()
     }
 
-    func present(mode: CaptureMode, snapshot: CaptureSnapshot? = nil) {
+    func present(
+        mode: CaptureMode,
+        snapshot: CaptureSnapshot? = nil,
+        allowsModeSwitch: Bool = true,
+        hintOverride: String? = nil
+    ) {
         hidePreparationHUD()
         stopCatalogRefresh()
         cancelHoverRefresh()
@@ -86,6 +93,10 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         hintTask?.cancel()
         hintTask = nil
         self.mode = mode
+        modeBarEnabled = allowsModeSwitch
+        if !allowsModeSwitch {
+            removeModeShortcutMonitor()
+        }
         isSnapshotBacked = snapshot != nil
         dimOnly = false
         isFrozen = false
@@ -101,7 +112,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         isMovingSelection = false
         moveAnchor = nil
         spaceDown = false
-        hint = nil
+        hint = hintOverride
         if let snapshot {
             catalog.applyWindowsSnapshot(snapshot.windows)
         } else {
@@ -110,11 +121,20 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         NSApp.activate(ignoringOtherApps: true)
         NSCursor.crosshair.set()
         showOverlays(interactive: true, snapshot: snapshot)
-        if snapshot == nil {
+        if snapshot == nil, mode.allowsWindowClick {
             startCatalogRefresh()
         }
         refreshHover(at: NSEvent.mouseLocation, preserveCycle: false)
         applyVisuals()
+    }
+
+    func beginScrolling(on screen: NSScreen, onFinish: @escaping @MainActor () -> Void) {
+        dismiss()
+        scrollingHUD.show(on: screen, onFinish: onFinish)
+    }
+
+    func updateScrollingCapture(_ progress: ScrollCaptureProgress) {
+        scrollingHUD.update(progress: progress)
     }
 
     func clearSelectionHole() {
@@ -202,6 +222,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
 
     func dismiss() {
         hidePreparationHUD()
+        scrollingHUD.hide()
         stopCatalogRefresh()
         cancelHoverRefresh()
         removeModeShortcutMonitor()
@@ -222,6 +243,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         dimOnly = false
         isFrozen = false
         isSnapshotBacked = false
+        modeBarEnabled = true
         spaceDown = false
         hint = nil
         NSCursor.arrow.set()
@@ -231,8 +253,8 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         guard !dimOnly, !isFrozen else { return }
         updateModeBarVisibility(for: CoordinateSpace.screen(containing: pointInScreen))
         if !isDragging {
-            requestWindowRefreshForMouseMovement()
             if mode.allowsWindowClick {
+                requestWindowRefreshForMouseMovement()
                 scheduleHoverRefresh(at: pointInScreen)
             } else {
                 cancelHoverRefresh()
@@ -540,6 +562,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         else {
             view.magnifierFrame = nil
             view.magnifierSourceRect = nil
+            view.magnifierCursor = nil
             return
         }
 
@@ -555,10 +578,11 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         let source = MagnifierLayout.sourceRect(
             cursor: cursorInView,
             imageBounds: view.bounds,
-            displaySize: view.bounds.size
+            destinationSize: inView.size
         )
         view.magnifierFrame = inView
         view.magnifierSourceRect = source
+        view.magnifierCursor = cursorInView
     }
 
     private func updateHUD(on screen: NSScreen, window: OverlayWindow, mouseScreen: NSScreen?) {
@@ -640,7 +664,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
             }
             window.ignoresMouseEvents = !interactive
             window.orderFront(nil)
-            if interactive {
+            if interactive, modeBarEnabled {
                 showModeBar(on: screen)
             } else {
                 modeBarWindows[screen.displayID]?.orderOut(nil)
@@ -683,6 +707,9 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
             backing: .buffered,
             defer: false
         )
+        window.onRequestCancel = { [weak self] in
+            self?.delegate?.overlayDidCancel()
+        }
         window.setFrame(screen.frame, display: false)
         window.isOpaque = false
         window.backgroundColor = .clear
@@ -764,6 +791,11 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     private func applyMode(_ newMode: CaptureMode) {
         cancelHoverRefresh()
         mode = newMode
+        if mode.allowsWindowClick {
+            startCatalogRefresh()
+        } else {
+            stopCatalogRefresh()
+        }
         highlighted = nil
         selectionRect = nil
         selectionDisplayID = nil
@@ -849,6 +881,9 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
 
     private func tearDown(_ window: NSWindow) {
         hudViews.removeValue(forKey: ObjectIdentifier(window))
+        if let overlay = window as? OverlayWindow {
+            overlay.onRequestCancel = nil
+        }
         window.ignoresMouseEvents = true
         window.acceptsMouseMovedEvents = false
         window.orderOut(nil)

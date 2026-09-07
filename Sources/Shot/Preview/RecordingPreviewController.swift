@@ -51,6 +51,9 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
             defer: false
         )
         window.recordingID = id
+        window.onRequestClose = { [weak self] in
+            self?.close(id: id)
+        }
         window.displayID = result.screen.displayID
         window.isOpaque = false
         window.backgroundColor = .black
@@ -131,9 +134,14 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
 final class RecordingPreviewWindow: NSWindow {
     var recordingID: UUID?
     var displayID: CGDirectDisplayID = 0
+    var onRequestClose: (() -> Void)?
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    override func cancelOperation(_ sender: Any?) {
+        onRequestClose?()
+    }
 }
 
 final class RecordingPreviewView: NSView {

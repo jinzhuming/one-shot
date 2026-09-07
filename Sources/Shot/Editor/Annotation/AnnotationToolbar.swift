@@ -187,9 +187,40 @@ struct AnnotationToolbar: View {
         switch session.selectedTool {
         case .select:
             selectionDetailControls
-        case .arrow, .rect, .ellipse, .line:
+        case .arrow:
             HStack(spacing: detailSpacing) {
                 windowColorControls
+                arrowHeadPicker
+                detailSlider(
+                    label: String(localized: "箭头大小"),
+                    value: $session.arrowHeadScale,
+                    range: 0.6...1.8,
+                    step: 0.1,
+                    valueText: multiplierText(session.arrowHeadScale)
+                )
+                detailSlider(
+                    label: String(localized: "线宽（pt）"),
+                    value: $session.lineWidth,
+                    range: 1...24,
+                    step: 1,
+                    valueText: numberText(session.lineWidth)
+                )
+            }
+        case .rect, .ellipse:
+            HStack(spacing: detailSpacing) {
+                windowColorControls
+                detailSlider(
+                    label: String(localized: "线宽（pt）"),
+                    value: $session.lineWidth,
+                    range: 1...24,
+                    step: 1,
+                    valueText: numberText(session.lineWidth)
+                )
+            }
+        case .line:
+            HStack(spacing: detailSpacing) {
+                windowColorControls
+                linePatternPicker
                 detailSlider(
                     label: String(localized: "线宽（pt）"),
                     value: $session.lineWidth,
@@ -207,6 +238,20 @@ struct AnnotationToolbar: View {
                     range: 1...24,
                     step: 1,
                     valueText: numberText(session.lineWidth)
+                )
+                detailSlider(
+                    label: String(localized: "平滑度"),
+                    value: $session.penSmoothing,
+                    range: 0...1,
+                    step: 0.1,
+                    valueText: percentageText(session.penSmoothing)
+                )
+                detailSlider(
+                    label: String(localized: "不透明度"),
+                    value: $session.penOpacity,
+                    range: 0.1...1,
+                    step: 0.05,
+                    valueText: percentageText(session.penOpacity)
                 )
             }
         case .highlighter:
@@ -237,6 +282,25 @@ struct AnnotationToolbar: View {
                     step: 1,
                     valueText: numberText(AnnotationMath.fontSize(lineWidth: CGFloat(session.lineWidth)))
                 )
+            }
+        case .callout:
+            HStack(spacing: detailSpacing) {
+                windowColorControls
+                detailSlider(
+                    label: String(localized: "气泡填充"),
+                    value: $session.calloutFillOpacity,
+                    range: 0...0.6,
+                    step: 0.05,
+                    valueText: percentageText(session.calloutFillOpacity)
+                )
+                detailSlider(
+                    label: String(localized: "线宽（pt）"),
+                    value: $session.lineWidth,
+                    range: 1...24,
+                    step: 1,
+                    valueText: numberText(session.lineWidth)
+                )
+                calloutWrapToggle
             }
         case .counter:
             HStack(spacing: detailSpacing) {
@@ -317,6 +381,23 @@ struct AnnotationToolbar: View {
                         step: 1,
                         valueText: numberText(AnnotationMath.fontSize(lineWidth: CGFloat(session.lineWidth)))
                     )
+                case .callout(_, _, _):
+                    windowColorControls
+                    detailSlider(
+                        label: String(localized: "气泡填充"),
+                        value: $session.calloutFillOpacity,
+                        range: 0...0.6,
+                        step: 0.05,
+                        valueText: percentageText(session.calloutFillOpacity)
+                    )
+                    detailSlider(
+                        label: String(localized: "线宽（pt）"),
+                        value: $session.lineWidth,
+                        range: 1...24,
+                        step: 1,
+                        valueText: numberText(session.lineWidth)
+                    )
+                    calloutWrapToggle
                 case .counter(_, _, _):
                     windowColorControls
                     detailSlider(
@@ -326,7 +407,57 @@ struct AnnotationToolbar: View {
                         step: 1,
                         valueText: numberText(max(10, session.lineWidth * 10))
                     )
-                case .arrow(_, _, _), .rect(_, _), .ellipse(_, _), .line(_, _, _), .pen(_, _):
+                case .arrow(_, _, _):
+                    windowColorControls
+                    arrowHeadPicker
+                    detailSlider(
+                        label: String(localized: "箭头大小"),
+                        value: $session.arrowHeadScale,
+                        range: 0.6...1.8,
+                        step: 0.1,
+                        valueText: multiplierText(session.arrowHeadScale)
+                    )
+                    detailSlider(
+                        label: String(localized: "线宽（pt）"),
+                        value: $session.lineWidth,
+                        range: 1...24,
+                        step: 1,
+                        valueText: numberText(session.lineWidth)
+                    )
+                case .line(_, _, _):
+                    windowColorControls
+                    linePatternPicker
+                    detailSlider(
+                        label: String(localized: "线宽（pt）"),
+                        value: $session.lineWidth,
+                        range: 1...24,
+                        step: 1,
+                        valueText: numberText(session.lineWidth)
+                    )
+                case .pen(_, _):
+                    windowColorControls
+                    detailSlider(
+                        label: String(localized: "线宽（pt）"),
+                        value: $session.lineWidth,
+                        range: 1...24,
+                        step: 1,
+                        valueText: numberText(session.lineWidth)
+                    )
+                    detailSlider(
+                        label: String(localized: "平滑度"),
+                        value: $session.penSmoothing,
+                        range: 0...1,
+                        step: 0.1,
+                        valueText: percentageText(session.penSmoothing)
+                    )
+                    detailSlider(
+                        label: String(localized: "不透明度"),
+                        value: $session.penOpacity,
+                        range: 0.1...1,
+                        step: 0.05,
+                        valueText: percentageText(session.penOpacity)
+                    )
+                case .rect(_, _), .ellipse(_, _):
                     windowColorControls
                     detailSlider(
                         label: String(localized: "线宽（pt）"),
@@ -353,6 +484,41 @@ struct AnnotationToolbar: View {
 
     private var detailSpacing: CGFloat {
         presentation.isFloating ? 12 : 8
+    }
+
+    private var arrowHeadPicker: some View {
+        Picker(String(localized: "箭头尖端"), selection: $session.arrowHeadStyle) {
+            ForEach(AnnotationArrowHeadStyle.allCases) { style in
+                Text(style.title).tag(style)
+            }
+        }
+        .pickerStyle(.menu)
+        .help(String(localized: "选择箭头尖端样式"))
+        .accessibilityLabel(String(localized: "箭头尖端"))
+    }
+
+    private var linePatternPicker: some View {
+        Picker(String(localized: "线型"), selection: $session.linePattern) {
+            ForEach(AnnotationStrokePattern.allCases) { pattern in
+                Text(pattern.title).tag(pattern)
+            }
+        }
+        .pickerStyle(.menu)
+        .help(String(localized: "选择直线样式"))
+        .accessibilityLabel(String(localized: "线型"))
+    }
+
+    private var calloutWrapToggle: some View {
+        Toggle(String(localized: "自动换行"), isOn: $session.calloutWrapText)
+            .toggleStyle(.checkbox)
+            .font(.system(size: 11))
+            .help(String(localized: "控制气泡文字是否自动换行"))
+            .accessibilityLabel(String(localized: "自动换行"))
+            .accessibilityValue(
+                session.calloutWrapText
+                    ? String(localized: "开启")
+                    : String(localized: "关闭")
+            )
     }
 
     private func detailSlider(
@@ -391,6 +557,10 @@ struct AnnotationToolbar: View {
 
     private func percentageText(_ value: Double) -> String {
         "\(Int((value * 100).rounded()))%"
+    }
+
+    private func multiplierText(_ value: Double) -> String {
+        String(format: String(localized: "%.1f×"), value)
     }
 
     private func toolCluster(_ tools: [AnnotationToolID]) -> some View {

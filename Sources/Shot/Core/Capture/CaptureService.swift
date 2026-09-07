@@ -2,10 +2,22 @@ import AppKit
 import ScreenCaptureKit
 import ShotKit
 
+enum CaptureResultKind: Equatable {
+    case standard
+    case scrolling
+}
+
 struct CaptureResult {
     var image: NSImage
     var rect: CGRect
     var screen: NSScreen
+    var kind: CaptureResultKind = .standard
+}
+
+struct RegionCaptureFrame {
+    let image: CGImage
+    let screen: NSScreen
+    let scale: CGFloat
 }
 
 struct DisplayCaptureSnapshot {
@@ -75,6 +87,12 @@ enum CaptureError: LocalizedError {
     case noDisplay
     case noWindow
     case regionOutsideDisplay
+    case timedOut
+    case scrollCaptureTooLong
+    case scrollCaptureDirectionChanged
+    case scrollCaptureTargetMoved
+    case scrollCaptureNeedsSlowerScrolling
+    case scrollCaptureFailed
     case failed
 
     var errorDescription: String? {
@@ -82,6 +100,12 @@ enum CaptureError: LocalizedError {
         case .noDisplay: return String(localized: "找不到可用的显示器。")
         case .noWindow: return String(localized: "找不到要截取的窗口。")
         case .regionOutsideDisplay: return String(localized: "截图区域必须位于同一个显示器内。")
+        case .timedOut: return String(localized: "截图处理超时，已自动取消。")
+        case .scrollCaptureTooLong: return String(localized: "滚动截图已达到长度上限，请结束当前截图。")
+        case .scrollCaptureDirectionChanged: return String(localized: "滚动方向发生变化，请保持同一方向完成截图。")
+        case .scrollCaptureTargetMoved: return String(localized: "滚动截图目标窗口发生变化，请重新选择区域。")
+        case .scrollCaptureNeedsSlowerScrolling: return String(localized: "滚动过快，无法稳定拼接，请减慢滚动速度。")
+        case .scrollCaptureFailed: return String(localized: "滚动截图拼接失败。")
         case .failed: return String(localized: "截图失败。")
         }
     }
@@ -90,7 +114,7 @@ enum CaptureError: LocalizedError {
 @MainActor
 final class CaptureService {
     func captureSnapshot(catalog: WindowCatalog) async throws -> CaptureSnapshot {
-        try await catalog.refreshLatest()
+        try await refreshCatalogLatest(catalog)
         try Task.checkCancellation()
 
         guard let content = catalog.content else {
@@ -146,9 +170,9 @@ final class CaptureService {
     }
 
     func captureWindow(id: CGWindowID, catalog: WindowCatalog, includeShadow: Bool) async throws -> CaptureResult {
-        try await catalog.ensureShareableContent()
+        try await ensureShareableContent(catalog)
         guard let scWindow = catalog.scWindow(id: id) else {
-            try await catalog.refresh()
+            try await refreshCatalog(catalog)
             guard let scWindow = catalog.scWindow(id: id) else {
                 throw CaptureError.noWindow
             }
@@ -186,7 +210,7 @@ final class CaptureService {
             config.shouldBeOpaque = false
         }
 
-        let cgImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+        let cgImage = try await captureImage(filter: filter, configuration: config)
         let pointSize = CGSize(
             width: CGFloat(cgImage.width) / scale,
             height: CGFloat(cgImage.height) / scale
@@ -195,8 +219,11 @@ final class CaptureService {
         return CaptureResult(image: image, rect: cocoaFrame, screen: screen)
     }
 
-    func captureRegion(_ selection: RegionSelection, catalog: WindowCatalog) async throws -> CaptureResult {
-        try await catalog.ensureShareableContent()
+    func captureRegionFrame(
+        _ selection: RegionSelection,
+        catalog: WindowCatalog
+    ) async throws -> RegionCaptureFrame {
+        try await ensureShareableContent(catalog)
         let rect = selection.rect
         guard rect.width > 0, rect.height > 0 else {
             throw CaptureError.regionOutsideDisplay
@@ -220,13 +247,18 @@ final class CaptureService {
         config.width = pixelSize(rect.width, scale: scale)
         config.height = pixelSize(rect.height, scale: scale)
 
-        let cgImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
-        let image = NSImage(cgImage: cgImage, size: rect.size)
-        return CaptureResult(image: image, rect: rect, screen: screen)
+        let cgImage = try await captureImage(filter: filter, configuration: config)
+        return RegionCaptureFrame(image: cgImage, screen: screen, scale: scale)
+    }
+
+    func captureRegion(_ selection: RegionSelection, catalog: WindowCatalog) async throws -> CaptureResult {
+        let frame = try await captureRegionFrame(selection, catalog: catalog)
+        let image = NSImage(cgImage: frame.image, size: selection.rect.size)
+        return CaptureResult(image: image, rect: selection.rect, screen: frame.screen)
     }
 
     func captureDisplay(_ screen: NSScreen, catalog: WindowCatalog) async throws -> CaptureResult {
-        try await catalog.ensureShareableContent()
+        try await ensureShareableContent(catalog)
         guard let display = CoordinateSpace.display(matching: screen, in: catalog.displays) else {
             throw CaptureError.noDisplay
         }
@@ -259,16 +291,84 @@ final class CaptureService {
         config.ignoreShadowsDisplay = ignoreWindowShadows
         config.width = pixelSize(display.frame.width, scale: scale)
         config.height = pixelSize(display.frame.height, scale: scale)
-        return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+        return try await captureImage(filter: filter, configuration: config)
+    }
+
+    private func ensureShareableContent(_ catalog: WindowCatalog) async throws {
+        try await AsyncTimeout.run(
+            timeout: .seconds(15),
+            timeoutError: CaptureError.timedOut
+        ) {
+            try await catalog.ensureShareableContent()
+        }
+    }
+
+    private func refreshCatalog(_ catalog: WindowCatalog) async throws {
+        try await AsyncTimeout.run(
+            timeout: .seconds(15),
+            timeoutError: CaptureError.timedOut
+        ) {
+            try await catalog.refresh()
+        }
+    }
+
+    private func refreshCatalogLatest(_ catalog: WindowCatalog) async throws {
+        try await AsyncTimeout.run(
+            timeout: .seconds(15),
+            timeoutError: CaptureError.timedOut
+        ) {
+            try await catalog.refreshLatest()
+        }
+    }
+
+    private func captureImage(
+        filter: SCContentFilter,
+        configuration: SCStreamConfiguration
+    ) async throws -> CGImage {
+        try await AsyncTimeout.run(
+            timeout: .seconds(15),
+            timeoutError: CaptureError.timedOut
+        ) {
+            try await SCScreenshotManager.captureImage(
+                contentFilter: filter,
+                configuration: configuration
+            )
+        }
     }
 
     private func contentFilter(display: SCDisplay, content: SCShareableContent?) -> SCContentFilter {
         let ourPID = ProcessInfo.processInfo.processIdentifier
         let ourWindows = content?.windows.filter { $0.owningApplication?.processID == ourPID } ?? []
-        if let app = content?.applications.first(where: { $0.processID == ourPID }) {
-            return SCContentFilter(display: display, excludingApplications: [app], exceptingWindows: [])
+        let statusItemWindowIDs = menuBarStatusItemWindowIDs(ownedBy: ourPID)
+        let windowsToExclude = ourWindows.filter {
+            !statusItemWindowIDs.contains($0.windowID)
         }
-        return SCContentFilter(display: display, excludingWindows: ourWindows)
+
+        // MenuBarExtra is represented by an app-owned status-window layer.
+        // Excluding the whole application also removes Shot's own menu bar
+        // icon from display captures, so exclude only our capture windows.
+        let filter = SCContentFilter(display: display, excludingWindows: windowsToExclude)
+        if #available(macOS 14.2, *) {
+            filter.includeMenuBar = true
+        }
+        return filter
+    }
+
+    private func menuBarStatusItemWindowIDs(ownedBy processID: pid_t) -> Set<CGWindowID> {
+        let options: CGWindowListOption = [.optionOnScreenOnly]
+        let dictionaries = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] ?? []
+        let statusWindowLevel = Int(CGWindowLevelForKey(.statusWindow))
+
+        return Set(dictionaries.compactMap { dictionary in
+            guard let ownerPID = (dictionary[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value,
+                  ownerPID == processID,
+                  let layer = (dictionary[kCGWindowLayer as String] as? NSNumber)?.intValue,
+                  layer == statusWindowLevel,
+                  let windowID = dictionary[kCGWindowNumber as String] as? CGWindowID else {
+                return nil
+            }
+            return windowID
+        })
     }
 
     private func pixelSize(_ points: CGFloat, scale: CGFloat) -> Int {

@@ -2,6 +2,10 @@ import AppKit
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var terminationFinishTask: Task<Void, Never>?
+    private var terminationWatchdogTask: Task<Void, Never>?
+    private var didReplyToTermination = false
+
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Become accessory before SwiftUI materializes the first scene, otherwise
         // the Settings scene is presented as a blank launch window on macOS 15.
@@ -29,18 +33,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard CaptureSession.shared.hasRecordingActivity else { return .terminateNow }
+        guard CaptureSession.shared.hasRecordingActivity else {
+            CaptureSession.shared.forceTeardownForTermination()
+            return .terminateNow
+        }
 
-        Task { @MainActor in
+        // Do not let a misbehaving ScreenCaptureKit callback hold the
+        // application's terminate handshake forever. The normal path gets a
+        // chance to finish the MP4; the watchdog is the final escape hatch
+        // and intentionally accepts losing an unfinished recording because
+        // the user explicitly chose Quit.
+        guard terminationFinishTask == nil else { return .terminateLater }
+        didReplyToTermination = false
+        terminationFinishTask = Task { @MainActor [weak self] in
             await CaptureSession.shared.finishRecordingForTermination()
-            sender.reply(toApplicationShouldTerminate: true)
+            self?.replyToTermination(sender)
+        }
+        terminationWatchdogTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(20))
+            guard let self, !Task.isCancelled else { return }
+            CaptureSession.shared.forceTeardownForTermination()
+            self.replyToTermination(sender)
         }
         return .terminateLater
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        terminationFinishTask?.cancel()
+        terminationWatchdogTask?.cancel()
+        CaptureSession.shared.forceTeardownForTermination()
+    }
+
+    @MainActor
+    private func replyToTermination(_ sender: NSApplication) {
+        guard !didReplyToTermination else { return }
+        didReplyToTermination = true
+        terminationWatchdogTask?.cancel()
+        terminationWatchdogTask = nil
+        terminationFinishTask = nil
+        sender.reply(toApplicationShouldTerminate: true)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows _: Bool) -> Bool {
         let hasUtilityWindow = sender.windows.contains { window in
             window.isVisible
+                && !SettingsWindowIdentity.isHelper(identifier: window.identifier?.rawValue)
                 && window.styleMask.contains(.titled)
                 && window.frame.width > 50
         }
@@ -62,6 +99,15 @@ struct ShotApp: App {
             StatusItemLabel()
         }
         .menuBarExtraStyle(.menu)
+
+        // Must be declared before Settings so `@Environment(\.openSettings)` is wired.
+        // The 1×1 window is ordered out immediately; it is not a second settings UI.
+        Window("", id: SettingsWindowIdentity.helperIdentifier) {
+            SettingsOpenProbe()
+        }
+        .windowResizability(.contentSize)
+        .defaultSize(width: 1, height: 1)
+        .windowStyle(.hiddenTitleBar)
 
         Settings {
             SettingsView()

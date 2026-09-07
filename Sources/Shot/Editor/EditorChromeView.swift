@@ -15,6 +15,9 @@ final class EditorChromeView: NSView {
     private let toolbarHost: NonDraggableHostingView<AnnotationToolbar>
     private let session: EditSession
     private let presentationStyle: EditorPresentationStyle
+    private let scrollableCanvas: Bool
+    private let canvasScrollView: NSScrollView?
+    private var didSetInitialScrollMagnification = false
     private var arrangement: EditorArrangement
     private var windowedLayout: EditorWindowLayout?
     private let coordinator: CanvasCoordinator
@@ -25,12 +28,15 @@ final class EditorChromeView: NSView {
         arrangement: EditorArrangement,
         presentationStyle: EditorPresentationStyle = .inPlace,
         windowedLayout: EditorWindowLayout? = nil,
+        scrollableCanvas: Bool = false,
         onCopy: @escaping () -> Void,
         onSave: @escaping () -> Void,
         onClose: @escaping () -> Void
     ) {
         self.session = session
         self.presentationStyle = presentationStyle
+        self.scrollableCanvas = scrollableCanvas
+        self.canvasScrollView = scrollableCanvas ? NSScrollView() : nil
         self.arrangement = arrangement
         self.windowedLayout = windowedLayout
         self.coordinator = CanvasCoordinator(session: session)
@@ -51,6 +57,18 @@ final class EditorChromeView: NSView {
         canvas.delegate = coordinator
         canvas.selectedTool = session.selectedTool
         canvas.wantsLayer = true
+        if let canvasScrollView {
+            canvasScrollView.drawsBackground = true
+            canvasScrollView.backgroundColor = NSColor.underPageBackgroundColor
+            canvasScrollView.borderType = .noBorder
+            canvasScrollView.hasVerticalScroller = true
+            canvasScrollView.hasHorizontalScroller = true
+            canvasScrollView.autohidesScrollers = true
+            canvasScrollView.allowsMagnification = true
+            canvasScrollView.minMagnification = 0.1
+            canvasScrollView.maxMagnification = 4
+            canvasScrollView.documentView = canvas
+        }
         canvasChrome.setAccessibilityElement(false)
         toolbarHost.wantsLayer = true
         toolbarHost.layer?.isOpaque = false
@@ -64,8 +82,12 @@ final class EditorChromeView: NSView {
         toolbarHost.setAccessibilityRole(.group)
         toolbarHost.setAccessibilityLabel(String(localized: "标注工具"))
         addSubview(canvasChrome)
-        addSubview(canvas)
-        addSubview(toolbarHost, positioned: .above, relativeTo: canvas)
+        if let canvasScrollView {
+            addSubview(canvasScrollView)
+        } else {
+            addSubview(canvas)
+        }
+        addSubview(toolbarHost, positioned: .above, relativeTo: canvasScrollView ?? canvas)
         syncCanvas()
         cancellable = session.objectWillChange
             .receive(on: DispatchQueue.main)
@@ -115,6 +137,41 @@ final class EditorChromeView: NSView {
 
     override func layout() {
         super.layout()
+        if presentationStyle == .windowed,
+           scrollableCanvas,
+           let canvasScrollView {
+            let toolbarSize = toolbarFittingSize
+            let toolbar = CGRect(
+                x: 0,
+                y: max(0, bounds.height - toolbarSize.height),
+                width: bounds.width,
+                height: min(toolbarSize.height, bounds.height)
+            )
+            let workspace = CGRect(
+                x: 0,
+                y: 0,
+                width: bounds.width,
+                height: max(1, toolbar.minY)
+            ).insetBy(
+                dx: EditorLayout.windowedWorkspacePadding,
+                dy: EditorLayout.windowedWorkspacePadding
+            )
+            toolbarHost.frame = toolbar
+            canvasScrollView.frame = workspace
+            canvasChrome.frame = workspace.insetBy(dx: -1, dy: -1)
+            canvasChrome.layer?.shadowPath = CGPath(rect: canvasChrome.bounds, transform: nil)
+
+            let imageSize = session.document.baseImage.size
+            canvas.frame = CGRect(origin: .zero, size: imageSize)
+            let availableWidth = max(1, canvasScrollView.contentView.bounds.width)
+            let fitWidth = min(1, availableWidth / max(1, imageSize.width))
+            if !didSetInitialScrollMagnification, availableWidth > 1 {
+                canvasScrollView.magnification = max(canvasScrollView.minMagnification, fitWidth)
+                didSetInitialScrollMagnification = true
+            }
+            return
+        }
+
         let layout: (canvas: CGRect, toolbar: CGRect)
         if presentationStyle == .windowed {
             let computed = EditorLayout.windowed(
@@ -177,10 +234,11 @@ final class EditorChromeView: NSView {
         canvas.selectedTool = session.selectedTool
         canvas.strokeColor = NSColor(session.color)
         canvas.lineWidth = session.lineWidth
+        canvas.calloutWrapText = session.calloutWrapText
         if canvas.isEditingText {
             if session.textEditOrigin == nil {
                 canvas.cancelTextEditing()
-            } else if session.selectedTool != .text && session.selectedTool != .select {
+            } else if session.selectedTool != .text && session.selectedTool != .callout && session.selectedTool != .select {
                 canvas.commitTextIfNeeded()
             }
         }
@@ -260,6 +318,14 @@ final class CanvasCoordinator: NSObject, AnnotationCanvasDelegate {
 
     func canvasDidCommitText(_ string: String, at imagePoint: CGPoint, replacing id: UUID?) {
         session.commitText(string, at: imagePoint, replacing: id)
+    }
+
+    func canvasDidBeginCallout(at rect: CGRect, replacing id: UUID?) {
+        session.beginCallout(at: rect, replacing: id)
+    }
+
+    func canvasDidCommitCallout(_ string: String, in rect: CGRect, replacing id: UUID?) {
+        session.commitCallout(string, in: rect, replacing: id)
     }
 
     func canvasDidCancelText() {

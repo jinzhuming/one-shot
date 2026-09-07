@@ -72,6 +72,12 @@ public struct Hotkey: Equatable, Codable, Sendable {
         character: "6"
     )
 
+    public static let defaultScrolling = Hotkey(
+        keyCode: 1,
+        modifierRaw: NSEvent.ModifierFlags([.control, .command]).rawValue,
+        character: "s"
+    )
+
     public static let defaultAreaWindowToggle = Hotkey(
         keyCode: 49,
         modifierRaw: 0,

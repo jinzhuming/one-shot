@@ -2,7 +2,7 @@ import AppKit
 import ShotKit
 
 enum AnnotationToolID: String, CaseIterable, Identifiable {
-    case select, arrow, rect, ellipse, line, pen, highlighter, text, counter, mosaic, spotlight
+    case select, arrow, rect, ellipse, line, pen, highlighter, text, callout, counter, mosaic, spotlight
 
     var id: String { rawValue }
 
@@ -31,6 +31,8 @@ enum AnnotationToolID: String, CaseIterable, Identifiable {
             return Metadata(title: "荧光笔", helpText: "使用半透明宽线标记（6）", shortcut: "6", keyCode: 22)
         case .text:
             return Metadata(title: "文字", helpText: "添加文字（7）", shortcut: "7", keyCode: 26)
+        case .callout:
+            return Metadata(title: "气泡文字", helpText: "添加气泡文字标注（K）", shortcut: "K", keyCode: 40)
         case .counter:
             return Metadata(title: "序号", helpText: "添加序号标记（8）", shortcut: "8", keyCode: 28)
         case .mosaic:
@@ -54,6 +56,7 @@ enum AnnotationToolID: String, CaseIterable, Identifiable {
         case .pen: return "pencil"
         case .highlighter: return "highlighter"
         case .text: return "textformat"
+        case .callout: return "text.bubble"
         case .counter: return "1.circle"
         case .mosaic: return "square.grid.3x3.fill"
         case .spotlight: return "sun.max"
@@ -70,7 +73,7 @@ enum AnnotationToolID: String, CaseIterable, Identifiable {
         [.select],
         [.arrow, .rect, .ellipse, .line],
         [.pen, .highlighter],
-        [.text, .counter],
+        [.text, .callout, .counter],
         [.mosaic, .spotlight]
     ]
 
@@ -115,6 +118,7 @@ enum AnnotationTools {
         case .pen: return PathTool(id: .pen)
         case .highlighter: return PathTool(id: .highlighter)
         case .text: return TextPlaceholderTool()
+        case .callout: return CalloutTool()
         case .counter: return CounterTool()
         case .mosaic: return ShapeTool(id: .mosaic)
         case .spotlight: return ShapeTool(id: .spotlight)
@@ -236,6 +240,18 @@ struct PathTool: AnnotationTool {
 
 struct TextPlaceholderTool: AnnotationTool {
     let id: AnnotationToolID = .text
+    func handle(_ event: CanvasEvent, document: inout AnnotationDocument) {
+        _ = event
+        _ = document
+    }
+}
+
+/// The canvas owns the callout's text editor. This tool intentionally keeps
+/// document gesture handling empty so a dragged callout can be edited before
+/// it is committed to the undo stack.
+struct CalloutTool: AnnotationTool {
+    let id: AnnotationToolID = .callout
+
     func handle(_ event: CanvasEvent, document: inout AnnotationDocument) {
         _ = event
         _ = document

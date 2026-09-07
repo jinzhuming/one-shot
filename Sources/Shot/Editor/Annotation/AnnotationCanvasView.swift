@@ -6,7 +6,14 @@ protocol AnnotationCanvasDelegate: AnyObject {
     func canvasDidReceive(_ event: CanvasEvent)
     func canvasDidBeginText(at imagePoint: CGPoint, replacing id: UUID?)
     func canvasDidCommitText(_ string: String, at imagePoint: CGPoint, replacing id: UUID?)
+    func canvasDidBeginCallout(at rect: CGRect, replacing id: UUID?)
+    func canvasDidCommitCallout(_ string: String, in rect: CGRect, replacing id: UUID?)
     func canvasDidCancelText()
+}
+
+extension AnnotationCanvasDelegate {
+    func canvasDidBeginCallout(at rect: CGRect, replacing id: UUID?) {}
+    func canvasDidCommitCallout(_ string: String, in rect: CGRect, replacing id: UUID?) {}
 }
 
 final class AnnotationCanvasView: NSView, NSTextViewDelegate {
@@ -24,15 +31,27 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
     var selectedTool: AnnotationToolID = .pen {
         didSet { refreshCursor() }
     }
-    var strokeColor: NSColor = .systemRed
-    var lineWidth: CGFloat = 4
+    var strokeColor: NSColor = .systemRed {
+        didSet { updateTextEditorAppearance() }
+    }
+    var lineWidth: CGFloat = 4 {
+        didSet { relayoutTextEditor() }
+    }
+    var calloutWrapText: Bool = true {
+        didSet { relayoutTextEditor() }
+    }
+    private var calloutTextScale: CGFloat = 1 {
+        didSet { relayoutTextEditor() }
+    }
 
     private var editorChrome: TextEditorChrome?
     private var textView: AnnotationTextView?
     private var placeholder: NSTextField?
     private var textImageOrigin: CGPoint?
     private var textReplacingID: UUID?
+    private var calloutEditingRect: CGRect?
     private var pendingTextPoint: CGPoint?
+    private var pendingCalloutStart: CGPoint?
     private var ignoreNextMouseUp = false
     private var isTrackingGesture = false
 
@@ -111,12 +130,32 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
             pendingTextPoint = imageLocation(in: event)
             return
         }
+        if selectedTool == .callout {
+            pendingCalloutStart = imageLocation(in: event)
+            window?.makeFirstResponder(self)
+            isTrackingGesture = true
+            delegate?.canvasDidReceive(.down(imageLocation(in: event), shift: shiftHeld(in: event)))
+            return
+        }
         if selectedTool == .select, event.clickCount == 2,
            let selectedObjectID,
-           let selected = annotations.first(where: { $0.id == selectedObjectID }),
-           case .text(let string, let origin, _) = selected.element {
-            beginTextEditing(at: origin, initialText: string, replacingID: selected.id)
-            return
+           let selected = annotations.first(where: { $0.id == selectedObjectID }) {
+            switch selected.element {
+            case .text(let string, let origin, _):
+                beginTextEditing(at: origin, initialText: string, replacingID: selected.id)
+                return
+            case .callout(let string, let rect, let style):
+                beginTextEditing(
+                    at: rect.origin,
+                    initialText: string,
+                    replacingID: selected.id,
+                    calloutRect: rect,
+                    calloutTextScale: style.textScale
+                )
+                return
+            default:
+                break
+            }
         }
         window?.makeFirstResponder(self)
         isTrackingGesture = true
@@ -139,6 +178,14 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
             beginTextEditing(at: point)
             return
         }
+        if selectedTool == .callout {
+            let start = pendingCalloutStart ?? point
+            pendingCalloutStart = nil
+            isTrackingGesture = false
+            delegate?.canvasDidReceive(.up(point, shift: shiftHeld(in: event)))
+            beginCalloutEditing(from: start, to: point, shift: shiftHeld(in: event))
+            return
+        }
         isTrackingGesture = false
         delegate?.canvasDidReceive(.up(imageLocation(in: event), shift: shiftHeld(in: event)))
     }
@@ -148,10 +195,21 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         delegate?.canvasDidReceive(.drag(imageLocationFromScreen(), shift: shiftHeld(in: event)))
     }
 
-    func beginTextEditing(at imagePoint: CGPoint, initialText: String = "", replacingID: UUID? = nil) {
+    func beginTextEditing(
+        at imagePoint: CGPoint,
+        initialText: String = "",
+        replacingID: UUID? = nil,
+        calloutRect: CGRect? = nil,
+        calloutTextScale: CGFloat = 1
+    ) {
         commitTextIfNeeded()
-        let fontSize = AnnotationMath.fontSize(lineWidth: lineWidth)
-        let font = NSFont.systemFont(ofSize: fontSize, weight: .medium)
+        var editorStyle = AnnotationStyle()
+        editorStyle.color = strokeColor
+        editorStyle.lineWidth = lineWidth
+        editorStyle.textScale = calloutRect == nil ? 1 : calloutTextScale
+        let font = calloutRect == nil
+            ? NSFont.systemFont(ofSize: AnnotationMath.fontSize(lineWidth: lineWidth), weight: .medium)
+            : AnnotationCalloutLayout.font(for: editorStyle)
         let viewPoint = CanvasMapping.viewPoint(
             imagePoint: imagePoint,
             viewSize: bounds.size,
@@ -162,7 +220,9 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         chrome.wantsLayer = true
         chrome.layer?.cornerRadius = 6
         chrome.layer?.cornerCurve = .continuous
-        chrome.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
+        chrome.layer?.backgroundColor = calloutRect == nil
+            ? NSColor.black.withAlphaComponent(0.55).cgColor
+            : strokeColor.withAlphaComponent(0.14).cgColor
         chrome.layer?.borderWidth = 1
         chrome.layer?.borderColor = strokeColor.withAlphaComponent(0.85).cgColor
 
@@ -183,7 +243,10 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         editor.isAutomaticDashSubstitutionEnabled = false
         editor.isAutomaticTextReplacementEnabled = false
         editor.isAutomaticSpellingCorrectionEnabled = false
-        editor.textContainerInset = NSSize(width: 10, height: 8)
+        editor.textContainerInset = calloutRect == nil
+            ? NSSize(width: 10, height: 8)
+            : .zero
+        editor.textContainer?.lineFragmentPadding = calloutRect == nil ? 5 : 0
         editor.string = initialText
         editor.setAccessibilityLabel(String(localized: "文字"))
 
@@ -205,9 +268,15 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         placeholder = hint
         textImageOrigin = imagePoint
         textReplacingID = replacingID
+        calloutEditingRect = calloutRect?.standardized
+        self.calloutTextScale = calloutRect == nil ? 1 : calloutTextScale
 
         layoutEditor(at: viewPoint)
-        delegate?.canvasDidBeginText(at: imagePoint, replacing: replacingID)
+        if let calloutRect {
+            delegate?.canvasDidBeginCallout(at: calloutRect, replacing: replacingID)
+        } else {
+            delegate?.canvasDidBeginText(at: imagePoint, replacing: replacingID)
+        }
         DispatchQueue.main.async { [weak self] in
             guard let self, let editor = self.textView else { return }
             self.window?.makeKeyAndOrderFront(nil)
@@ -216,6 +285,24 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
                 self.window?.makeFirstResponder(editor)
             }
         }
+    }
+
+    private func beginCalloutEditing(from start: CGPoint, to end: CGPoint, shift: Bool) {
+        let imageBounds = CGRect(origin: .zero, size: mappingImageSize)
+        var rect = SelectionGeometry.rect(from: start, to: end, square: shift)
+        if !AnnotationMath.isSignificantRect(rect) {
+            rect = CGRect(
+                x: start.x,
+                y: start.y,
+                width: min(180, imageBounds.width),
+                height: min(72, imageBounds.height)
+            )
+        }
+        rect.size.width = min(rect.width, imageBounds.width)
+        rect.size.height = min(rect.height, imageBounds.height)
+        rect.origin.x = min(max(imageBounds.minX, rect.origin.x), imageBounds.maxX - rect.width)
+        rect.origin.y = min(max(imageBounds.minY, rect.origin.y), imageBounds.maxY - rect.height)
+        beginTextEditing(at: rect.origin, calloutRect: rect)
     }
 
     func cancelTextEditing() {
@@ -227,10 +314,15 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
     func commitTextIfNeeded() {
         guard let editor = textView, let origin = textImageOrigin else { return }
         let replacingID = textReplacingID
+        let calloutRect = calloutEditingRect
         let text = editor.string.trimmingCharacters(in: .whitespacesAndNewlines)
         removeEditor()
         if !text.isEmpty {
-            delegate?.canvasDidCommitText(text, at: origin, replacing: replacingID)
+            if let calloutRect {
+                delegate?.canvasDidCommitCallout(text, in: calloutRect, replacing: replacingID)
+            } else {
+                delegate?.canvasDidCommitText(text, at: origin, replacing: replacingID)
+            }
         } else {
             delegate?.canvasDidCancelText()
         }
@@ -263,6 +355,37 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
 
     private func layoutEditor(at origin: CGPoint) {
         guard let chrome = editorChrome, let editor = textView, let hint = placeholder else { return }
+        if let calloutEditingRect {
+            let layout = calloutLayout(for: editor.string, in: calloutEditingRect)
+            let topLeft = CanvasMapping.viewPoint(
+                imagePoint: CGPoint(x: layout.body.minX, y: layout.body.minY),
+                viewSize: bounds.size,
+                imageSize: mappingImageSize
+            )
+            let bottomRight = CanvasMapping.viewPoint(
+                imagePoint: CGPoint(x: layout.body.maxX, y: layout.body.maxY),
+                viewSize: bounds.size,
+                imageSize: mappingImageSize
+            )
+            let inset: CGFloat = 4
+            var frame = CGRect(
+                x: topLeft.x,
+                y: topLeft.y,
+                width: bottomRight.x - topLeft.x,
+                height: bottomRight.y - topLeft.y
+            ).standardized
+            frame.size.width = max(72, frame.width)
+            frame.size.height = max(44, frame.height)
+            frame.size.width = min(frame.width, max(72, bounds.width - inset * 2))
+            frame.size.height = min(frame.height, max(44, bounds.height - inset * 2))
+            frame.origin.x = min(max(inset, frame.origin.x), max(inset, bounds.maxX - inset - frame.width))
+            frame.origin.y = min(max(inset, frame.origin.y), max(inset, bounds.maxY - inset - frame.height))
+            chrome.frame = frame
+            editor.frame = chrome.bounds.insetBy(dx: 10, dy: 8)
+            hint.frame = editor.frame
+            hint.isHidden = !editor.string.isEmpty
+            return
+        }
         let fontSize = editor.font?.pointSize ?? AnnotationMath.fontSize(lineWidth: lineWidth)
         let inset: CGFloat = 4
         let available = bounds.insetBy(dx: inset, dy: inset)
@@ -300,6 +423,43 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         placeholder = nil
         textImageOrigin = nil
         textReplacingID = nil
+        calloutEditingRect = nil
+        calloutTextScale = 1
+    }
+
+    private func calloutLayout(for text: String, in rect: CGRect) -> AnnotationCalloutLayout {
+        var style = AnnotationStyle()
+        style.color = strokeColor
+        style.lineWidth = lineWidth
+        style.textScale = calloutTextScale
+        style.calloutWrapText = calloutWrapText
+        return AnnotationCalloutLayout.layout(
+            text: text,
+            in: rect,
+            style: style,
+            wrapsText: calloutWrapText
+        )
+    }
+
+    private func relayoutTextEditor() {
+        guard let origin = textImageOrigin, editorChrome != nil else { return }
+        let viewPoint = CanvasMapping.viewPoint(
+            imagePoint: origin,
+            viewSize: bounds.size,
+            imageSize: mappingImageSize
+        )
+        layoutEditor(at: viewPoint)
+    }
+
+    private func updateTextEditorAppearance() {
+        guard let chrome = editorChrome else { return }
+        chrome.layer?.backgroundColor = calloutEditingRect == nil
+            ? NSColor.black.withAlphaComponent(0.55).cgColor
+            : strokeColor.withAlphaComponent(0.14).cgColor
+        chrome.layer?.borderColor = strokeColor.withAlphaComponent(0.85).cgColor
+        textView?.textColor = strokeColor
+        textView?.insertionPointColor = strokeColor
+        placeholder?.textColor = strokeColor.withAlphaComponent(0.45)
     }
 
     private var cursorForCurrentTool: NSCursor {

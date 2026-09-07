@@ -64,8 +64,93 @@ final class EditSession: ObservableObject {
             updatePreferences { $0.spotlightOpacity = spotlightOpacity }
         }
     }
+    @Published var arrowHeadStyle: AnnotationArrowHeadStyle {
+        didSet {
+            guard !isLoadingPreferences else { return }
+            if selectedTool == .select, document.selectedObject != nil {
+                document.updateSelected { $0.withArrowHeadStyle(arrowHeadStyle) }
+                objectWillChange.send()
+                return
+            }
+            guard selectedTool == .arrow else { return }
+            updatePreferences { $0.arrowHeadStyle = arrowHeadStyle }
+        }
+    }
+    @Published var arrowHeadScale: Double {
+        didSet {
+            guard !isLoadingPreferences else { return }
+            if selectedTool == .select, document.selectedObject != nil {
+                document.updateSelected { $0.withArrowHeadScale(CGFloat(arrowHeadScale)) }
+                objectWillChange.send()
+                return
+            }
+            guard selectedTool == .arrow else { return }
+            updatePreferences { $0.arrowHeadScale = arrowHeadScale }
+        }
+    }
+    @Published var linePattern: AnnotationStrokePattern {
+        didSet {
+            guard !isLoadingPreferences else { return }
+            if selectedTool == .select, document.selectedObject != nil {
+                document.updateSelected { $0.withStrokePattern(linePattern) }
+                objectWillChange.send()
+                return
+            }
+            guard selectedTool == .line else { return }
+            updatePreferences { $0.linePattern = linePattern }
+        }
+    }
+    @Published var penSmoothing: Double {
+        didSet {
+            guard !isLoadingPreferences else { return }
+            if selectedTool == .select, document.selectedObject != nil {
+                document.updateSelected { $0.withPenSmoothing(CGFloat(penSmoothing)) }
+                objectWillChange.send()
+                return
+            }
+            guard selectedTool == .pen else { return }
+            updatePreferences { $0.penSmoothing = penSmoothing }
+        }
+    }
+    @Published var penOpacity: Double {
+        didSet {
+            guard !isLoadingPreferences else { return }
+            if selectedTool == .select, document.selectedObject != nil {
+                document.updateSelected { $0.withPenOpacity(CGFloat(penOpacity)) }
+                objectWillChange.send()
+                return
+            }
+            guard selectedTool == .pen else { return }
+            updatePreferences { $0.penOpacity = penOpacity }
+        }
+    }
+    @Published var calloutFillOpacity: Double {
+        didSet {
+            guard !isLoadingPreferences else { return }
+            if selectedTool == .select, document.selectedObject != nil {
+                document.updateSelected { $0.withCalloutFillOpacity(CGFloat(calloutFillOpacity)) }
+                objectWillChange.send()
+                return
+            }
+            guard selectedTool == .callout else { return }
+            updatePreferences { $0.calloutFillOpacity = calloutFillOpacity }
+        }
+    }
+    @Published var calloutWrapText: Bool {
+        didSet {
+            guard !isLoadingPreferences else { return }
+            if selectedTool == .select, document.selectedObject != nil {
+                document.updateSelected { $0.withCalloutWrapText(calloutWrapText) }
+                objectWillChange.send()
+                return
+            }
+            guard selectedTool == .callout else { return }
+            updatePreferences { $0.calloutWrapText = calloutWrapText }
+        }
+    }
     @Published var textEditOrigin: CGPoint?
     @Published private(set) var textEditID: UUID?
+    @Published private(set) var calloutEditRect: CGRect?
     @Published private(set) var isExporting = false
 
     private let settings: AppSettings
@@ -90,6 +175,13 @@ final class EditSession: ObservableObject {
         highlighterOpacity = preferences.highlighterOpacity
         mosaicBlockSize = preferences.mosaicBlockSize
         spotlightOpacity = preferences.spotlightOpacity
+        arrowHeadStyle = preferences.arrowHeadStyle
+        arrowHeadScale = preferences.arrowHeadScale
+        linePattern = preferences.linePattern
+        penSmoothing = preferences.penSmoothing
+        penOpacity = preferences.penOpacity
+        calloutFillOpacity = preferences.calloutFillOpacity
+        calloutWrapText = preferences.calloutWrapText
     }
 
     func handle(_ event: CanvasEvent) {
@@ -108,6 +200,15 @@ final class EditSession: ObservableObject {
         applyStyle()
         textEditOrigin = point
         textEditID = id
+        calloutEditRect = nil
+        objectWillChange.send()
+    }
+
+    func beginCallout(at rect: CGRect, replacing id: UUID? = nil) {
+        applyStyle()
+        textEditOrigin = rect.origin
+        textEditID = id
+        calloutEditRect = rect.standardized
         objectWillChange.send()
     }
 
@@ -116,6 +217,7 @@ final class EditSession: ObservableObject {
         let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
         textEditOrigin = nil
         textEditID = nil
+        calloutEditRect = nil
         guard !trimmed.isEmpty else {
             objectWillChange.send()
             return
@@ -128,10 +230,29 @@ final class EditSession: ObservableObject {
         objectWillChange.send()
     }
 
+    func commitCallout(_ string: String, in rect: CGRect, replacing id: UUID? = nil) {
+        applyStyle()
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        textEditOrigin = nil
+        textEditID = nil
+        calloutEditRect = nil
+        guard !trimmed.isEmpty else {
+            objectWillChange.send()
+            return
+        }
+        if let id {
+            document.replaceText(id: id, with: trimmed)
+        } else {
+            document.commit(.callout(trimmed, rect: rect.standardized, style: document.style))
+        }
+        objectWillChange.send()
+    }
+
     func cancelTextEditing() -> Bool {
         guard textEditOrigin != nil else { return false }
         textEditOrigin = nil
         textEditID = nil
+        calloutEditRect = nil
         objectWillChange.send()
         return true
     }
@@ -139,6 +260,7 @@ final class EditSession: ObservableObject {
     func undo() {
         guard document.canUndo else { return }
         textEditOrigin = nil
+        calloutEditRect = nil
         document.undo()
         objectWillChange.send()
     }
@@ -146,6 +268,7 @@ final class EditSession: ObservableObject {
     func redo() {
         guard document.canRedo else { return }
         textEditOrigin = nil
+        calloutEditRect = nil
         document.redo()
         objectWillChange.send()
     }
@@ -189,6 +312,13 @@ final class EditSession: ObservableObject {
         document.style.highlighterOpacity = CGFloat(highlighterOpacity)
         document.style.mosaicBlockSize = CGFloat(mosaicBlockSize)
         document.style.spotlightOpacity = CGFloat(spotlightOpacity)
+        document.style.arrowHeadStyle = arrowHeadStyle
+        document.style.arrowHeadScale = CGFloat(arrowHeadScale)
+        document.style.strokePattern = linePattern
+        document.style.penSmoothing = CGFloat(penSmoothing)
+        document.style.penOpacity = CGFloat(penOpacity)
+        document.style.calloutFillOpacity = CGFloat(calloutFillOpacity)
+        document.style.calloutWrapText = calloutWrapText
     }
 
     private func loadPreferencesForSelectedTool() {
@@ -202,6 +332,17 @@ final class EditSession: ObservableObject {
             mosaicBlockSize = preferences.mosaicBlockSize
         case .spotlight:
             spotlightOpacity = preferences.spotlightOpacity
+        case .arrow:
+            arrowHeadStyle = preferences.arrowHeadStyle
+            arrowHeadScale = preferences.arrowHeadScale
+        case .line:
+            linePattern = preferences.linePattern
+        case .pen:
+            penSmoothing = preferences.penSmoothing
+            penOpacity = preferences.penOpacity
+        case .callout:
+            calloutFillOpacity = preferences.calloutFillOpacity
+            calloutWrapText = preferences.calloutWrapText
         default:
             break
         }
@@ -215,6 +356,13 @@ final class EditSession: ObservableObject {
             color = Color(nsColor: style.color)
             lineWidth = Double(style.lineWidth)
             highlighterOpacity = Double(style.highlighterOpacity)
+            arrowHeadStyle = style.arrowHeadStyle
+            arrowHeadScale = Double(style.arrowHeadScale)
+            linePattern = style.strokePattern
+            penSmoothing = Double(style.penSmoothing)
+            penOpacity = Double(style.penOpacity)
+            calloutFillOpacity = Double(style.calloutFillOpacity)
+            calloutWrapText = style.calloutWrapText
         }
         switch selected.element {
         case .mosaic(_, let blockSize): mosaicBlockSize = Double(blockSize)

@@ -747,17 +747,53 @@ import Testing
     #expect(top.minX >= visible.minX + 8)
 }
 
-@Test func magnifierSourceRectStaysInsideImageBounds() {
+@Test func magnifierSourceRectPreservesLensAspectAndZoom() {
     let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
     let source = MagnifierLayout.sourceRect(
-        cursor: CGPoint(x: 0, y: 900),
+        cursor: CGPoint(x: 720, y: 450),
         imageBounds: bounds,
-        displaySize: bounds.size,
+        destinationSize: CGSize(width: 124, height: 124),
         zoom: 8
     )
     #expect(bounds.contains(source))
-    #expect(source.width == 180)
-    #expect(source.height == 112.5)
+    #expect(abs(source.width - 15.5) < 0.001)
+    #expect(abs(source.height - 15.5) < 0.001)
+    #expect(abs(source.width / source.height - 1) < 0.001)
+}
+
+@Test func magnifierSourceRectPreservesNonSquareLensAspectAtEdge() {
+    let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
+    let destination = CGSize(width: 160, height: 100)
+    let source = MagnifierLayout.sourceRect(
+        cursor: CGPoint(x: 0, y: 900),
+        imageBounds: bounds,
+        destinationSize: destination,
+        zoom: 8
+    )
+
+    #expect(bounds.contains(source))
+    #expect(abs(source.width / source.height - destination.width / destination.height) < 0.001)
+    #expect(source.minX == bounds.minX)
+    #expect(source.maxY == bounds.maxY)
+}
+
+@Test func magnifierCursorPositionFollowsClampedSourceRect() {
+    let destination = CGRect(x: 100, y: 200, width: 124, height: 124)
+    let source = CGRect(x: 0, y: 0, width: 16, height: 16)
+
+    let center = MagnifierLayout.cursorPosition(
+        cursor: CGPoint(x: 8, y: 8),
+        sourceRect: source,
+        destinationFrame: destination
+    )
+    #expect(center == CGPoint(x: 162, y: 262))
+
+    let edge = MagnifierLayout.cursorPosition(
+        cursor: CGPoint(x: 0, y: 16),
+        sourceRect: source,
+        destinationFrame: destination
+    )
+    #expect(edge == CGPoint(x: destination.minX, y: destination.maxY))
 }
 
 @Test func overlayFocusStyleUsesLighterIdleMaskAndFocusedMask() {
@@ -786,6 +822,17 @@ import Testing
         reduceTransparency: true
     ) == OverlayFocusStyle.reducedTransparencyMaskOpacity)
     #expect(OverlayFocusStyle.reducedTransparencyMaskOpacity > OverlayFocusStyle.focusedMaskOpacity)
+}
+
+@Test func overlayFocusStyleAddsSubtleWindowHighlight() {
+    #expect(OverlayFocusStyle.windowHighlightOpacity > 0)
+    #expect(OverlayFocusStyle.windowHighlightOpacity <= 0.1)
+    #expect(OverlayFocusStyle.windowHighlightOpacity(reduceTransparency: false)
+        == OverlayFocusStyle.windowHighlightOpacity)
+    #expect(OverlayFocusStyle.windowHighlightOpacity(reduceTransparency: true)
+        == OverlayFocusStyle.reducedTransparencyWindowHighlightOpacity)
+    #expect(OverlayFocusStyle.reducedTransparencyWindowHighlightOpacity
+        > OverlayFocusStyle.windowHighlightOpacity)
 }
 
 @Test func windowHitTestingFrontmostAndCycle() {

@@ -42,26 +42,81 @@ public enum MagnifierLayout {
     public static func sourceRect(
         cursor: CGPoint,
         imageBounds: CGRect,
-        displaySize: CGSize,
+        destinationSize: CGSize,
         zoom: CGFloat = defaultZoom
     ) -> CGRect {
-        guard imageBounds.width > 0,
+        guard cursor.x.isFinite,
+              cursor.y.isFinite,
+              imageBounds.width > 0,
               imageBounds.height > 0,
-              displaySize.width > 0,
-              displaySize.height > 0,
+              destinationSize.width > 0,
+              destinationSize.height > 0,
+              imageBounds.width.isFinite,
+              imageBounds.height.isFinite,
+              destinationSize.width.isFinite,
+              destinationSize.height.isFinite,
               zoom.isFinite,
               zoom > 0
         else { return .zero }
 
-        let width = min(displaySize.width, imageBounds.width / zoom)
-        let height = min(displaySize.height, imageBounds.height / zoom)
+        // The source must have the same aspect ratio as the lens. Otherwise
+        // NSImage.draw(in:from:) stretches the captured content to fill the
+        // lens, which is especially visible on 16:9 and 16:10 displays.
+        // `zoom` is the number of lens points represented by one source point.
+        let desiredSize = CGSize(
+            width: destinationSize.width / zoom,
+            height: destinationSize.height / zoom
+        )
+        guard desiredSize.width.isFinite, desiredSize.height.isFinite else { return .zero }
+        let fitScale = min(
+            1,
+            imageBounds.width / desiredSize.width,
+            imageBounds.height / desiredSize.height
+        )
+        let sourceSize = CGSize(
+            width: desiredSize.width * fitScale,
+            height: desiredSize.height * fitScale
+        )
         let origin = CGPoint(
-            x: cursor.x - width / 2,
-            y: cursor.y - height / 2
+            x: cursor.x - sourceSize.width / 2,
+            y: cursor.y - sourceSize.height / 2
         )
         return RectMath.clampedRect(
-            CGRect(origin: origin, size: CGSize(width: width, height: height)),
+            CGRect(origin: origin, size: sourceSize),
             in: imageBounds
+        )
+    }
+
+    /// Maps the cursor from the source image into the displayed lens. When a
+    /// cursor is close to an image edge, the source rect is clamped and the
+    /// cursor is no longer at the lens center.
+    public static func cursorPosition(
+        cursor: CGPoint,
+        sourceRect: CGRect,
+        destinationFrame: CGRect
+    ) -> CGPoint {
+        guard sourceRect.width > 0,
+              sourceRect.height > 0,
+              destinationFrame.width > 0,
+              destinationFrame.height > 0,
+              cursor.x.isFinite,
+              cursor.y.isFinite else {
+            return CGPoint(x: destinationFrame.midX, y: destinationFrame.midY)
+        }
+
+        let normalizedX = RectMath.clamped(
+            (cursor.x - sourceRect.minX) / sourceRect.width,
+            lower: 0,
+            upper: 1
+        )
+        let normalizedY = RectMath.clamped(
+            (cursor.y - sourceRect.minY) / sourceRect.height,
+            lower: 0,
+            upper: 1
+        )
+        return CGPoint(
+            x: destinationFrame.minX + normalizedX * destinationFrame.width,
+            y: destinationFrame.minY + normalizedY * destinationFrame.height
         )
     }
 }

@@ -1,6 +1,43 @@
 import AppKit
 import ShotKit
 
+enum AnnotationArrowHeadStyle: String, CaseIterable, Codable, Identifiable {
+    case filled
+    case open
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .filled: return String(localized: "实心箭头")
+        case .open: return String(localized: "线框箭头")
+        }
+    }
+
+    var helpText: String {
+        switch self {
+        case .filled: return String(localized: "使用实心尖头")
+        case .open: return String(localized: "使用线框尖头")
+        }
+    }
+}
+
+enum AnnotationStrokePattern: String, CaseIterable, Codable, Identifiable {
+    case solid
+    case dashed
+    case dotted
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .solid: return String(localized: "实线")
+        case .dashed: return String(localized: "虚线")
+        case .dotted: return String(localized: "点线")
+        }
+    }
+}
+
 struct AnnotationStyle {
     var color: NSColor = .systemRed
     var lineWidth: CGFloat = 4
@@ -9,6 +46,13 @@ struct AnnotationStyle {
     var spotlightOpacity: CGFloat = 0.5
     var textScale: CGFloat = 1
     var counterScale: CGFloat = 1
+    var arrowHeadStyle: AnnotationArrowHeadStyle = .filled
+    var arrowHeadScale: CGFloat = 1
+    var strokePattern: AnnotationStrokePattern = .solid
+    var penSmoothing: CGFloat = 0.5
+    var penOpacity: CGFloat = 1
+    var calloutFillOpacity: CGFloat = 0.14
+    var calloutWrapText: Bool = true
 
     static let minimumAnnotationScale: CGFloat = 0.25
     static let maximumAnnotationScale: CGFloat = 4
@@ -30,8 +74,54 @@ struct AnnotationPreferences: Codable, Equatable {
     var counterLineWidth: Double = 4
     var mosaicBlockSize: Double = 10
     var spotlightOpacity: Double = 0.5
+    var arrowHeadStyle: AnnotationArrowHeadStyle = .filled
+    var arrowHeadScale: Double = 1
+    var linePattern: AnnotationStrokePattern = .solid
+    var penSmoothing: Double = 0.5
+    var penOpacity: Double = 1
+    var calloutFillOpacity: Double = 0.14
+    var calloutWrapText: Bool = true
 
     static let `default` = AnnotationPreferences()
+
+    private enum CodingKeys: String, CodingKey {
+        case shapeLineWidth
+        case penLineWidth
+        case highlighterLineWidth
+        case highlighterOpacity
+        case textLineWidth
+        case counterLineWidth
+        case mosaicBlockSize
+        case spotlightOpacity
+        case arrowHeadStyle
+        case arrowHeadScale
+        case linePattern
+        case penSmoothing
+        case penOpacity
+        case calloutFillOpacity
+        case calloutWrapText
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        shapeLineWidth = try container.decodeIfPresent(Double.self, forKey: .shapeLineWidth) ?? 4
+        penLineWidth = try container.decodeIfPresent(Double.self, forKey: .penLineWidth) ?? 4
+        highlighterLineWidth = try container.decodeIfPresent(Double.self, forKey: .highlighterLineWidth) ?? 4
+        highlighterOpacity = try container.decodeIfPresent(Double.self, forKey: .highlighterOpacity) ?? 0.4
+        textLineWidth = try container.decodeIfPresent(Double.self, forKey: .textLineWidth) ?? 4
+        counterLineWidth = try container.decodeIfPresent(Double.self, forKey: .counterLineWidth) ?? 4
+        mosaicBlockSize = try container.decodeIfPresent(Double.self, forKey: .mosaicBlockSize) ?? 10
+        spotlightOpacity = try container.decodeIfPresent(Double.self, forKey: .spotlightOpacity) ?? 0.5
+        arrowHeadStyle = (try? container.decode(AnnotationArrowHeadStyle.self, forKey: .arrowHeadStyle)) ?? .filled
+        arrowHeadScale = try container.decodeIfPresent(Double.self, forKey: .arrowHeadScale) ?? 1
+        linePattern = (try? container.decode(AnnotationStrokePattern.self, forKey: .linePattern)) ?? .solid
+        penSmoothing = try container.decodeIfPresent(Double.self, forKey: .penSmoothing) ?? 0.5
+        penOpacity = try container.decodeIfPresent(Double.self, forKey: .penOpacity) ?? 1
+        calloutFillOpacity = try container.decodeIfPresent(Double.self, forKey: .calloutFillOpacity) ?? 0.14
+        calloutWrapText = try container.decodeIfPresent(Bool.self, forKey: .calloutWrapText) ?? true
+    }
 
     func validated() -> AnnotationPreferences {
         var copy = self
@@ -43,12 +133,16 @@ struct AnnotationPreferences: Codable, Equatable {
         copy.counterLineWidth = Self.clamped(copy.counterLineWidth, lower: 1, upper: 12, fallback: 4)
         copy.mosaicBlockSize = Self.clamped(copy.mosaicBlockSize, lower: 2, upper: 32, fallback: 10)
         copy.spotlightOpacity = Self.clamped(copy.spotlightOpacity, lower: 0.1, upper: 0.9, fallback: 0.5)
+        copy.arrowHeadScale = Self.clamped(copy.arrowHeadScale, lower: 0.6, upper: 1.8, fallback: 1)
+        copy.penSmoothing = Self.clamped(copy.penSmoothing, lower: 0, upper: 1, fallback: 0.5)
+        copy.penOpacity = Self.clamped(copy.penOpacity, lower: 0.1, upper: 1, fallback: 1)
+        copy.calloutFillOpacity = Self.clamped(copy.calloutFillOpacity, lower: 0, upper: 0.6, fallback: 0.14)
         return copy
     }
 
     func lineWidth(for tool: AnnotationToolID) -> Double {
         switch tool {
-        case .select, .arrow, .rect, .ellipse, .line, .mosaic, .spotlight:
+        case .select, .arrow, .rect, .ellipse, .line, .callout, .mosaic, .spotlight:
             return shapeLineWidth
         case .pen:
             return penLineWidth
@@ -63,7 +157,7 @@ struct AnnotationPreferences: Codable, Equatable {
 
     mutating func setLineWidth(_ value: Double, for tool: AnnotationToolID) {
         switch tool {
-        case .select, .arrow, .rect, .ellipse, .line, .mosaic, .spotlight:
+        case .select, .arrow, .rect, .ellipse, .line, .callout, .mosaic, .spotlight:
             shapeLineWidth = value
         case .pen:
             penLineWidth = value
@@ -90,6 +184,7 @@ enum AnnotationElement {
     case pen(points: [CGPoint], style: AnnotationStyle)
     case highlighter(points: [CGPoint], style: AnnotationStyle)
     case text(String, origin: CGPoint, style: AnnotationStyle)
+    case callout(String, rect: CGRect, style: AnnotationStyle)
     case counter(Int, center: CGPoint, style: AnnotationStyle)
     case mosaic(CGRect, blockSize: CGFloat)
     case spotlight(CGRect, opacity: CGFloat)
@@ -103,7 +198,7 @@ enum AnnotationElement {
         switch self {
         case .arrow(_, _, let style), .rect(_, let style), .ellipse(_, let style),
              .line(_, _, let style), .pen(_, let style), .highlighter(_, let style),
-             .text(_, _, let style), .counter(_, _, let style):
+             .text(_, _, let style), .callout(_, _, let style), .counter(_, _, let style):
             return style
         case .mosaic, .spotlight:
             return nil
@@ -119,6 +214,7 @@ enum AnnotationElement {
         case .pen(let points, _): return .pen(points: points, style: newStyle)
         case .highlighter(let points, _): return .highlighter(points: points, style: newStyle)
         case .text(let string, let origin, _): return .text(string, origin: origin, style: newStyle)
+        case .callout(let string, let rect, _): return .callout(string, rect: rect, style: newStyle)
         case .counter(let value, let center, _): return .counter(value, center: center, style: newStyle)
         case .mosaic(let rect, let blockSize): return .mosaic(rect, blockSize: blockSize)
         case .spotlight(let rect, let opacity): return .spotlight(rect, opacity: opacity)
@@ -138,7 +234,9 @@ struct AnnotationObject: Identifiable {
     var bounds: CGRect {
         let raw: CGRect
         switch element {
-        case .arrow(let start, let end, let style), .line(let start, let end, let style):
+        case .arrow(let start, let end, let style):
+            raw = arrowBounds(from: start, to: end, style: style)
+        case .line(let start, let end, let style):
             raw = CGRect(
                 x: min(start.x, end.x),
                 y: min(start.y, end.y),
@@ -158,6 +256,13 @@ struct AnnotationObject: Identifiable {
             )
             let size = (string as NSString).size(withAttributes: [.font: font])
             raw = CGRect(origin: origin, size: CGSize(width: max(1, size.width), height: max(1, size.height)))
+        case .callout(let string, let rect, let style):
+            raw = AnnotationCalloutLayout.layout(
+                text: string,
+                in: rect,
+                style: style,
+                wrapsText: style.calloutWrapText
+            ).bounds.insetBy(dx: -style.lineWidth, dy: -style.lineWidth)
         case .counter(_, let center, let style):
             let scale = min(max(style.counterScale, AnnotationStyle.minimumAnnotationScale), AnnotationStyle.maximumAnnotationScale)
             let radius = max(10, style.lineWidth * 5 * scale)
@@ -185,7 +290,7 @@ struct AnnotationObject: Identifiable {
             return AnnotationGeometry.hitTest(point: point, shape: .filledEllipse(rect), tolerance: tolerance + style.lineWidth)
         case .pen(let points, let style), .highlighter(let points, let style):
             return AnnotationGeometry.hitTest(point: point, shape: .polyline(points), tolerance: tolerance + style.lineWidth)
-        case .text, .mosaic, .spotlight:
+        case .text, .callout, .mosaic, .spotlight:
             return AnnotationGeometry.hitTest(point: point, shape: .filledRect(bounds), tolerance: tolerance)
         case .counter:
             return AnnotationGeometry.hitTest(point: point, shape: .filledEllipse(bounds), tolerance: tolerance)
@@ -225,6 +330,48 @@ struct AnnotationObject: Identifiable {
         return AnnotationObject(id: id, element: element.applying(style: style))
     }
 
+    func withArrowHeadStyle(_ arrowHeadStyle: AnnotationArrowHeadStyle) -> AnnotationObject {
+        guard var style else { return self }
+        style.arrowHeadStyle = arrowHeadStyle
+        return AnnotationObject(id: id, element: element.applying(style: style))
+    }
+
+    func withArrowHeadScale(_ arrowHeadScale: CGFloat) -> AnnotationObject {
+        guard var style else { return self }
+        style.arrowHeadScale = arrowHeadScale
+        return AnnotationObject(id: id, element: element.applying(style: style))
+    }
+
+    func withStrokePattern(_ strokePattern: AnnotationStrokePattern) -> AnnotationObject {
+        guard var style else { return self }
+        style.strokePattern = strokePattern
+        return AnnotationObject(id: id, element: element.applying(style: style))
+    }
+
+    func withPenSmoothing(_ penSmoothing: CGFloat) -> AnnotationObject {
+        guard case .pen = element, var style else { return self }
+        style.penSmoothing = penSmoothing
+        return AnnotationObject(id: id, element: element.applying(style: style))
+    }
+
+    func withPenOpacity(_ penOpacity: CGFloat) -> AnnotationObject {
+        guard case .pen = element, var style else { return self }
+        style.penOpacity = penOpacity
+        return AnnotationObject(id: id, element: element.applying(style: style))
+    }
+
+    func withCalloutFillOpacity(_ calloutFillOpacity: CGFloat) -> AnnotationObject {
+        guard case .callout = element, var style else { return self }
+        style.calloutFillOpacity = calloutFillOpacity
+        return AnnotationObject(id: id, element: element.applying(style: style))
+    }
+
+    func withCalloutWrapText(_ calloutWrapText: Bool) -> AnnotationObject {
+        guard case .callout = element, var style else { return self }
+        style.calloutWrapText = calloutWrapText
+        return AnnotationObject(id: id, element: element.applying(style: style))
+    }
+
     func withHighlighterOpacity(_ opacity: CGFloat) -> AnnotationObject {
         guard case .highlighter = element, var style else { return self }
         style.highlighterOpacity = opacity
@@ -242,8 +389,14 @@ struct AnnotationObject: Identifiable {
     }
 
     func replacingText(_ string: String) -> AnnotationObject {
-        guard case .text(_, let origin, let style) = element else { return self }
-        return AnnotationObject(id: id, element: .text(string, origin: origin, style: style))
+        switch element {
+        case .text(_, let origin, let style):
+            return AnnotationObject(id: id, element: .text(string, origin: origin, style: style))
+        case .callout(_, let rect, let style):
+            return AnnotationObject(id: id, element: .callout(string, rect: rect, style: style))
+        default:
+            return self
+        }
     }
 
     private var isHighlighter: Bool {
@@ -275,6 +428,15 @@ struct AnnotationObject: Identifiable {
                 AnnotationStyle.maximumAnnotationScale
             )
             next = .text(string, origin: origin.applying(transform), style: style)
+        case .callout(let string, let rect, var style):
+            style.textScale = min(
+                max(
+                    style.textScale * max(AnnotationStyle.minimumAnnotationScale, (abs(transform.a) + abs(transform.d)) / 2),
+                    AnnotationStyle.minimumAnnotationScale
+                ),
+                AnnotationStyle.maximumAnnotationScale
+            )
+            next = .callout(string, rect: rect.applying(transform).standardized, style: style)
         case .counter(let value, let center, var style):
             style.counterScale = min(
                 max(
@@ -297,6 +459,32 @@ struct AnnotationObject: Identifiable {
         return points.dropFirst().reduce(CGRect(origin: first, size: .zero)) { result, point in
             result.union(CGRect(origin: point, size: .zero))
         }
+    }
+
+    private func arrowBounds(from start: CGPoint, to end: CGPoint, style: AnnotationStyle) -> CGRect {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let distance = hypot(dx, dy)
+        guard distance > 0.01 else {
+            return CGRect(origin: start, size: .zero).insetBy(dx: -style.lineWidth * 2, dy: -style.lineWidth * 2)
+        }
+        let ux = dx / distance
+        let uy = dy / distance
+        let px = -uy
+        let py = ux
+        let headLength = min(
+            max(10, style.lineWidth * 4.2) * max(0.6, style.arrowHeadScale),
+            max(4, distance * 0.58)
+        )
+        let headWidth = max(style.lineWidth * 1.8, headLength * 0.42)
+        let base = CGPoint(x: end.x - ux * headLength, y: end.y - uy * headLength)
+        let left = CGPoint(x: base.x + px * headWidth, y: base.y + py * headWidth)
+        let right = CGPoint(x: base.x - px * headWidth, y: base.y - py * headWidth)
+        return [start, end, left, right]
+            .reduce(CGRect(origin: start, size: .zero)) { result, point in
+                result.union(CGRect(origin: point, size: .zero))
+            }
+            .insetBy(dx: -style.lineWidth, dy: -style.lineWidth)
     }
 }
 
@@ -511,8 +699,7 @@ struct AnnotationDocument {
     }
 }
 
-@MainActor
-struct AnnotationRenderSnapshot {
+struct AnnotationRenderSnapshot: @unchecked Sendable {
     let baseImage: NSImage
     let elements: [AnnotationObject]
 

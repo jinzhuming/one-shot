@@ -86,8 +86,63 @@ enum RecordingState: Equatable {
     case idle
     case starting
     case recording
+    case pausing
+    case paused
+    case resuming
     case stopping
     case failed
+}
+
+private struct RecordingSegment {
+    let url: URL
+    let duration: CMTime
+    let fileSize: Int
+}
+
+private final class RecordingOutputStartGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var result: Result<Void, Error>?
+
+    func wait(timeout: Duration) async throws {
+        let timeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: timeout)
+            guard !Task.isCancelled else { return }
+            self?.resume(throwing: RecordingError.startTimedOut)
+        }
+        defer { timeoutTask.cancel() }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            lock.lock()
+            if let result {
+                lock.unlock()
+                continuation.resume(with: result)
+            } else {
+                self.continuation = continuation
+                lock.unlock()
+            }
+        }
+    }
+
+    func resume(returning value: Void) {
+        resume(with: .success(value))
+    }
+
+    func resume(throwing error: Error) {
+        resume(with: .failure(error))
+    }
+
+    private func resume(with result: Result<Void, Error>) {
+        lock.lock()
+        guard self.result == nil else {
+            lock.unlock()
+            return
+        }
+        self.result = result
+        let continuation = self.continuation
+        self.continuation = nil
+        lock.unlock()
+        continuation?.resume(with: result)
+    }
 }
 
 @MainActor
@@ -95,76 +150,82 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
     private var stream: SCStream?
     private var recordingOutput: SCRecordingOutput?
     private var outputURL: URL?
+    private var outputDirectory: URL?
     private var outputScreen: NSScreen?
-    private var startGate: ThrowingContinuationGate<Void>?
+    private var segments: [RecordingSegment] = []
     private var finishGate: ThrowingContinuationGate<Void>?
-    private var startTimeoutTask: Task<Void, Never>?
     private var finishTimeoutTask: Task<Void, Never>?
+    private var outputStartGates: [ObjectIdentifier: RecordingOutputStartGate] = [:]
+    private var startFailure: Error?
     private var stopRequested = false
+    private var pausedAt: Date?
+    private var accumulatedPauseDuration: TimeInterval = 0
 
-    private(set) var state: RecordingState = .idle
+    private(set) var state: RecordingState = .idle {
+        didSet {
+            guard state != oldValue else { return }
+            onStateChange?(state)
+        }
+    }
     private(set) var startedAt: Date?
     var onFailure: ((Error) -> Void)?
+    var onStateChange: ((RecordingState) -> Void)?
 
-    var isRecording: Bool { state == .recording }
+    var isRecording: Bool { state == .recording || state == .pausing || state == .paused || state == .resuming }
     var isStarting: Bool { state == .starting }
+    var isPaused: Bool { state == .paused }
+    var canStop: Bool { state == .recording || state == .paused }
+    var recordingScreen: NSScreen? { outputScreen }
 
     var elapsed: TimeInterval? {
         guard let startedAt else { return nil }
-        return max(0, Date().timeIntervalSince(startedAt))
+        let end = pausedAt ?? Date()
+        return max(0, end.timeIntervalSince(startedAt) - accumulatedPauseDuration)
     }
 
+    @discardableResult
     func start(
         target: RecordingTarget,
         catalog: WindowCatalog,
         directory: URL,
         options: RecordingOptions = RecordingOptions()
-    ) async throws {
+    ) async throws -> NSScreen {
         guard state == .idle else { throw RecordingError.alreadyRecording }
         state = .starting
         do {
             let resolved = try await resolve(target: target, catalog: catalog, options: options)
-            let url = try VideoExporter.recordingURL(in: directory)
-            let recordingConfiguration = SCRecordingOutputConfiguration()
-            guard recordingConfiguration.availableVideoCodecTypes.contains(.h264),
-                  recordingConfiguration.availableOutputFileTypes.contains(.mp4) else {
-                throw RecordingError.unsupportedOutput
-            }
-            recordingConfiguration.outputURL = url
-            recordingConfiguration.videoCodecType = .h264
-            recordingConfiguration.outputFileType = .mp4
-
-            let output = SCRecordingOutput(configuration: recordingConfiguration, delegate: self)
+            let (output, url) = try makeRecordingOutput()
             let newStream = SCStream(
                 filter: resolved.filter,
                 configuration: resolved.configuration,
                 delegate: self
             )
 
-            try newStream.addRecordingOutput(output)
+            let outputStartGate = registerOutputStartGate(for: output)
             stream = newStream
             recordingOutput = output
             outputURL = url
+            outputDirectory = directory
             outputScreen = resolved.screen
+            segments.removeAll(keepingCapacity: true)
             stopRequested = false
+            startFailure = nil
+            pausedAt = nil
+            accumulatedPauseDuration = 0
+            try newStream.addRecordingOutput(output)
 
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                let gate = ThrowingContinuationGate(continuation)
-                startGate = gate
-                startTimeoutTask = Task { @MainActor [weak self] in
-                    try? await Task.sleep(for: .seconds(5))
-                    guard !Task.isCancelled else { return }
-                    self?.resumeStart(with: RecordingError.startTimedOut)
-                }
-                newStream.startCapture { [weak self] error in
-                    guard let error else { return }
-                    Task { @MainActor in
-                        self?.resumeStart(with: error)
-                    }
-                }
+            try await startCapture(newStream)
+            if let startFailure {
+                throw startFailure
+            }
+            defer { outputStartGates.removeValue(forKey: ObjectIdentifier(output)) }
+            try await outputStartGate.wait(timeout: .seconds(15))
+            guard state == .starting, self.stream === newStream else {
+                throw CancellationError()
             }
             state = .recording
             startedAt = Date()
+            return resolved.screen
         } catch {
             await cleanupAfterFailure()
             throw error
@@ -172,43 +233,65 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
     }
 
     func cancel() async {
-        resumeStart(with: CancellationError())
+        stopRequested = true
+        outputStartGates.values.forEach { $0.resume(throwing: CancellationError()) }
         resumeFinish(with: CancellationError())
         await cleanupAfterFailure()
     }
 
+    func togglePause() async throws {
+        switch state {
+        case .recording:
+            try await pause()
+        case .paused:
+            try await resume()
+        default:
+            return
+        }
+    }
+
     func stop() async throws -> RecordingResult {
         guard let stream,
-              let output = recordingOutput,
-              let url = outputURL,
+              let directory = outputDirectory,
               let screen = outputScreen else {
             throw RecordingError.notRecording
         }
-        guard state == .recording else { throw RecordingError.notRecording }
+        guard canStop else {
+            throw RecordingError.notRecording
+        }
 
         stopRequested = true
         state = .stopping
         do {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                let gate = ThrowingContinuationGate(continuation)
-                finishGate = gate
-                finishTimeoutTask = Task { @MainActor [weak self] in
-                    try? await Task.sleep(for: .seconds(15))
-                    guard !Task.isCancelled else { return }
-                    self?.resumeFinish(with: RecordingError.finishTimedOut)
-                }
-                do {
-                    try stream.removeRecordingOutput(output)
-                } catch {
-                    resumeFinish(with: error)
-                }
+            if let output = recordingOutput {
+                let segment = try await finishCurrentOutput(output, from: stream)
+                segments.append(segment)
             }
             try await stopCapture(stream)
+
+            let sourceURLs = segments.map(\.url)
+            let mergedURL = try await VideoExporter.mergeRecordingSegments(sourceURLs)
+            let finalURL: URL
+            do {
+                finalURL = try await VideoExporter.finalizeRecording(
+                    sourceURL: mergedURL,
+                    in: directory
+                )
+            } catch {
+                // Keep the completed temporary recording available to the
+                // preview when the configured folder is not accessible yet.
+                // The preview's Save action can then ask the user for a
+                // different location without losing the recording.
+                finalURL = mergedURL
+            }
+            for sourceURL in sourceURLs where sourceURL != finalURL {
+                try? FileManager.default.removeItem(at: sourceURL)
+            }
             let result = RecordingResult(
-                url: url,
+                url: finalURL,
                 screen: screen,
-                duration: output.recordedDuration,
-                fileSize: output.recordedFileSize
+                duration: segments.reduce(.zero) { CMTimeAdd($0, $1.duration) },
+                fileSize: segments.reduce(0) { $0 + $1.fileSize }
             )
             clearState()
             return result
@@ -218,27 +301,147 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         }
     }
 
-    nonisolated func recordingOutputDidStartRecording(_ recordingOutput: SCRecordingOutput) {
-        Task { @MainActor [weak self] in
-            self?.resumeStartSuccessfully()
+    private func pause() async throws {
+        guard state == .recording,
+              let stream,
+              let output = recordingOutput else { throw RecordingError.notRecording }
+        state = .pausing
+        do {
+            let segment = try await finishCurrentOutput(output, from: stream)
+            segments.append(segment)
+            recordingOutput = nil
+            outputURL = nil
+            pausedAt = Date()
+            state = .paused
+        } catch {
+            if state == .pausing {
+                state = .recording
+            }
+            throw error
         }
+    }
+
+    private func resume() async throws {
+        guard state == .paused, let stream else { throw RecordingError.notRecording }
+        state = .resuming
+        do {
+            let (output, url) = try makeRecordingOutput()
+            let outputStartGate = registerOutputStartGate(for: output)
+            recordingOutput = output
+            outputURL = url
+            try stream.addRecordingOutput(output)
+            defer { outputStartGates.removeValue(forKey: ObjectIdentifier(output)) }
+            try await outputStartGate.wait(timeout: .seconds(15))
+            guard state == .resuming, self.stream === stream else {
+                throw CancellationError()
+            }
+            if let pausedAt {
+                accumulatedPauseDuration += Date().timeIntervalSince(pausedAt)
+            }
+            self.pausedAt = nil
+            state = .recording
+        } catch {
+            if let outputURL {
+                try? FileManager.default.removeItem(at: outputURL)
+                self.outputURL = nil
+                self.recordingOutput = nil
+            }
+            if state == .resuming {
+                state = .paused
+            }
+            throw error
+        }
+    }
+
+    private func makeRecordingOutput() throws -> (SCRecordingOutput, URL) {
+        let url = try VideoExporter.temporaryRecordingURL()
+        let recordingConfiguration = SCRecordingOutputConfiguration()
+        guard recordingConfiguration.availableVideoCodecTypes.contains(.h264),
+              recordingConfiguration.availableOutputFileTypes.contains(.mp4) else {
+            throw RecordingError.unsupportedOutput
+        }
+        recordingConfiguration.outputURL = url
+        recordingConfiguration.videoCodecType = .h264
+        recordingConfiguration.outputFileType = .mp4
+        return (
+            SCRecordingOutput(configuration: recordingConfiguration, delegate: self),
+            url
+        )
+    }
+
+    private func registerOutputStartGate(for output: SCRecordingOutput) -> RecordingOutputStartGate {
+        let gate = RecordingOutputStartGate()
+        outputStartGates[ObjectIdentifier(output)] = gate
+        return gate
+    }
+
+    private func finishCurrentOutput(
+        _ output: SCRecordingOutput,
+        from stream: SCStream
+    ) async throws -> RecordingSegment {
+        guard let url = outputURL else { throw RecordingError.notRecording }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let gate = ThrowingContinuationGate(continuation)
+            finishGate = gate
+            finishTimeoutTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(15))
+                guard !Task.isCancelled else { return }
+                self?.resumeFinish(with: RecordingError.finishTimedOut)
+            }
+            do {
+                try stream.removeRecordingOutput(output)
+            } catch {
+                resumeFinish(with: error)
+            }
+        }
+        return RecordingSegment(
+            url: url,
+            duration: output.recordedDuration,
+            fileSize: output.recordedFileSize
+        )
     }
 
     nonisolated func recordingOutput(_ recordingOutput: SCRecordingOutput, didFailWithError error: Error) {
         Task { @MainActor [weak self] in
-            await self?.handleStreamFailure(error)
+            guard let self,
+                  let currentOutput = self.recordingOutput,
+                  currentOutput === recordingOutput else { return }
+            self.outputStartGates[ObjectIdentifier(recordingOutput)]?.resume(throwing: error)
+            await self.handleStreamFailure(error)
         }
     }
 
     nonisolated func recordingOutputDidFinishRecording(_ recordingOutput: SCRecordingOutput) {
         Task { @MainActor [weak self] in
-            self?.resumeFinishSuccessfully()
+            guard let self,
+                  let currentOutput = self.recordingOutput,
+                  currentOutput === recordingOutput else { return }
+            if self.finishGate != nil {
+                self.resumeFinishSuccessfully()
+            } else if self.state == .starting || self.state == .resuming {
+                self.outputStartGates[ObjectIdentifier(recordingOutput)]?.resume(throwing: RecordingError.failed)
+                await self.handleStreamFailure(RecordingError.failed)
+            } else if self.state == .recording {
+                await self.handleStreamFailure(RecordingError.failed)
+            }
+        }
+    }
+
+    nonisolated func recordingOutputDidStartRecording(_ recordingOutput: SCRecordingOutput) {
+        Task { @MainActor [weak self] in
+            guard let self,
+                  let currentOutput = self.recordingOutput,
+                  currentOutput === recordingOutput else { return }
+            self.outputStartGates[ObjectIdentifier(recordingOutput)]?.resume(returning: ())
         }
     }
 
     nonisolated func stream(_ stream: SCStream, didStopWithError error: Error) {
         Task { @MainActor [weak self] in
-            await self?.handleStreamFailure(error)
+            guard let self,
+                  let currentStream = self.stream,
+                  currentStream === stream else { return }
+            await self.handleStreamFailure(error)
         }
     }
 
@@ -253,7 +456,12 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         catalog: WindowCatalog,
         options: RecordingOptions
     ) async throws -> ResolvedCapture {
-        try await catalog.ensureShareableContent()
+        try await AsyncTimeout.run(
+            timeout: .seconds(15),
+            timeoutError: RecordingError.startTimedOut
+        ) {
+            try await catalog.ensureShareableContent()
+        }
 
         switch target {
         case .region(let selection):
@@ -275,7 +483,12 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
 
         case .window(let id):
             guard let window = catalog.scWindow(id: id) else {
-                try await catalog.refresh()
+                try await AsyncTimeout.run(
+                    timeout: .seconds(15),
+                    timeoutError: RecordingError.startTimedOut
+                ) {
+                    try await catalog.refresh()
+                }
                 guard let window = catalog.scWindow(id: id) else { throw RecordingError.noWindow }
                 return try resolvedWindow(window, options: options)
             }
@@ -349,6 +562,25 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         return SCContentFilter(display: display, excludingWindows: ourWindows)
     }
 
+    private func startCapture(_ stream: SCStream, timeout: Duration = .seconds(15)) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let gate = ThrowingContinuationGate(continuation)
+            let timeoutTask = Task { @MainActor in
+                try? await Task.sleep(for: timeout)
+                guard !Task.isCancelled else { return }
+                gate.resume(throwing: RecordingError.startTimedOut)
+            }
+            stream.startCapture { error in
+                timeoutTask.cancel()
+                if let error {
+                    gate.resume(throwing: error)
+                } else {
+                    gate.resume(returning: ())
+                }
+            }
+        }
+    }
+
     private func stopCapture(_ stream: SCStream, timeout: Duration = .seconds(15)) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let gate = ThrowingContinuationGate(continuation)
@@ -366,22 +598,6 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
                 }
             }
         }
-    }
-
-    private func resumeStartSuccessfully() {
-        startTimeoutTask?.cancel()
-        startTimeoutTask = nil
-        let gate = startGate
-        startGate = nil
-        gate?.resume(returning: ())
-    }
-
-    private func resumeStart(with error: Error) {
-        startTimeoutTask?.cancel()
-        startTimeoutTask = nil
-        let gate = startGate
-        startGate = nil
-        gate?.resume(throwing: error)
     }
 
     private func resumeFinishSuccessfully() {
@@ -402,12 +618,19 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
 
     private func handleStreamFailure(_ error: Error) async {
         guard state != .failed, state != .idle else { return }
-        let hasWaitingOperation = startGate != nil || finishGate != nil
+        if stopRequested {
+            resumeFinish(with: error)
+            return
+        }
+        if state == .starting || state == .resuming {
+            startFailure = error
+            if let recordingOutput {
+                outputStartGates[ObjectIdentifier(recordingOutput)]?.resume(throwing: error)
+            }
+            return
+        }
         state = .failed
-        resumeStart(with: error)
         resumeFinish(with: error)
-        guard !hasWaitingOperation else { return }
-
         await cleanupAfterFailure()
         onFailure?(error)
     }
@@ -422,21 +645,27 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         if let outputURL {
             try? FileManager.default.removeItem(at: outputURL)
         }
+        for segment in segments {
+            try? FileManager.default.removeItem(at: segment.url)
+        }
         clearState()
     }
 
     private func clearState() {
-        startTimeoutTask?.cancel()
         finishTimeoutTask?.cancel()
-        startTimeoutTask = nil
         finishTimeoutTask = nil
-        startGate = nil
         finishGate = nil
+        startFailure = nil
+        outputStartGates.removeAll()
         stream = nil
         recordingOutput = nil
         outputURL = nil
+        outputDirectory = nil
         outputScreen = nil
+        segments.removeAll()
         stopRequested = false
+        pausedAt = nil
+        accumulatedPauseDuration = 0
         startedAt = nil
         state = .idle
     }

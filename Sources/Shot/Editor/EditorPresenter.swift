@@ -127,6 +127,7 @@ final class EditorPresenter {
             arrangement: arrangement,
             presentationStyle: presentationStyle,
             windowedLayout: windowedLayout,
+            scrollableCanvas: result.kind == .scrolling,
             onCopy: { [weak self] in self?.copyAndFinish() },
             onSave: { [weak self] in self?.saveAndFinish() },
             onClose: { [weak self] in self?.closeFromToolbar() }
@@ -143,6 +144,7 @@ final class EditorPresenter {
             defer: false
         )
         window.onRequestClose = { [weak self] in self?.closeFromWindow() }
+        window.onRequestCancel = { [weak self] in self?.cancelOrDismissFromWindow() }
         window.isOpaque = presentationStyle == .windowed
         window.backgroundColor = presentationStyle == .windowed
             ? NSColor.windowBackgroundColor
@@ -400,6 +402,14 @@ final class EditorPresenter {
     }
 
     @MainActor
+    private func cancelOrDismissFromWindow() {
+        if session?.cancelTextEditing() == true {
+            return
+        }
+        dismiss()
+    }
+
+    @MainActor
     private func copyAndFinish() {
         commitPendingText()
         guard let session, session.beginExport() else { return }
@@ -496,7 +506,10 @@ final class EditorPresenter {
     private func renderedImage(from document: AnnotationDocument) async -> NSImage? {
         let imageSize = document.baseImage.size
         let snapshot = AnnotationRenderSnapshot(document: document)
-        guard !Task.isCancelled, let cgImage = snapshot.renderedCGImage() else { return nil }
+        let cgImage = await Task.detached(priority: .userInitiated) {
+            snapshot.renderedCGImage()
+        }.value
+        guard !Task.isCancelled, let cgImage else { return nil }
         return NSImage(cgImage: cgImage, size: imageSize)
     }
 
@@ -510,11 +523,25 @@ final class EditorPresenter {
 
 private final class EditorWindow: NSWindow {
     var onRequestClose: (() -> Void)?
+    var onRequestCancel: (() -> Void)?
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
     override func performClose(_ sender: Any?) {
         onRequestClose?()
+    }
+
+    override func cancelOperation(_ sender: Any?) {
+        onRequestCancel?()
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command),
+           event.charactersIgnoringModifiers?.lowercased() == "q" {
+            NSApp.terminate(nil)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
     }
 }
