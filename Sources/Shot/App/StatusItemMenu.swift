@@ -151,6 +151,18 @@ struct StatusItemMenuView: View {
         actionButton("All-in-One", hotkey: .allInOne) {
             AppCoordinator.shared.startCapture(.allInOne)
         }
+        Button(String(localized: "截取上次区域")) {
+            CaptureSession.shared.capturePreviousRegion()
+        }
+        .disabled(settings.lastSelection == nil)
+        .help(
+            settings.lastSelection == nil
+                ? String(localized: "还没有可重复截取的区域")
+                : String(localized: "截取与上次相同的区域")
+        )
+
+        Divider()
+
         if CaptureSession.shared.isScrollingCapture {
             Button(String(localized: "完成滚动截图")) {
                 CaptureSession.shared.finishScrolling()
@@ -166,11 +178,6 @@ struct StatusItemMenuView: View {
                 AppCoordinator.shared.toggleRecording()
             }
         }
-
-        Button(String(localized: "截取上次区域")) {
-            CaptureSession.shared.capturePreviousRegion()
-        }
-        .disabled(settings.lastSelection == nil)
 
         Divider()
 

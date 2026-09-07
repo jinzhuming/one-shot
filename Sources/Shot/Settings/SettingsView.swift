@@ -29,31 +29,42 @@ struct SettingsView: View {
 
     private var generalTab: some View {
         Form {
-            Picker(String(localized: "截图后"), selection: $settings.afterCaptureAction) {
-                ForEach(AfterCaptureAction.allCases) { action in
-                    Text(action.title).tag(action)
+            Section {
+                Picker(String(localized: "截图后"), selection: $settings.afterCaptureAction) {
+                    ForEach(AfterCaptureAction.allCases) { action in
+                        Text(action.title).tag(action)
+                    }
+                }
+                Picker(String(localized: "标注位置"), selection: $settings.annotationWindowPlacement) {
+                    ForEach(AnnotationWindowPlacement.allCases) { placement in
+                        Text(placement.title).tag(placement)
+                    }
+                }
+                Text(String(localized: "原位置空间不足时，会自动缩放并移入当前显示器的可见区域；独立窗口可拖拽缩放。"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Toggle(String(localized: "触控板按住 ⌘ 时缩放画布"), isOn: $settings.annotationZoomWithCommandScroll)
+                Text(String(localized: "鼠标滚轮默认缩放，触控板滚动手势默认平移。开启后，触控板也可按住 ⌘ 用滚轮缩放。"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Toggle(String(localized: "保存或标注后同时复制到剪贴板"), isOn: $settings.copyOnComplete)
+                if settings.afterCaptureAction != .copy, settings.copyOnComplete {
+                    Text(String(localized: "保存截图或完成标注后，会同时把最终图片复制到剪贴板。"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
-            Picker(String(localized: "标注位置"), selection: $settings.annotationWindowPlacement) {
-                ForEach(AnnotationWindowPlacement.allCases) { placement in
-                    Text(placement.title).tag(placement)
-                }
-            }
-            Text(String(localized: "原位置空间不足时，会自动缩放并移入当前显示器的可见区域；独立窗口可拖拽缩放。"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Toggle(String(localized: "允许 ⌘+滚轮缩放标注画布"), isOn: $settings.annotationZoomWithCommandScroll)
-            Text(String(localized: "普通鼠标滚轮默认缩放标注画布；开启后也可以按住 ⌘ 使用滚轮缩放。"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Toggle(String(localized: "保存或标注后同时复制到剪贴板"), isOn: $settings.copyOnComplete)
-            if settings.afterCaptureAction != .copy, settings.copyOnComplete {
-                Text(String(localized: "保存截图或完成标注后，会同时把最终图片复制到剪贴板。"))
+
+            Section(String(localized: "外观")) {
+                Toggle(String(localized: "使用轻量透明提示"), isOn: $settings.useLightweightCaptureHUD)
+                Text(String(localized: "开启后，截图模式条使用更透明的原生 HUD 外观。"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Toggle(String(localized: "登录时打开"), isOn: loginEnabled)
+            Section {
+                Toggle(String(localized: "登录时打开"), isOn: loginEnabled)
+            }
 
             Section(String(localized: "权限")) {
                 HStack {
@@ -105,7 +116,7 @@ struct SettingsView: View {
                 HotkeyRecorder(action: .captureFullscreen)
                 HotkeyRecorder(action: .scrolling)
             } footer: {
-                Text(String(localized: "若快捷键被系统或其他 App 占用，此处会显示「未生效」。"))
+                Text(String(localized: "若快捷键被系统或其他 App 占用，此处会显示「未生效」。录屏保存为 MP4，当前不包含系统音频或麦克风。"))
             }
             Section {
                 OverlayToggleHotkeyRecorder()
@@ -165,10 +176,6 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Toggle(String(localized: "使用轻量透明提示"), isOn: $settings.useLightweightCaptureHUD)
-            Text(String(localized: "开启后，截图模式条使用更透明的原生 HUD 外观。"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
     }

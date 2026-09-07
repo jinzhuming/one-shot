@@ -53,15 +53,49 @@ struct AnnotationStyle {
     var penOpacity: CGFloat = 1
     var calloutFillOpacity: CGFloat = 0.14
     var calloutWrapText: Bool = true
+    var shapeFillOpacity: CGFloat = 0
 
     static let minimumAnnotationScale: CGFloat = 0.25
     static let maximumAnnotationScale: CGFloat = 4
+    static let filledShapeHitThreshold: CGFloat = 0.02
+
+    var usesFilledShapeHit: Bool {
+        shapeFillOpacity > Self.filledShapeHitThreshold
+    }
 
     func applying(color: NSColor, lineWidth: CGFloat) -> AnnotationStyle {
         var copy = self
         copy.color = color
         copy.lineWidth = lineWidth
         return copy
+    }
+}
+
+struct AnnotationStoredColor: Codable, Equatable {
+    var red: Double
+    var green: Double
+    var blue: Double
+    var alpha: Double
+
+    init(red: Double, green: Double, blue: Double, alpha: Double) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+        self.alpha = alpha
+    }
+
+    init?(_ color: NSColor) {
+        guard let rgb = color.usingColorSpace(.deviceRGB) else { return nil }
+        self.init(
+            red: rgb.redComponent,
+            green: rgb.greenComponent,
+            blue: rgb.blueComponent,
+            alpha: rgb.alphaComponent
+        )
+    }
+
+    var nsColor: NSColor {
+        NSColor(deviceRed: red, green: green, blue: blue, alpha: alpha)
     }
 }
 
@@ -81,6 +115,8 @@ struct AnnotationPreferences: Codable, Equatable {
     var penOpacity: Double = 1
     var calloutFillOpacity: Double = 0.14
     var calloutWrapText: Bool = true
+    var shapeFillOpacity: Double = 0
+    var customColor: AnnotationStoredColor?
 
     static let `default` = AnnotationPreferences()
 
@@ -100,6 +136,8 @@ struct AnnotationPreferences: Codable, Equatable {
         case penOpacity
         case calloutFillOpacity
         case calloutWrapText
+        case shapeFillOpacity
+        case customColor
     }
 
     init() {}
@@ -121,6 +159,8 @@ struct AnnotationPreferences: Codable, Equatable {
         penOpacity = try container.decodeIfPresent(Double.self, forKey: .penOpacity) ?? 1
         calloutFillOpacity = try container.decodeIfPresent(Double.self, forKey: .calloutFillOpacity) ?? 0.14
         calloutWrapText = try container.decodeIfPresent(Bool.self, forKey: .calloutWrapText) ?? true
+        shapeFillOpacity = try container.decodeIfPresent(Double.self, forKey: .shapeFillOpacity) ?? 0
+        customColor = try container.decodeIfPresent(AnnotationStoredColor.self, forKey: .customColor)
     }
 
     func validated() -> AnnotationPreferences {
@@ -137,6 +177,14 @@ struct AnnotationPreferences: Codable, Equatable {
         copy.penSmoothing = Self.clamped(copy.penSmoothing, lower: 0, upper: 1, fallback: 0.5)
         copy.penOpacity = Self.clamped(copy.penOpacity, lower: 0.1, upper: 1, fallback: 1)
         copy.calloutFillOpacity = Self.clamped(copy.calloutFillOpacity, lower: 0, upper: 0.6, fallback: 0.14)
+        copy.shapeFillOpacity = Self.clamped(copy.shapeFillOpacity, lower: 0, upper: 1, fallback: 0)
+        if var stored = copy.customColor {
+            stored.red = Self.clamped(stored.red, lower: 0, upper: 1, fallback: 0)
+            stored.green = Self.clamped(stored.green, lower: 0, upper: 1, fallback: 0)
+            stored.blue = Self.clamped(stored.blue, lower: 0, upper: 1, fallback: 0)
+            stored.alpha = Self.clamped(stored.alpha, lower: 0, upper: 1, fallback: 1)
+            copy.customColor = stored
+        }
         return copy
     }
 
@@ -285,9 +333,17 @@ struct AnnotationObject: Identifiable {
                 tolerance: tolerance + style.lineWidth
             )
         case .rect(let rect, let style):
-            return rect.insetBy(dx: -tolerance - style.lineWidth, dy: -tolerance - style.lineWidth).contains(point)
+            return AnnotationGeometry.hitTest(
+                point: point,
+                shape: style.usesFilledShapeHit ? .filledRect(rect) : .strokeRect(rect),
+                tolerance: tolerance + style.lineWidth
+            )
         case .ellipse(let rect, let style):
-            return AnnotationGeometry.hitTest(point: point, shape: .filledEllipse(rect), tolerance: tolerance + style.lineWidth)
+            return AnnotationGeometry.hitTest(
+                point: point,
+                shape: style.usesFilledShapeHit ? .filledEllipse(rect) : .strokeEllipse(rect),
+                tolerance: tolerance + style.lineWidth
+            )
         case .pen(let points, let style), .highlighter(let points, let style):
             return AnnotationGeometry.hitTest(point: point, shape: .polyline(points), tolerance: tolerance + style.lineWidth)
         case .text, .callout, .mosaic, .spotlight:
@@ -370,6 +426,17 @@ struct AnnotationObject: Identifiable {
         guard case .callout = element, var style else { return self }
         style.calloutWrapText = calloutWrapText
         return AnnotationObject(id: id, element: element.applying(style: style))
+    }
+
+    func withShapeFillOpacity(_ shapeFillOpacity: CGFloat) -> AnnotationObject {
+        switch element {
+        case .rect, .ellipse:
+            guard var style else { return self }
+            style.shapeFillOpacity = shapeFillOpacity
+            return AnnotationObject(id: id, element: element.applying(style: style))
+        default:
+            return self
+        }
     }
 
     func withHighlighterOpacity(_ opacity: CGFloat) -> AnnotationObject {

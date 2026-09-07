@@ -11,6 +11,7 @@ enum ScrollCaptureWarning: Sendable {
 struct ScrollCaptureProgress: Sendable {
     let frameCount: Int
     let outputHeightPixels: Int
+    let viewportHeightPixels: Int
     let direction: ScrollDirection?
     let warning: ScrollCaptureWarning?
 }
@@ -184,6 +185,7 @@ final class ScrollStitcher: @unchecked Sendable {
         ScrollCaptureProgress(
             frameCount: frameCount,
             outputHeightPixels: outputHeightPixels,
+            viewportHeightPixels: lastAcceptedFrame?.height ?? 0,
             direction: direction,
             warning: warning
         )

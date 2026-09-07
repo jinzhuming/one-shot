@@ -112,9 +112,9 @@ import Testing
     let original = session.document.elements[0]
 
     session.selectedTool = .select
-    session.handle(.down(CGPoint(x: 90, y: 60), shift: false))
-    session.handle(.drag(CGPoint(x: 120, y: 70), shift: false))
-    session.handle(.up(CGPoint(x: 120, y: 70), shift: false))
+    session.handle(.down(CGPoint(x: 70, y: 30), shift: false))
+    session.handle(.drag(CGPoint(x: 100, y: 40), shift: false))
+    session.handle(.up(CGPoint(x: 100, y: 40), shift: false))
 
     guard case .rect(let movedRect, _) = session.document.elements[0].element else {
         Issue.record("The selected rectangle must remain a rectangle after moving")
@@ -137,8 +137,8 @@ import Testing
     session.handle(.down(CGPoint(x: 20, y: 20), shift: false))
     session.handle(.up(CGPoint(x: 80, y: 60), shift: false))
     session.selectedTool = .select
-    session.handle(.down(CGPoint(x: 50, y: 40), shift: false))
-    session.handle(.up(CGPoint(x: 50, y: 40), shift: false))
+    session.handle(.down(CGPoint(x: 71, y: 54), shift: false))
+    session.handle(.up(CGPoint(x: 71, y: 54), shift: false))
 
     let originalID = session.document.elements[0].id
     session.duplicateSelection()
@@ -158,8 +158,8 @@ import Testing
     session.handle(.down(CGPoint(x: 40, y: 30), shift: false))
     session.handle(.up(CGPoint(x: 140, y: 90), shift: false))
     session.selectedTool = .select
-    session.handle(.down(CGPoint(x: 90, y: 60), shift: false))
-    session.handle(.up(CGPoint(x: 90, y: 60), shift: false))
+    session.handle(.down(CGPoint(x: 70, y: 30), shift: false))
+    session.handle(.up(CGPoint(x: 70, y: 30), shift: false))
 
     session.lineWidth = 8
     session.color = .blue
@@ -170,6 +170,33 @@ import Testing
     }
     #expect(style.lineWidth == 8)
     #expect(style.color.usingColorSpace(.deviceRGB)?.blueComponent == 1)
+}
+
+@Test @MainActor func changingShapeFillOnSelectionIsUndoable() {
+    let session = EditSession(image: NSImage(size: CGSize(width: 320, height: 180)))
+    session.selectedTool = .rect
+    session.handle(.down(CGPoint(x: 40, y: 30), shift: false))
+    session.handle(.up(CGPoint(x: 140, y: 90), shift: false))
+    session.selectedTool = .select
+    session.handle(.down(CGPoint(x: 70, y: 30), shift: false))
+    session.handle(.up(CGPoint(x: 70, y: 30), shift: false))
+
+    session.beginStyleAdjustment()
+    session.shapeFillOpacity = 0.6
+    session.endStyleAdjustment()
+
+    guard case .rect(_, let filled) = session.document.elements[0].element else {
+        Issue.record("The selected rectangle must remain a rectangle")
+        return
+    }
+    #expect(abs(filled.shapeFillOpacity - 0.6) < 0.001)
+
+    session.undo()
+    guard case .rect(_, let restored) = session.document.elements[0].element else {
+        Issue.record("Undo should restore the original rectangle")
+        return
+    }
+    #expect(abs(restored.shapeFillOpacity) < 0.001)
 }
 
 @Test @MainActor func selectedSpecialAnnotationPropertiesUpdateTheirElements() {
@@ -400,4 +427,98 @@ import Testing
     #expect(preferences.linePattern == .solid)
     #expect(preferences.calloutFillOpacity == 0.14)
     #expect(preferences.calloutWrapText)
+    #expect(preferences.shapeFillOpacity == 0)
+    #expect(preferences.customColor == nil)
+}
+
+@Test @MainActor func customColorAndShapeFillPersistForNewShapes() {
+    let suiteName = "ShotTests.ShapeFillPreferences.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    let settings = AppSettings(defaults: defaults)
+    let session = EditSession(image: NSImage(size: CGSize(width: 320, height: 180)), settings: settings)
+    session.color = Color(nsColor: .systemBlue)
+    session.selectedTool = .rect
+    session.shapeFillOpacity = 0.4
+    session.handle(.down(CGPoint(x: 40, y: 30), shift: false))
+    session.handle(.up(CGPoint(x: 140, y: 90), shift: false))
+
+    guard case .rect(_, let style) = session.document.elements[0].element else {
+        Issue.record("The rectangle must keep the chosen fill")
+        return
+    }
+    #expect(abs(style.shapeFillOpacity - 0.4) < 0.001)
+    #expect(settings.annotationPreferences.customColor != nil)
+    #expect(abs(settings.annotationPreferences.shapeFillOpacity - 0.4) < 0.001)
+
+    let reloaded = EditSession(
+        image: NSImage(size: CGSize(width: 320, height: 180)),
+        settings: AppSettings(defaults: defaults)
+    )
+    reloaded.selectedTool = .rect
+    #expect(abs(reloaded.shapeFillOpacity - 0.4) < 0.001)
+    let stored = NSColor(reloaded.color).usingColorSpace(.deviceRGB)
+    #expect((stored?.blueComponent ?? 0) > (stored?.redComponent ?? 1))
+}
+
+@Test func unfilledShapesHitStrokeAndFilledShapesHitInterior() {
+    var hollowStyle = AnnotationStyle()
+    hollowStyle.lineWidth = 4
+    hollowStyle.shapeFillOpacity = 0
+    let hollow = AnnotationObject(
+        element: .rect(CGRect(x: 8, y: 8, width: 40, height: 24), style: hollowStyle)
+    )
+    #expect(hollow.hitTest(CGPoint(x: 8, y: 20), tolerance: 3))
+    #expect(!hollow.hitTest(CGPoint(x: 28, y: 20), tolerance: 3))
+
+    var filledStyle = hollowStyle
+    filledStyle.shapeFillOpacity = 0.5
+    let filled = AnnotationObject(
+        element: .rect(CGRect(x: 8, y: 8, width: 40, height: 24), style: filledStyle)
+    )
+    #expect(filled.hitTest(CGPoint(x: 28, y: 20), tolerance: 3))
+}
+
+@Test @MainActor func filledRectangleExportIncludesInteriorFill() {
+    let width = 320
+    let height = 180
+    let context = CGContext(
+        data: nil,
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: width * 4,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    context.setFillColor(NSColor.white.cgColor)
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    let image = NSImage(cgImage: context.makeImage()!, size: CGSize(width: width, height: height))
+
+    func bitmap(fillOpacity: CGFloat) -> NSBitmapImageRep? {
+        var document = AnnotationDocument(baseImage: image)
+        var style = AnnotationStyle(color: .systemRed, lineWidth: 2)
+        style.shapeFillOpacity = fillOpacity
+        document.commit(.rect(CGRect(x: 40, y: 30, width: 80, height: 60), style: style))
+        guard let tiff = document.flattened().tiffRepresentation else { return nil }
+        return NSBitmapImageRep(data: tiff)
+    }
+
+    func isRed(_ color: NSColor?) -> Bool {
+        guard let rgb = color?.usingColorSpace(.deviceRGB) else { return false }
+        return rgb.redComponent > 0.55 && rgb.redComponent > rgb.greenComponent + 0.15
+    }
+
+    func interiorIsFilled(_ bitmap: NSBitmapImageRep?) -> Bool {
+        guard let bitmap else { return false }
+        let samples = [
+            bitmap.colorAt(x: 80, y: 60),
+            bitmap.colorAt(x: 80, y: max(0, bitmap.pixelsHigh - 61))
+        ]
+        return samples.contains(where: isRed)
+    }
+
+    #expect(interiorIsFilled(bitmap(fillOpacity: 1)))
+    #expect(!interiorIsFilled(bitmap(fillOpacity: 0)))
 }

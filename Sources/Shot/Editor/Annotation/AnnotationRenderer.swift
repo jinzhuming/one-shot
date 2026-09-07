@@ -13,9 +13,9 @@ enum AnnotationRenderer {
         case .arrow(let start, let end, let style):
             strokeLine(from: start, to: end, style: style, arrow: true)
         case .rect(let rect, let style):
-            stroke(NSBezierPath(rect: rect), style: style, pattern: .solid)
+            drawFilledShape(NSBezierPath(rect: rect), style: style)
         case .ellipse(let rect, let style):
-            stroke(NSBezierPath(ovalIn: rect), style: style, pattern: .solid)
+            drawFilledShape(NSBezierPath(ovalIn: rect), style: style)
         case .line(let start, let end, let style):
             strokeLine(from: start, to: end, style: style, arrow: false)
         case .pen(let points, let style):
@@ -33,6 +33,14 @@ enum AnnotationRenderer {
         case .spotlight(let rect, let opacity):
             drawSpotlight(rect, opacity: opacity, bounds: bounds)
         }
+    }
+
+    private static func drawFilledShape(_ path: NSBezierPath, style: AnnotationStyle) {
+        if style.shapeFillOpacity > 0 {
+            style.color.withAlphaComponent(min(max(style.shapeFillOpacity, 0), 1)).setFill()
+            path.fill()
+        }
+        stroke(path, style: style, pattern: .solid)
     }
 
     private static func stroke(

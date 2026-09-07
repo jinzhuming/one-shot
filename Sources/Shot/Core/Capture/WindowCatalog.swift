@@ -91,7 +91,7 @@ final class WindowCatalog {
 
     /// Hover uses CoreGraphics; ScreenCaptureKit is only required for the actual capture.
     static func prewarm() {
-        Task {
+        Task { @MainActor in
             try? await shared.ensureShareableContent()
             shared.scheduleIdleRelease()
         }
@@ -112,7 +112,7 @@ final class WindowCatalog {
         idleReleaseTask?.cancel()
         idleReleaseTask = nil
         guard !isSessionActive else { return }
-        idleReleaseTask = Task { [weak self] in
+        idleReleaseTask = Task { @MainActor [weak self] in
             let nanos = UInt64(Self.idleReleaseDelay * 1_000_000_000)
             try? await Task.sleep(nanoseconds: nanos)
             guard let self, !Task.isCancelled, !self.isSessionActive else { return }

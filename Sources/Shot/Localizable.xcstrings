@@ -397,28 +397,6 @@
         }
       }
     },
-    "允许 ⌘+滚轮缩放标注画布": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "允许 ⌘+滚轮缩放标注画布"
-          }
-        }
-      }
-    },
-    "普通鼠标滚轮默认缩放标注画布；开启后也可以按住 ⌘ 使用滚轮缩放。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "普通鼠标滚轮默认缩放标注画布；开启后也可以按住 ⌘ 使用滚轮缩放。"
-          }
-        }
-      }
-    },
     "原位置": {
       "extractionState": "manual",
       "localizations": {
@@ -540,17 +518,6 @@
         }
       }
     },
-    "从菜单栏或快捷键开始截图。悬停点选窗口，拖拽框选区域；截取后可以直接标注、复制或保存。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "从菜单栏或快捷键开始截图。悬停点选窗口，拖拽框选区域；截取后可以直接标注、复制或保存。"
-          }
-        }
-      }
-    },
     "粗": {
       "extractionState": "manual",
       "localizations": {
@@ -574,15 +541,15 @@
       }
     },
     "打开系统设置": {
-        "extractionState": "manual",
-        "localizations": {
-            "zh-Hans": {
-                "stringUnit": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
             "state": "translated",
             "value": "打开系统设置"
           }
-            }
         }
+      }
     },
     "打开文件夹": {
       "extractionState": "manual",
@@ -1112,17 +1079,6 @@
         }
       }
     },
-    "继续": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "继续"
-          }
-        }
-      }
-    },
     "继续录屏": {
       "extractionState": "manual",
       "localizations": {
@@ -1387,17 +1343,6 @@
         }
       }
     },
-    "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，可在设置里更改。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，可在设置里更改。"
-          }
-        }
-      }
-    },
     "目标文件已存在，请选择其他位置。": {
       "extractionState": "manual",
       "localizations": {
@@ -1548,17 +1493,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "权限"
-          }
-        }
-      }
-    },
-    "若快捷键被系统或其他 App 占用，此处会显示「未生效」。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "若快捷键被系统或其他 App 占用，此处会显示「未生效」。"
           }
         }
       }
@@ -2912,6 +2846,182 @@
           "stringUnit": {
             "state": "translated",
             "value": "窗口截图会自动留出边距，并使用截图所在显示器的桌面壁纸或自定义图片。"
+          }
+        }
+      }
+    },
+    "触控板按住 ⌘ 时缩放画布": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "触控板按住 ⌘ 时缩放画布"
+          }
+        }
+      }
+    },
+    "鼠标滚轮默认缩放，触控板滚动手势默认平移。开启后，触控板也可按住 ⌘ 用滚轮缩放。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鼠标滚轮默认缩放，触控板滚动手势默认平移。开启后，触控板也可按住 ⌘ 用滚轮缩放。"
+          }
+        }
+      }
+    },
+    "从菜单栏或快捷键开始截图、滚动截图或录屏。悬停点选窗口，拖拽框选区域；截取后可以直接标注、复制或保存。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从菜单栏或快捷键开始截图、滚动截图或录屏。悬停点选窗口，拖拽框选区域；截取后可以直接标注、复制或保存。"
+          }
+        }
+      }
+    },
+    "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，录屏为 ⌘⇧6，可在设置里更改。录屏当前不包含声音。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，录屏为 ⌘⇧6，可在设置里更改。录屏当前不包含声音。"
+          }
+        }
+      }
+    },
+    "若快捷键被系统或其他 App 占用，此处会显示「未生效」。录屏保存为 MP4，当前不包含系统音频或麦克风。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "若快捷键被系统或其他 App 占用，此处会显示「未生效」。录屏保存为 MP4，当前不包含系统音频或麦克风。"
+          }
+        }
+      }
+    },
+    "截取与上次相同的区域": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截取与上次相同的区域"
+          }
+        }
+      }
+    },
+    "正在导出": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在导出"
+          }
+        }
+      }
+    },
+    "点击屏幕或按 Return 截取 · Esc 取消": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击屏幕或按 Return 截取 · Esc 取消"
+          }
+        }
+      }
+    },
+    "视频已复制到剪贴板": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "视频已复制到剪贴板"
+          }
+        }
+      }
+    },
+    "还没有可重复截取的区域": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有可重复截取的区域"
+          }
+        }
+      }
+    },
+    "选择自定义颜色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择自定义颜色"
+          }
+        }
+      }
+    },
+    "填充": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填充"
+          }
+        }
+      }
+    },
+    "外观": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "外观"
+          }
+        }
+      }
+    },
+    "已采集半屏 · 完成后按 Return": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已采集半屏 · 完成后按 Return"
+          }
+        }
+      }
+    },
+    "已采集 %d 屏 · 完成后按 Return": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已采集 %d 屏 · 完成后按 Return"
+          }
+        }
+      }
+    },
+    "已采集约 %.1f 屏 · 完成后按 Return": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已采集约 %.1f 屏 · 完成后按 Return"
           }
         }
       }

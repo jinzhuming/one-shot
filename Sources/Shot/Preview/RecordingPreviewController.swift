@@ -39,7 +39,10 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
                     self?.presentError(VideoExporter.ExportError.clipboardFailed)
                     return
                 }
-                SaveLocationPresenter.showCopied(on: result.screen)
+                SaveLocationPresenter.showCopied(
+                    message: String(localized: "视频已复制到剪贴板"),
+                    on: result.screen
+                )
             },
             onSave: { [weak self] in self?.save(result.url) },
             onClose: { [weak self] in self?.close(id: id) }
@@ -154,8 +157,6 @@ final class RecordingPreviewView: NSView {
     private let onCopy: () -> Void
     private let onSave: () -> Void
     private let onClose: () -> Void
-    private var trackingArea: NSTrackingArea?
-    private var actionButtonsAreVisible = false
 
     init(url: URL, onCopy: @escaping () -> Void, onSave: @escaping () -> Void, onClose: @escaping () -> Void) {
         self.player = AVPlayer(url: url)
@@ -182,29 +183,6 @@ final class RecordingPreviewView: NSView {
 
     deinit {
         player.pause()
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let trackingArea {
-            removeTrackingArea(trackingArea)
-        }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.activeAlways, .mouseEnteredAndExited, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(area)
-        trackingArea = area
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        setActionButtonsVisible(true)
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        setActionButtonsVisible(false)
     }
 
     private func setup() {
@@ -252,8 +230,6 @@ final class RecordingPreviewView: NSView {
         actionGroup.addArrangedSubview(copyButton)
         actionGroup.addArrangedSubview(saveButton)
         actionGroup.translatesAutoresizingMaskIntoConstraints = false
-        actionGroup.isHidden = true
-        actionGroup.alphaValue = 0
         addSubview(actionGroup)
 
         closeButton.controlSize = .small
@@ -268,10 +244,10 @@ final class RecordingPreviewView: NSView {
             playerView.trailingAnchor.constraint(equalTo: trailingAnchor),
             playerView.topAnchor.constraint(equalTo: topAnchor),
             playerView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            actionGroup.centerXAnchor.constraint(equalTo: centerXAnchor),
-            actionGroup.centerYAnchor.constraint(equalTo: centerYAnchor),
-            copyButton.widthAnchor.constraint(equalToConstant: 40),
-            copyButton.heightAnchor.constraint(equalToConstant: 40),
+            actionGroup.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            actionGroup.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            copyButton.widthAnchor.constraint(equalToConstant: 32),
+            copyButton.heightAnchor.constraint(equalToConstant: 32),
             saveButton.widthAnchor.constraint(equalTo: copyButton.widthAnchor),
             saveButton.heightAnchor.constraint(equalTo: copyButton.heightAnchor),
             closeButton.topAnchor.constraint(equalTo: topAnchor, constant: 10),
@@ -298,7 +274,7 @@ final class RecordingPreviewView: NSView {
         button.target = self
         button.action = action
         button.bezelStyle = .circular
-        button.controlSize = .regular
+        button.controlSize = .small
         button.contentTintColor = .white
         button.appearance = NSAppearance(named: .vibrantDark)
         button.bezelColor = isPrimary
@@ -310,28 +286,11 @@ final class RecordingPreviewView: NSView {
         button.setAccessibilityHelp(help)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.wantsLayer = true
-        button.layer?.cornerRadius = 20
+        button.layer?.cornerRadius = 16
         button.layer?.shadowColor = NSColor.black.cgColor
         button.layer?.shadowOpacity = 0.45
         button.layer?.shadowRadius = 8
         button.layer?.shadowOffset = CGSize(width: 0, height: -2)
-    }
-
-    private func setActionButtonsVisible(_ visible: Bool) {
-        guard visible != actionButtonsAreVisible else { return }
-        actionButtonsAreVisible = visible
-
-        if visible {
-            actionGroup.isHidden = false
-        }
-
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.16
-            actionGroup.animator().alphaValue = visible ? 1 : 0
-        } completionHandler: { [weak self] in
-            guard let self, !self.actionButtonsAreVisible else { return }
-            self.actionGroup.isHidden = true
-        }
     }
 
     @objc private func copyVideo() {

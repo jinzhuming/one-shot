@@ -2,11 +2,6 @@ import AppKit
 import Foundation
 import ShotKit
 
-struct LastSelection: Equatable {
-    var rect: CGRect
-    var displayID: UInt32
-}
-
 @MainActor
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
@@ -128,7 +123,7 @@ final class AppSettings: ObservableObject {
         }
     }
 
-    var lastSelection: LastSelection? {
+    var lastSelection: RegionSelection? {
         get {
             guard let dict = defaults.dictionary(forKey: Key.lastSelection) else { return nil }
             func value(_ key: String) -> CGFloat? {
@@ -141,7 +136,7 @@ final class AppSettings: ObservableObject {
                   x.isFinite, y.isFinite, w.isFinite, h.isFinite,
                   w > 0, h > 0,
                   rect.origin.x.isFinite, rect.origin.y.isFinite else { return nil }
-            return LastSelection(rect: rect, displayID: displayID)
+            return RegionSelection(rect: rect, displayID: displayID)
         }
         set {
             if let selection = newValue {

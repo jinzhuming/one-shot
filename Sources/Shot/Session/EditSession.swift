@@ -15,6 +15,11 @@ final class EditSession: ObservableObject {
                 document.updateSelected { $0.withColor(NSColor(color)) }
                 objectWillChange.send()
             }
+            updatePreferences { preferences in
+                if let stored = AnnotationStoredColor(NSColor(color)) {
+                    preferences.customColor = stored
+                }
+            }
         }
     }
     @Published var lineWidth: Double {
@@ -148,6 +153,18 @@ final class EditSession: ObservableObject {
             updatePreferences { $0.calloutWrapText = calloutWrapText }
         }
     }
+    @Published var shapeFillOpacity: Double {
+        didSet {
+            guard !isLoadingPreferences else { return }
+            if selectedTool == .select, document.selectedObject != nil {
+                document.updateSelected { $0.withShapeFillOpacity(CGFloat(shapeFillOpacity)) }
+                objectWillChange.send()
+                return
+            }
+            guard selectedTool == .rect || selectedTool == .ellipse else { return }
+            updatePreferences { $0.shapeFillOpacity = shapeFillOpacity }
+        }
+    }
     @Published var textEditOrigin: CGPoint?
     @Published private(set) var textEditID: UUID?
     @Published private(set) var calloutEditRect: CGRect?
@@ -182,6 +199,12 @@ final class EditSession: ObservableObject {
         penOpacity = preferences.penOpacity
         calloutFillOpacity = preferences.calloutFillOpacity
         calloutWrapText = preferences.calloutWrapText
+        shapeFillOpacity = preferences.shapeFillOpacity
+        if let stored = preferences.customColor {
+            color = Color(nsColor: stored.nsColor)
+            document.style.color = stored.nsColor
+        }
+        document.style.shapeFillOpacity = CGFloat(shapeFillOpacity)
     }
 
     func handle(_ event: CanvasEvent) {
@@ -319,6 +342,7 @@ final class EditSession: ObservableObject {
         document.style.penOpacity = CGFloat(penOpacity)
         document.style.calloutFillOpacity = CGFloat(calloutFillOpacity)
         document.style.calloutWrapText = calloutWrapText
+        document.style.shapeFillOpacity = CGFloat(shapeFillOpacity)
     }
 
     private func loadPreferencesForSelectedTool() {
@@ -343,6 +367,8 @@ final class EditSession: ObservableObject {
         case .callout:
             calloutFillOpacity = preferences.calloutFillOpacity
             calloutWrapText = preferences.calloutWrapText
+        case .rect, .ellipse:
+            shapeFillOpacity = preferences.shapeFillOpacity
         default:
             break
         }
@@ -363,6 +389,7 @@ final class EditSession: ObservableObject {
             penOpacity = Double(style.penOpacity)
             calloutFillOpacity = Double(style.calloutFillOpacity)
             calloutWrapText = style.calloutWrapText
+            shapeFillOpacity = Double(style.shapeFillOpacity)
         }
         switch selected.element {
         case .mosaic(_, let blockSize): mosaicBlockSize = Double(blockSize)

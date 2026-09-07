@@ -73,7 +73,7 @@ final class CaptureSession: OverlayControllerDelegate {
             return
         }
         if rect != last.rect {
-            AppSettings.shared.lastSelection = LastSelection(rect: rect, displayID: screen.displayID)
+            AppSettings.shared.lastSelection = RegionSelection(rect: rect, displayID: screen.displayID)
         }
         guard prepareSession() else { return }
         installEscapeToCancel()
@@ -230,7 +230,9 @@ final class CaptureSession: OverlayControllerDelegate {
 
     @discardableResult
     private func prepareSession(for requestedIntent: CaptureIntent) -> Bool {
-        if recordingService.isRecording || recordingService.isStarting {
+        if recordingService.isRecording
+            || recordingService.isStarting
+            || isFinishingRecording {
             return false
         }
         if machine.isBusy {
@@ -639,6 +641,8 @@ final class CaptureSession: OverlayControllerDelegate {
     private func fail(_ error: Error, operation: UInt64? = nil) {
         if let operation, !isCurrent(operation) { return }
         invalidatePendingCapture()
+        recordingControls.dismiss()
+        recordingTargetOverlay.dismiss()
         removeEscapeToCancel()
         overlay.dismiss()
         editor.dismiss()

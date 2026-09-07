@@ -210,6 +210,13 @@ struct AnnotationToolbar: View {
             HStack(spacing: detailSpacing) {
                 windowColorControls
                 detailSlider(
+                    label: String(localized: "填充"),
+                    value: $session.shapeFillOpacity,
+                    range: 0...1,
+                    step: 0.05,
+                    valueText: percentageText(session.shapeFillOpacity)
+                )
+                detailSlider(
                     label: String(localized: "线宽（pt）"),
                     value: $session.lineWidth,
                     range: 1...24,
@@ -460,6 +467,13 @@ struct AnnotationToolbar: View {
                 case .rect(_, _), .ellipse(_, _):
                     windowColorControls
                     detailSlider(
+                        label: String(localized: "填充"),
+                        value: $session.shapeFillOpacity,
+                        range: 0...1,
+                        step: 0.05,
+                        valueText: percentageText(session.shapeFillOpacity)
+                    )
+                    detailSlider(
                         label: String(localized: "线宽（pt）"),
                         value: $session.lineWidth,
                         range: 1...24,
@@ -604,7 +618,7 @@ struct AnnotationToolbar: View {
     }
 
     private var colorSwatches: some View {
-        HStack(spacing: presentation.isFloating ? 5 : 2) {
+        HStack(spacing: presentation.isFloating ? 4 : 2) {
             ForEach(Array(Self.swatches.enumerated()), id: \.offset) { _, swatch in
                 Button {
                     session.color = Color(nsColor: swatch.color)
@@ -633,6 +647,18 @@ struct AnnotationToolbar: View {
                 .accessibilityLabel(swatch.help)
                 .accessibilityAddTraits(isSelected(swatch.color) ? [.isSelected] : [])
             }
+            ColorPicker(
+                String(localized: "选择自定义颜色"),
+                selection: $session.color,
+                supportsOpacity: false
+            )
+            .labelsHidden()
+            .frame(
+                width: AnnotationChromeMetrics.controlSize,
+                height: AnnotationChromeMetrics.controlSize
+            )
+            .help(String(localized: "选择自定义颜色"))
+            .accessibilityLabel(String(localized: "选择自定义颜色"))
         }
     }
 
@@ -727,6 +753,7 @@ struct AnnotationToolbar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(AnnotationIconButtonStyle(presentation: presentation))
+            .disabled(session.isExporting)
             .help(String(localized: "关闭编辑器（Esc）"))
             .accessibilityLabel(String(localized: "关闭"))
         }
@@ -735,6 +762,11 @@ struct AnnotationToolbar: View {
 
     private var exportActionGroup: some View {
         HStack(spacing: presentation.isFloating ? 6 : 4) {
+            if session.isExporting {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel(String(localized: "正在导出"))
+            }
             Button(String(localized: "复制"), action: onCopy)
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)

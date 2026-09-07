@@ -54,7 +54,7 @@ enum OverlayModeHint {
         case .window:
             return String(localized: "点击窗口 · 拖拽区域 · Esc 取消 · \(toggleKey) 切换")
         case .fullscreen:
-            return nil
+            return String(localized: "点击屏幕或按 Return 截取 · Esc 取消")
         }
     }
 }

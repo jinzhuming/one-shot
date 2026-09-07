@@ -104,7 +104,6 @@ private final class ScrollCaptureHUDView: NSView {
     }
 
     func update(progress: ScrollCaptureProgress) {
-        let height = String(progress.outputHeightPixels)
         if case .lengthLimitReached = progress.warning {
             detailLabel.stringValue = String(localized: "已达到长度上限，请完成当前截图。")
         } else if case .memoryLimitReached = progress.warning {
@@ -112,13 +111,26 @@ private final class ScrollCaptureHUDView: NSView {
         } else if progress.warning != nil {
             detailLabel.stringValue = String(localized: "滚动过快，无法稳定拼接，请减慢滚动速度。")
         } else {
-            detailLabel.stringValue = String(
-                format: String(localized: "已采集 %@ 像素 · 完成后按 Return"),
-                height
-            )
+            detailLabel.stringValue = screenProgressText(for: progress)
         }
         detailLabel.setAccessibilityLabel(detailLabel.stringValue)
         needsLayout = true
+    }
+
+    private func screenProgressText(for progress: ScrollCaptureProgress) -> String {
+        switch ScrollCaptureProgressCopy.screenCount(
+            outputHeightPixels: progress.outputHeightPixels,
+            viewportHeightPixels: progress.viewportHeightPixels
+        ) {
+        case .halfScreen:
+            return String(localized: "已采集半屏 · 完成后按 Return")
+        case .exactScreens(let count):
+            return String(format: String(localized: "已采集 %d 屏 · 完成后按 Return"), count)
+        case .approximateScreens(let count):
+            return String(format: String(localized: "已采集约 %.1f 屏 · 完成后按 Return"), count)
+        case nil:
+            return String(localized: "滚动内容，完成后按 Return")
+        }
     }
 
     @objc private func finish() {

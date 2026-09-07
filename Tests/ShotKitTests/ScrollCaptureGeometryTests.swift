@@ -27,3 +27,11 @@ import Testing
     #expect(ScrollCaptureGeometry.shiftedTop(direction: .down, existingTop: 80, newStripHeight: 20) == 80)
     #expect(ScrollCaptureGeometry.shiftedTop(direction: .up, existingTop: 80, newStripHeight: 20) == 100)
 }
+
+@Test func scrollCaptureProgressCopyReportsScreenCounts() {
+    #expect(ScrollCaptureProgressCopy.screenCount(outputHeightPixels: 0, viewportHeightPixels: 100) == nil)
+    #expect(ScrollCaptureProgressCopy.screenCount(outputHeightPixels: 40, viewportHeightPixels: 100) == .halfScreen)
+    #expect(ScrollCaptureProgressCopy.screenCount(outputHeightPixels: 100, viewportHeightPixels: 100) == .exactScreens(1))
+    #expect(ScrollCaptureProgressCopy.screenCount(outputHeightPixels: 200, viewportHeightPixels: 100) == .exactScreens(2))
+    #expect(ScrollCaptureProgressCopy.screenCount(outputHeightPixels: 156, viewportHeightPixels: 96) == .approximateScreens(1.6))
+}

@@ -27,16 +27,19 @@ enum SaveLocationPresenter {
         }
     }
 
-    static func showCopied(on screen: NSScreen? = nil) {
+    static func showCopied(
+        message: String = String(localized: "截图已复制到剪贴板"),
+        on screen: NSScreen? = nil
+    ) {
         dismissTask?.cancel()
 
         let panel = panel ?? makePanel()
-        panel.configureCopied()
+        panel.configureCopied(message: message)
         if let screen = screen ?? screenUnderPointer() {
             panel.position(on: screen)
         }
         panel.orderFrontRegardless()
-        panel.announce(String(localized: "截图已复制到剪贴板"))
+        panel.announce(message)
 
         dismissTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(2.5))
@@ -111,9 +114,9 @@ private final class SaveConfirmationPanel: NSPanel {
         setContentSize(confirmationView.preferredContentSize)
     }
 
-    func configureCopied() {
+    func configureCopied(message: String) {
         fileURL = nil
-        confirmationView.configureCopied()
+        confirmationView.configureCopied(message: message)
         setContentSize(confirmationView.preferredContentSize)
     }
 
@@ -229,13 +232,13 @@ private final class SaveConfirmationView: NSView {
         needsLayout = true
     }
 
-    func configureCopied() {
-        titleLabel.stringValue = String(localized: "截图已复制到剪贴板")
-        titleLabel.setAccessibilityLabel(String(localized: "截图已复制到剪贴板"))
-        setAccessibilityLabel(String(localized: "截图已复制到剪贴板"))
+    func configureCopied(message: String) {
+        titleLabel.stringValue = message
+        titleLabel.setAccessibilityLabel(message)
+        setAccessibilityLabel(message)
         statusImageView.image = NSImage(
             systemSymbolName: "doc.on.clipboard.fill",
-            accessibilityDescription: String(localized: "截图已复制到剪贴板")
+            accessibilityDescription: message
         )
         fileLabel.stringValue = ""
         fileLabel.isHidden = true

@@ -10,6 +10,8 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
     private var settingsPresentation: Task<Void, Never>?
     private var settingsPresentationGeneration = 0
     private var isPresentingSettings = false
+    private var captureStartTask: Task<Void, Never>?
+    private var resignDebounceTask: Task<Void, Never>?
     private var windowCloseObserver: NSObjectProtocol?
     private var applicationResignObserver: NSObjectProtocol?
 
@@ -35,8 +37,7 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
         // activation policy or presenting capture windows. This matters
         // especially when the settings window just changed the app from
         // regular back to accessory.
-        Task { @MainActor in
-            await Task.yield()
+        scheduleCaptureStart {
             CaptureSession.shared.begin(mode)
         }
     }
@@ -46,13 +47,14 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
     }
 
     func startScrollingCapture() {
-        Task { @MainActor in
-            await Task.yield()
+        scheduleCaptureStart {
             CaptureSession.shared.beginScrolling()
         }
     }
 
     func hideUtilityWindows() {
+        captureStartTask?.cancel()
+        captureStartTask = nil
         settingsPresentation?.cancel()
         settingsPresentation = nil
         isPresentingSettings = false
@@ -69,6 +71,8 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
 
     func showSettings(using action: OpenSettingsAction? = nil) {
         // Full-screen capture chrome sits above a normal Settings window.
+        captureStartTask?.cancel()
+        captureStartTask = nil
         if CaptureSession.shared.phase == .capturing, !CaptureSession.shared.isRecording {
             CaptureSession.shared.cancel()
         }
@@ -238,23 +242,44 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
             queue: .main
         ) { _ in
             Task { @MainActor in
-                // Menu-bar tracking and activation policy changes can produce
-                // a short-lived resign/activate pair while capture starts.
-                // Only treat a sustained loss of activation as an external
-                // escape from the selection session.
-                try? await Task.sleep(for: .milliseconds(200))
-                guard !NSApp.isActive else { return }
-                // A screenshot selection is an intentionally modal desktop
-                // interaction. If the app loses activation, releasing its
-                // full-screen capture chrome is safer than leaving an input
-                // shield above another application. Recording is excluded:
-                // its overlay has already been dismissed and the stream is
-                // allowed to continue in the background.
-                guard CaptureSession.shared.phase == .capturing,
-                      !CaptureSession.shared.hasRecordingActivity,
-                      !CaptureSession.shared.isScrollingCapture else { return }
-                CaptureSession.shared.cancel()
+                AppCoordinator.shared.handleApplicationResign()
             }
+        }
+    }
+
+    private func scheduleCaptureStart(_ action: @escaping @MainActor () -> Void) {
+        captureStartTask?.cancel()
+        captureStartTask = Task { @MainActor in
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            action()
+            if !Task.isCancelled {
+                captureStartTask = nil
+            }
+        }
+    }
+
+    private func handleApplicationResign() {
+        resignDebounceTask?.cancel()
+        resignDebounceTask = Task { @MainActor in
+            // Menu-bar tracking and activation policy changes can produce
+            // a short-lived resign/activate pair while capture starts.
+            // Only treat a sustained loss of activation as an external
+            // escape from the selection session.
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else { return }
+            resignDebounceTask = nil
+            guard !NSApp.isActive else { return }
+            // A screenshot selection is an intentionally modal desktop
+            // interaction. If the app loses activation, releasing its
+            // full-screen capture chrome is safer than leaving an input
+            // shield above another application. Recording is excluded:
+            // its overlay has already been dismissed and the stream is
+            // allowed to continue in the background.
+            guard CaptureSession.shared.phase == .capturing,
+                  !CaptureSession.shared.hasRecordingActivity,
+                  !CaptureSession.shared.isScrollingCapture else { return }
+            CaptureSession.shared.cancel()
         }
     }
 

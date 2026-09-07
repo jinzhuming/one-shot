@@ -45,7 +45,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(String(localized: "欢迎使用 Shot"))
                     .font(.title2)
-                Text(String(localized: "从菜单栏或快捷键开始截图。悬停点选窗口，拖拽框选区域；截取后可以直接标注、复制或保存。"))
+                Text(String(localized: "从菜单栏或快捷键开始截图、滚动截图或录屏。悬停点选窗口，拖拽框选区域；截取后可以直接标注、复制或保存。"))
                     .foregroundStyle(.secondary)
             }
         case 1:
@@ -80,7 +80,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text(String(localized: "保存位置与快捷键"))
                     .font(.title2)
-                Text(String(localized: "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，可在设置里更改。"))
+                Text(String(localized: "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，录屏为 ⌘⇧6，可在设置里更改。录屏当前不包含声音。"))
                     .foregroundStyle(.secondary)
                 HStack {
                     Text(settings.saveDirectoryURL.path)

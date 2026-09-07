@@ -22,7 +22,7 @@
    只用 SwiftUI `Settings` scene。用 `showSettingsWindow:` 打开，窗口 identifier 为 `shot.settings`，标题为「设置」。不要再创建第二套设置 `NSWindow`。
 
 3. **状态菜单**
-   顺序：截取区域 / 窗口 / 全屏 / All-in-One / 录屏 / 截取上次区域 → 分隔线 → 设置… → 关于 Shot → 退出 Shot。退出必须是最后一项；只有已经实现并有完整取消/保存路径的功能才能放进状态菜单。
+   顺序：截取区域 / 窗口 / 全屏 / All-in-One / 截取上次区域 → 分隔线 → 滚动截图 / 录屏 → 分隔线 → 设置… → 关于 Shot → 退出 Shot。退出必须是最后一项。只有已经实现并有完整取消/保存路径的功能才能放进状态菜单。
 
 4. **Overlay 模式条**
    只放当前可用模式（区域、窗口、全屏）。未实现功能从主 HUD 移除。标签字号不要低于 11 pt。选中态用 accent。条定位在 `visibleFrame` 底部居中。

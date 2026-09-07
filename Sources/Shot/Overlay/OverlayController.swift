@@ -479,10 +479,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     }
 
     private func persistLastSelection(_ selection: RegionSelection) {
-        AppSettings.shared.lastSelection = LastSelection(
-            rect: selection.rect,
-            displayID: selection.displayID
-        )
+        AppSettings.shared.lastSelection = selection
     }
 
     private func setSelectionDisplay(for point: CGPoint) {
@@ -878,12 +875,13 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
 
     private func startCatalogRefresh() {
         stopCatalogRefresh()
-        refreshTask = Task { [weak self] in
+        refreshTask = Task { @MainActor [weak self] in
             await self?.refreshShareableOnce()
             var ticks = 0
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 500_000_000)
-                guard let self, !self.dimOnly, !self.isFrozen, !self.isDragging else { continue }
+                guard let self, !Task.isCancelled else { return }
+                guard !self.dimOnly, !self.isFrozen, !self.isDragging else { continue }
                 await self.refreshWindowSnapshot()
                 ticks += 1
                 if ticks % 4 == 0 {
@@ -895,7 +893,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
 
     private func requestWindowRefreshForMouseMovement() {
         mouseRefreshTask?.cancel()
-        mouseRefreshTask = Task { [weak self] in
+        mouseRefreshTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 50_000_000)
             guard let self, !Task.isCancelled else { return }
             await self.refreshWindowSnapshot()

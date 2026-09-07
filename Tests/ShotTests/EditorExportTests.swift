@@ -65,7 +65,7 @@ import Testing
         "h": 80.0,
         "displayID": 42
     ], forKey: "lastSelection")
-    #expect(settings.lastSelection == LastSelection(
+    #expect(settings.lastSelection == RegionSelection(
         rect: CGRect(x: 10, y: 20, width: 100, height: 80),
         displayID: 42
     ))
@@ -213,6 +213,17 @@ import Testing
 
     state.select(.allInOne)
     #expect(state.mode == .area)
+}
+
+@Test func overlayModeHintExplainsFullscreenConfirmation() {
+    let area = OverlayModeHint.caption(for: .area, toggleKey: "Space")
+    let window = OverlayModeHint.caption(for: .window, toggleKey: "Space")
+    let fullscreen = OverlayModeHint.caption(for: .fullscreen, toggleKey: "Space")
+
+    #expect(area?.contains("Esc") == true)
+    #expect(window?.contains("Esc") == true)
+    #expect(fullscreen?.contains("Return") == true)
+    #expect(fullscreen?.contains("Esc") == true)
 }
 
 @Test @MainActor func modeBarWindowStaysMouseInteractiveWithoutTakingKeyboardFocus() {
