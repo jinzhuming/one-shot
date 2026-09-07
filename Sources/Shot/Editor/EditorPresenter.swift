@@ -127,7 +127,6 @@ final class EditorPresenter {
             arrangement: arrangement,
             presentationStyle: presentationStyle,
             windowedLayout: windowedLayout,
-            scrollableCanvas: result.kind == .scrolling,
             onCopy: { [weak self] in self?.copyAndFinish() },
             onSave: { [weak self] in self?.saveAndFinish() },
             onClose: { [weak self] in self?.closeFromToolbar() }
@@ -309,8 +308,12 @@ final class EditorPresenter {
         if let monitor = keyMonitor {
             NSEvent.removeMonitor(monitor)
         }
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self else { return event }
+            if event.keyCode == 49 {
+                (self.panel?.contentView as? EditorChromeView)?.setSpaceHeld(event.type == .keyDown)
+                return event
+            }
             let command = event.modifierFlags.contains(.command)
             if command, event.charactersIgnoringModifiers?.lowercased() == "w" {
                 self.closeFromWindow()

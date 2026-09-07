@@ -53,6 +53,11 @@ private enum IconDetail: Equatable {
     }
 }
 
+// macOS app-icon artwork is supplied on a square canvas, but the visible tile
+// needs optical breathing room to align with neighboring Dock icons. This is a
+// visual adjustment, not a system-required safe-zone value.
+private let iconCanvasInset: CGFloat = 0.08
+
 private func drawViewfinderMark(
     in rect: NSRect,
     detail: IconDetail,
@@ -185,29 +190,44 @@ private func renderIcon(size: CGFloat, detail: IconDetail) -> NSImage {
     image.lockFocus()
 
     let rect = NSRect(x: 0, y: 0, width: size, height: size)
+    let artworkRect = rect.insetBy(dx: size * iconCanvasInset, dy: size * iconCanvasInset)
+    let artworkSize = min(artworkRect.width, artworkRect.height)
+    let artworkCornerRadius = artworkSize * 0.215
+
+    // Keep the outer canvas transparent and round the inset tile itself. The
+    // asset catalog and the legacy ICNS fallback must have the same optical
+    // scale when either packaging path supplies the Dock icon.
+    NSGraphicsContext.saveGraphicsState()
+    NSBezierPath(
+        roundedRect: artworkRect,
+        xRadius: artworkCornerRadius,
+        yRadius: artworkCornerRadius
+    ).addClip()
+
     let gradient = NSGradient(colors: [
         NSColor(calibratedRed: 0.08, green: 0.13, blue: 0.43, alpha: 1),
         NSColor(calibratedRed: 0.09, green: 0.30, blue: 0.70, alpha: 1),
         NSColor(calibratedRed: 0.03, green: 0.52, blue: 0.82, alpha: 1)
     ])
-    gradient?.draw(in: rect, angle: 34)
+    gradient?.draw(in: artworkRect, angle: 34)
 
-    // Keep the background square and unmasked; macOS applies the app-icon shape
-    // in Finder and the Dock. Use a small glow instead of a large decorative
-    // shape so the lens remains the visual focus.
+    // Keep the inset tile simple and opaque. Use a small glow instead of a
+    // large decorative shape so the lens remains the visual focus.
     NSColor.white.withAlphaComponent(0.035).setFill()
     NSBezierPath(ovalIn: NSRect(
-        x: size * 0.02,
-        y: size * 0.72,
-        width: size * 0.40,
-        height: size * 0.30
+        x: artworkRect.minX + artworkSize * 0.02,
+        y: artworkRect.minY + artworkSize * 0.72,
+        width: artworkSize * 0.40,
+        height: artworkSize * 0.30
     )).fill()
 
+    NSGraphicsContext.restoreGraphicsState()
+
     NSGraphicsContext.current?.shouldAntialias = true
-    drawLens(in: rect, detail: detail)
+    drawLens(in: artworkRect, detail: detail)
 
     drawViewfinderMark(
-        in: rect,
+        in: artworkRect,
         detail: detail,
         color: NSColor.white.withAlphaComponent(0.64)
     )
@@ -238,17 +258,13 @@ func pngData(_ image: NSImage, pixels: Int) -> Data {
 }
 
 private func maskedIcon(_ image: NSImage) -> NSImage {
-    let size = image.size.width
     let rect = NSRect(origin: .zero, size: image.size)
     let masked = NSImage(size: image.size)
     masked.lockFocus()
 
-    // The asset catalog receives the unmasked square source above. The
-    // SwiftPM fallback is an icns file, so apply the macOS rounded-rectangle
-    // shape here for legacy packaging that does not contain Assets.car.
+    // Keep the legacy ICNS fallback consistent with the asset-catalog source.
+    // The rendered artwork already contains its inset rounded tile.
     NSGraphicsContext.saveGraphicsState()
-    let radius = size * 0.215
-    NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).addClip()
     image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
     NSGraphicsContext.restoreGraphicsState()
 

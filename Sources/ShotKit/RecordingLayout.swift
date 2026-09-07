@@ -1,6 +1,12 @@
 import CoreGraphics
+import Foundation
 
 public enum RecordingLayout {
+    public static func formattedDuration(_ elapsed: TimeInterval) -> String {
+        let totalSeconds = max(0, Int(elapsed.rounded(.down)))
+        return String(format: "%02d:%02d", totalSeconds / 60, totalSeconds % 60)
+    }
+
     public static func evenPixelSize(points: CGFloat, scale: CGFloat) -> Int {
         guard points.isFinite, scale.isFinite, points > 0, scale > 0 else { return 2 }
         let rounded = max(2, Int((points * scale).rounded()))

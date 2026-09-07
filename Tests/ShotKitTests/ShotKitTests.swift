@@ -231,6 +231,41 @@ import Testing
     #expect(abs(roundTrip.y - viewPoint.y) < 0.001)
 }
 
+@Test func canvasZoomClampsMagnificationAndFitsImageToViewport() {
+    #expect(CanvasZoom.clamped(0.01) == CanvasZoom.minimumMagnification)
+    #expect(CanvasZoom.clamped(8) == CanvasZoom.maximumMagnification)
+    #expect(CanvasZoom.clamped(.nan) == 1)
+
+    let fitted = CanvasZoom.fittedMagnification(
+        imageSize: CGSize(width: 1600, height: 900),
+        viewportSize: CGSize(width: 800, height: 700)
+    )
+    #expect(abs(fitted - 0.5) < 0.001)
+}
+
+@Test func canvasZoomSeparatesTrackpadPanFromMouseZoom() {
+    #expect(CanvasZoom.scrollAction(
+        hasPreciseScrollingDeltas: true,
+        commandPressed: false,
+        commandScrollEnabled: false
+    ) == .pan)
+    #expect(CanvasZoom.scrollAction(
+        hasPreciseScrollingDeltas: false,
+        commandPressed: false,
+        commandScrollEnabled: false
+    ) == .zoom)
+    #expect(CanvasZoom.scrollAction(
+        hasPreciseScrollingDeltas: true,
+        commandPressed: true,
+        commandScrollEnabled: true
+    ) == .zoom)
+    #expect(CanvasZoom.scrollAction(
+        hasPreciseScrollingDeltas: true,
+        commandPressed: true,
+        commandScrollEnabled: false
+    ) == .pan)
+}
+
 @Test func selectionGeometrySquareAndSpaceMove() {
     let start = CGPoint(x: 10, y: 10)
     let current = CGPoint(x: 30, y: 20)
@@ -641,6 +676,60 @@ import Testing
     #expect(visible.insetBy(dx: 8, dy: 8).contains(full))
 }
 
+@Test func recordingIndicatorBadgePrefersSpaceAboveTargetAndAvoidsControlBar() {
+    let visible = CGRect(x: 100, y: 50, width: 1200, height: 800)
+    let target = CGRect(x: 420, y: 360, width: 320, height: 180)
+    let badge = RecordingIndicatorLayout.badgeFrame(
+        size: CGSize(width: 140, height: 26),
+        targetRect: target,
+        visibleFrame: visible,
+        reservedFrame: CGRect(x: 490, y: 68, width: 420, height: 58)
+    )
+
+    #expect(abs(badge.midX - target.midX) < 0.001)
+    #expect(abs(badge.minY - target.maxY - 8) < 0.001)
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(badge))
+    #expect(!badge.intersects(CGRect(x: 490, y: 68, width: 420, height: 58)))
+}
+
+@Test func recordingIndicatorBadgeFlipsBelowTopEdgeAndClampsEdgeTargets() {
+    let visible = CGRect(x: 1920, y: 40, width: 1512, height: 982)
+    let topTarget = CGRect(x: 2200, y: 900, width: 260, height: 100)
+    let topBadge = RecordingIndicatorLayout.badgeFrame(
+        size: CGSize(width: 140, height: 26),
+        targetRect: topTarget,
+        visibleFrame: visible
+    )
+    #expect(topBadge.maxY <= topTarget.minY - 8 + 0.001)
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(topBadge))
+
+    let edgeTarget = CGRect(x: 1920, y: 40, width: 80, height: 80)
+    let edgeBadge = RecordingIndicatorLayout.badgeFrame(
+        size: CGSize(width: 140, height: 26),
+        targetRect: edgeTarget,
+        visibleFrame: visible
+    )
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(edgeBadge))
+}
+
+@Test func recordingIndicatorBadgeUsesVisibleCornerForFullscreen() {
+    let visible = CGRect(x: 0, y: 24, width: 1440, height: 876)
+    let badge = RecordingIndicatorLayout.badgeFrame(
+        size: CGSize(width: 140, height: 26),
+        targetRect: nil,
+        visibleFrame: visible
+    )
+
+    #expect(badge.maxX <= visible.maxX - 8 + 0.001)
+    #expect(badge.maxY <= visible.maxY - 8 + 0.001)
+    #expect(badge.minX > visible.midX)
+}
+
+@Test func recordingLayoutFormatsElapsedDuration() {
+    #expect(RecordingLayout.formattedDuration(65.9) == "01:05")
+    #expect(RecordingLayout.formattedDuration(-1) == "00:00")
+}
+
 @Test func overlayModeSwitchTogglesAreaAndWindow() {
     #expect(OverlayModeSwitch.toggled(from: .area) == .window)
     #expect(OverlayModeSwitch.toggled(from: .window) == .area)
@@ -833,6 +922,15 @@ import Testing
         == OverlayFocusStyle.reducedTransparencyWindowHighlightOpacity)
     #expect(OverlayFocusStyle.reducedTransparencyWindowHighlightOpacity
         > OverlayFocusStyle.windowHighlightOpacity)
+}
+
+@Test func overlayFocusStyleUsesRestrainedSelectionAndMagnifierChrome() {
+    #expect(OverlayFocusStyle.selectionDashLength > 0)
+    #expect(OverlayFocusStyle.selectionDashGap > 0)
+    #expect(OverlayFocusStyle.selectionHandleDiameter < 8)
+    #expect(OverlayFocusStyle.selectionBorderOpacity < 0.8)
+    #expect(OverlayFocusStyle.magnifierBorderLineWidth == 1)
+    #expect(OverlayFocusStyle.magnifierBezelOpacity > 0.8)
 }
 
 @Test func windowHitTestingFrontmostAndCycle() {

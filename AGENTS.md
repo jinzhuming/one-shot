@@ -9,6 +9,7 @@
 - `Support/Shot.xcconfig` 是 Bundle ID、营销版本和构建号的唯一来源；`Support/Info.plist` 是 Xcode 模板，最终 `.app` 中必须是展开后的值。
 - `Shot.xcodeproj` 是生成物，禁止手工编辑；修改 `project.yml` 后运行 `make generate`。
 - 修改源码、资源、plist、权限或签名配置后，至少运行 `make verify`；没有完整 Xcode 时，不得声称 `xcodebuild` 已通过。
+- 本地重新打包安装到 `/Applications/Shot.app` 时，替换前先正常退出正在运行的 Shot，然后直接替换旧包；不要创建 `.previous` 或其他旧包备份。
 
 ## 截图与显示器
 

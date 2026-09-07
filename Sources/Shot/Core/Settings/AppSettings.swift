@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import ShotKit
 
@@ -18,9 +19,13 @@ final class AppSettings: ObservableObject {
         static let saveDirectory = "saveDirectory"
         static let askWhereToSave = "askWhereToSave"
         static let includeWindowShadow = "includeWindowShadow"
+        static let useLightweightCaptureHUD = "overlay.useLightweightCaptureHUD"
+        static let screenshotBackgroundMode = "screenshot.backgroundMode"
+        static let customScreenshotBackground = "screenshot.customBackground"
         static let lastSelection = "lastSelection"
         static let areaWindowToggleHotkey = "overlay.areaWindowToggleHotkey"
         static let annotationWindowPlacement = "annotation.windowPlacement"
+        static let annotationZoomWithCommandScroll = "annotation.zoomWithCommandScroll"
         static let annotationPreferences = "annotation.preferences"
     }
 
@@ -34,6 +39,10 @@ final class AppSettings: ObservableObject {
 
     @Published var annotationWindowPlacement: AnnotationWindowPlacement {
         didSet { defaults.set(annotationWindowPlacement.rawValue, forKey: Key.annotationWindowPlacement) }
+    }
+
+    @Published var annotationZoomWithCommandScroll: Bool {
+        didSet { defaults.set(annotationZoomWithCommandScroll, forKey: Key.annotationZoomWithCommandScroll) }
     }
 
     @Published var copyOnComplete: Bool {
@@ -50,6 +59,24 @@ final class AppSettings: ObservableObject {
 
     @Published var includeWindowShadow: Bool {
         didSet { defaults.set(includeWindowShadow, forKey: Key.includeWindowShadow) }
+    }
+
+    @Published var useLightweightCaptureHUD: Bool {
+        didSet { defaults.set(useLightweightCaptureHUD, forKey: Key.useLightweightCaptureHUD) }
+    }
+
+    @Published var screenshotBackgroundMode: ScreenshotBackgroundMode {
+        didSet { defaults.set(screenshotBackgroundMode.rawValue, forKey: Key.screenshotBackgroundMode) }
+    }
+
+    @Published var customScreenshotBackgroundPath: String {
+        didSet {
+            if customScreenshotBackgroundPath.isEmpty {
+                defaults.removeObject(forKey: Key.customScreenshotBackground)
+            } else {
+                defaults.set(customScreenshotBackgroundPath, forKey: Key.customScreenshotBackground)
+            }
+        }
     }
 
     @Published var saveDirectoryPath: String {
@@ -80,6 +107,25 @@ final class AppSettings: ObservableObject {
     var saveDirectoryURL: URL {
         get { URL(fileURLWithPath: saveDirectoryPath, isDirectory: true) }
         set { saveDirectoryPath = newValue.path }
+    }
+
+    var customScreenshotBackgroundURL: URL? {
+        get {
+            guard !customScreenshotBackgroundPath.isEmpty else { return nil }
+            return URL(fileURLWithPath: customScreenshotBackgroundPath)
+        }
+        set { customScreenshotBackgroundPath = newValue?.path ?? "" }
+    }
+
+    func screenshotBackgroundURL(for screen: NSScreen) -> URL? {
+        switch screenshotBackgroundMode {
+        case .desktop:
+            return NSWorkspace.shared.desktopImageURL(for: screen)
+        case .custom:
+            return customScreenshotBackgroundURL
+        case .none:
+            return nil
+        }
     }
 
     var lastSelection: LastSelection? {
@@ -130,10 +176,16 @@ final class AppSettings: ObservableObject {
         annotationWindowPlacement = AnnotationWindowPlacement(
             rawValue: defaults.string(forKey: Key.annotationWindowPlacement) ?? ""
         ) ?? .inPlace
+        annotationZoomWithCommandScroll = defaults.object(forKey: Key.annotationZoomWithCommandScroll) as? Bool ?? false
         copyOnComplete = defaults.object(forKey: Key.copyOnComplete) as? Bool ?? true
         saveFormat = SaveFormat(rawValue: defaults.string(forKey: Key.saveFormat) ?? "") ?? .png
         askWhereToSave = defaults.bool(forKey: Key.askWhereToSave)
         includeWindowShadow = defaults.object(forKey: Key.includeWindowShadow) as? Bool ?? false
+        useLightweightCaptureHUD = defaults.object(forKey: Key.useLightweightCaptureHUD) as? Bool ?? true
+        screenshotBackgroundMode = ScreenshotBackgroundMode(
+            rawValue: defaults.string(forKey: Key.screenshotBackgroundMode) ?? ""
+        ) ?? .desktop
+        customScreenshotBackgroundPath = defaults.string(forKey: Key.customScreenshotBackground) ?? ""
         let storedSaveDirectory = defaults.string(forKey: Key.saveDirectory)
         // Keep an explicitly stored path untouched. This prevents changing a
         // user's existing Downloads or custom location when the fresh-install

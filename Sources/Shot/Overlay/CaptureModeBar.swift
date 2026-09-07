@@ -48,7 +48,7 @@ struct CaptureModeBar: View {
             if let caption {
                 Text(caption)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.primary.opacity(0.72))
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
             }
@@ -56,7 +56,10 @@ struct CaptureModeBar: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background {
-            HUDChrome.PanelBackground(cornerRadius: 14)
+            HUDChrome.PanelBackground(
+                cornerRadius: 14,
+                treatment: settings.useLightweightCaptureHUD ? .lightweight : .standard
+            )
         }
         .environment(\.colorScheme, .dark)
     }

@@ -108,11 +108,13 @@ private final class SaveConfirmationPanel: NSPanel {
     func configureSaved(fileURL: URL) {
         self.fileURL = fileURL
         confirmationView.configureSaved(fileURL: fileURL)
+        setContentSize(confirmationView.preferredContentSize)
     }
 
     func configureCopied() {
         fileURL = nil
         confirmationView.configureCopied()
+        setContentSize(confirmationView.preferredContentSize)
     }
 
     func announce(_ message: String) {
@@ -138,7 +140,11 @@ private final class SaveConfirmationPanel: NSPanel {
 private final class SaveConfirmationView: NSView {
     var onOpenFolder: (() -> Void)?
 
+    private static let savedSize = NSSize(width: 404, height: 82)
+    private static let copiedSize = NSSize(width: 276, height: 66)
+
     private let effectView = NSVisualEffectView()
+    private let statusImageView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: String(localized: "截图已保存"))
     private let fileLabel = NSTextField(labelWithString: "")
     private let openButton = NSButton(
@@ -154,33 +160,52 @@ private final class SaveConfirmationView: NSView {
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
 
-        effectView.material = .hudWindow
+        effectView.material = .popover
         effectView.blendingMode = .behindWindow
         effectView.state = .active
-        effectView.appearance = NSAppearance(named: .vibrantDark)
+        effectView.alphaValue = 0.92
         if HUDChrome.reduceTransparency {
             effectView.isHidden = true
-            layer?.backgroundColor = NSColor.black.withAlphaComponent(0.92).cgColor
+            layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         }
         addSubview(effectView)
 
-        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-        titleLabel.textColor = .white
+        statusImageView.imageScaling = .scaleProportionallyUpOrDown
+        statusImageView.symbolConfiguration = NSImage.SymbolConfiguration(
+            pointSize: 24,
+            weight: .medium
+        )
+        statusImageView.contentTintColor = NSColor.controlAccentColor
+        statusImageView.setAccessibilityElement(false)
+        addSubview(statusImageView)
+
+        titleLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+        titleLabel.textColor = NSColor.labelColor
+        titleLabel.maximumNumberOfLines = 1
+        titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.setAccessibilityLabel(String(localized: "截图已保存"))
         addSubview(titleLabel)
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
 
-        fileLabel.font = .systemFont(ofSize: 11)
-        fileLabel.textColor = NSColor.white.withAlphaComponent(0.7)
+        fileLabel.font = .systemFont(ofSize: 11.5)
+        fileLabel.textColor = NSColor.secondaryLabelColor
+        fileLabel.maximumNumberOfLines = 1
         fileLabel.lineBreakMode = .byTruncatingMiddle
         addSubview(fileLabel)
 
+        openButton.image = NSImage(
+            systemSymbolName: "folder",
+            accessibilityDescription: String(localized: "打开文件夹")
+        )
+        openButton.imagePosition = .imageLeading
+        openButton.imageScaling = .scaleProportionallyDown
         openButton.bezelStyle = .rounded
         openButton.controlSize = .small
         openButton.target = self
         openButton.action = #selector(openFolder)
         openButton.setAccessibilityLabel(String(localized: "打开文件夹"))
+        openButton.setAccessibilityHelp(String(localized: "在访达中显示截图文件"))
         addSubview(openButton)
     }
 
@@ -193,6 +218,10 @@ private final class SaveConfirmationView: NSView {
         titleLabel.stringValue = String(localized: "截图已保存")
         titleLabel.setAccessibilityLabel(String(localized: "截图已保存"))
         setAccessibilityLabel(String(localized: "截图已保存"))
+        statusImageView.image = NSImage(
+            systemSymbolName: "checkmark.circle.fill",
+            accessibilityDescription: String(localized: "截图已保存")
+        )
         fileLabel.stringValue = fileURL.lastPathComponent
         fileLabel.isHidden = false
         openButton.isHidden = false
@@ -204,6 +233,10 @@ private final class SaveConfirmationView: NSView {
         titleLabel.stringValue = String(localized: "截图已复制到剪贴板")
         titleLabel.setAccessibilityLabel(String(localized: "截图已复制到剪贴板"))
         setAccessibilityLabel(String(localized: "截图已复制到剪贴板"))
+        statusImageView.image = NSImage(
+            systemSymbolName: "doc.on.clipboard.fill",
+            accessibilityDescription: String(localized: "截图已复制到剪贴板")
+        )
         fileLabel.stringValue = ""
         fileLabel.isHidden = true
         openButton.isHidden = true
@@ -211,20 +244,44 @@ private final class SaveConfirmationView: NSView {
         needsLayout = true
     }
 
+    var preferredContentSize: NSSize {
+        openButton.isHidden ? Self.copiedSize : Self.savedSize
+    }
+
     override func layout() {
         super.layout()
         effectView.frame = bounds
 
+        let iconSize = CGSize(width: 28, height: 28)
+        statusImageView.frame = CGRect(
+            x: 16,
+            y: (bounds.height - iconSize.height) / 2,
+            width: iconSize.width,
+            height: iconSize.height
+        )
+
         let buttonSize = openButton.fittingSize
         openButton.frame = CGRect(
-            x: bounds.width - buttonSize.width - 12,
+            x: bounds.width - buttonSize.width - 16,
             y: (bounds.height - buttonSize.height) / 2,
             width: buttonSize.width,
             height: buttonSize.height
         )
-        let labelWidth = max(1, openButton.isHidden ? bounds.width - 28 : openButton.frame.minX - 30)
-        titleLabel.frame = CGRect(x: 14, y: 38, width: labelWidth, height: 18)
-        fileLabel.frame = CGRect(x: 14, y: 17, width: labelWidth, height: 16)
+
+        let textX = statusImageView.frame.maxX + 12
+        let textMaxX = openButton.isHidden ? bounds.width - 16 : openButton.frame.minX - 16
+        let labelWidth = max(1, textMaxX - textX)
+        if fileLabel.isHidden {
+            titleLabel.frame = CGRect(
+                x: textX,
+                y: (bounds.height - 20) / 2,
+                width: labelWidth,
+                height: 20
+            )
+        } else {
+            titleLabel.frame = CGRect(x: textX, y: 43, width: labelWidth, height: 19)
+            fileLabel.frame = CGRect(x: textX, y: 20, width: labelWidth, height: 16)
+        }
     }
 
     @objc private func openFolder() {

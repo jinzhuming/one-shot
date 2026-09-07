@@ -54,6 +54,10 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
     private var pendingCalloutStart: CGPoint?
     private var ignoreNextMouseUp = false
     private var isTrackingGesture = false
+    private var isSpaceHeld = false
+    private var isPanningCanvas = false
+    private var panStartWindowPoint: CGPoint?
+    private var panStartBoundsOrigin: CGPoint?
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -126,6 +130,10 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
             ignoreNextMouseUp = true
             return
         }
+        if isSpaceHeld {
+            beginCanvasPan(with: event)
+            return
+        }
         if selectedTool == .text {
             pendingTextPoint = imageLocation(in: event)
             return
@@ -163,11 +171,19 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        if isPanningCanvas {
+            updateCanvasPan(with: event)
+            return
+        }
         guard !ignoreNextMouseUp, selectedTool != .text else { return }
         delegate?.canvasDidReceive(.drag(imageLocation(in: event), shift: shiftHeld(in: event)))
     }
 
     override func mouseUp(with event: NSEvent) {
+        if isPanningCanvas {
+            endCanvasPan()
+            return
+        }
         if ignoreNextMouseUp {
             ignoreNextMouseUp = false
             return
@@ -188,6 +204,29 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         }
         isTrackingGesture = false
         delegate?.canvasDidReceive(.up(imageLocation(in: event), shift: shiftHeld(in: event)))
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 49 {
+            setSpaceHeld(true)
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    override func keyUp(with event: NSEvent) {
+        if event.keyCode == 49 {
+            setSpaceHeld(false)
+            return
+        }
+        super.keyUp(with: event)
+    }
+
+    func setSpaceHeld(_ held: Bool) {
+        isSpaceHeld = held
+        if !held, !isPanningCanvas {
+            cursorForCurrentTool.set()
+        }
     }
 
     override func flagsChanged(with event: NSEvent) {
@@ -528,6 +567,36 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
 
     private func refreshCursor() {
         window?.invalidateCursorRects(for: self)
+        cursorForCurrentTool.set()
+    }
+
+    private func beginCanvasPan(with event: NSEvent) {
+        guard let scrollView = enclosingScrollView else { return }
+        isPanningCanvas = true
+        panStartWindowPoint = event.locationInWindow
+        panStartBoundsOrigin = scrollView.contentView.bounds.origin
+        window?.makeFirstResponder(self)
+        NSCursor.closedHand.set()
+    }
+
+    private func updateCanvasPan(with event: NSEvent) {
+        guard let scrollView = enclosingScrollView,
+              let panStartWindowPoint,
+              let panStartBoundsOrigin else { return }
+        let magnification = max(scrollView.magnification, 0.001)
+        let deltaX = (event.locationInWindow.x - panStartWindowPoint.x) / magnification
+        let deltaY = (event.locationInWindow.y - panStartWindowPoint.y) / magnification
+        var origin = panStartBoundsOrigin
+        origin.x -= deltaX
+        origin.y += deltaY
+        scrollView.contentView.setBoundsOrigin(origin)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+    }
+
+    private func endCanvasPan() {
+        isPanningCanvas = false
+        panStartWindowPoint = nil
+        panStartBoundsOrigin = nil
         cursorForCurrentTool.set()
     }
 

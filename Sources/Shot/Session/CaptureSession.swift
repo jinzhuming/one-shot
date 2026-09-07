@@ -10,6 +10,7 @@ final class CaptureSession: OverlayControllerDelegate {
     private let captureService = CaptureService()
     private let recordingService = RecordingService()
     private let recordingControls = RecordingControlBarController()
+    private let recordingTargetOverlay = RecordingTargetOverlayController()
     private let editor = EditorPresenter()
     private var captureTask: Task<Void, Never>?
     private var captureWatchdogTask: Task<Void, Never>?
@@ -36,6 +37,7 @@ final class CaptureSession: OverlayControllerDelegate {
         recordingService.onFailure = { [weak self] error in
             guard let self else { return }
             self.recordingControls.dismiss()
+            self.recordingTargetOverlay.dismiss()
             self.isFinishingRecording = false
             self.fail(error)
             StatusItemMenu.reload()
@@ -43,6 +45,10 @@ final class CaptureSession: OverlayControllerDelegate {
         recordingService.onStateChange = { [weak self] _ in
             guard let self else { return }
             self.recordingControls.update(
+                state: self.recordingService.state,
+                elapsed: self.recordingService.elapsed
+            )
+            self.recordingTargetOverlay.update(
                 state: self.recordingService.state,
                 elapsed: self.recordingService.elapsed
             )
@@ -165,6 +171,7 @@ final class CaptureSession: OverlayControllerDelegate {
             invalidatePendingCapture()
             isFinishingRecording = true
             recordingControls.dismiss()
+            recordingTargetOverlay.dismiss()
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 await self.recordingService.cancel()
@@ -439,6 +446,12 @@ final class CaptureSession: OverlayControllerDelegate {
                 onStop: { [weak self] in self?.stopRecording() },
                 onCancel: { [weak self] in self?.cancel() }
             )
+            recordingTargetOverlay.present(
+                target: target,
+                on: screen,
+                catalog: overlay.windowCatalog,
+                elapsedProvider: { [weak self] in self?.recordingService.elapsed }
+            )
             overlay.dismiss()
             StatusItemMenu.reload()
         } catch is CancellationError {
@@ -452,6 +465,7 @@ final class CaptureSession: OverlayControllerDelegate {
         guard recordingService.canStop, !isFinishingRecording else { return }
         isFinishingRecording = true
         recordingControls.update(state: .stopping, elapsed: recordingService.elapsed)
+        recordingTargetOverlay.dismiss()
         overlay.dismiss()
         captureTask?.cancel()
         captureTask = Task { @MainActor [weak self] in
@@ -487,6 +501,7 @@ final class CaptureSession: OverlayControllerDelegate {
 
         isFinishingRecording = true
         recordingControls.dismiss()
+        recordingTargetOverlay.dismiss()
         overlay.dismiss()
         captureTask?.cancel()
         if recordingService.isStarting {
@@ -506,6 +521,7 @@ final class CaptureSession: OverlayControllerDelegate {
     func forceTeardownForTermination() {
         invalidatePendingCapture()
         recordingControls.dismiss()
+        recordingTargetOverlay.dismiss()
         scrollCaptureCoordinator = nil
         removeEscapeToCancel()
         overlay.dismiss()
@@ -520,6 +536,8 @@ final class CaptureSession: OverlayControllerDelegate {
         captureWatchdogTask = nil
         captureOperationGeneration = nil
         removeEscapeToCancel()
+        let result = await applyingScreenshotBackground(to: result)
+        guard !Task.isCancelled, isCurrent(operation) else { return }
         switch AppSettings.shared.afterCaptureAction {
         case .annotate:
             presentEditor(result)
@@ -559,7 +577,7 @@ final class CaptureSession: OverlayControllerDelegate {
     private func presentEditor(_ result: CaptureResult) {
         machine.startEditing()
         StatusItemMenu.reload()
-        if result.kind == .scrolling {
+        if result.kind == .scrolling || result.hasAppliedBackground {
             editor.presentCentered(result: result, overlay: overlay)
             return
         }
@@ -569,6 +587,30 @@ final class CaptureSession: OverlayControllerDelegate {
         case .centered:
             editor.presentCentered(result: result, overlay: overlay)
         }
+    }
+
+    private func applyingScreenshotBackground(to result: CaptureResult) async -> CaptureResult {
+        guard result.kind == .window,
+              let backgroundURL = AppSettings.shared.screenshotBackgroundURL(for: result.screen) else {
+            return result
+        }
+
+        guard let snapshot = ScreenshotBackgroundRenderSnapshot(
+            screenshot: result.image,
+            backgroundURL: backgroundURL
+        ) else {
+            return result
+        }
+        guard let image = await Task.detached(priority: .userInitiated, operation: {
+            snapshot.renderedCGImage()
+        }).value else {
+            return result
+        }
+
+        var result = result
+        result.image = NSImage(cgImage: image, size: snapshot.renderedSize)
+        result.hasAppliedBackground = true
+        return result
     }
 
     private enum SaveOutcome {

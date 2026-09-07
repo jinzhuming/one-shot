@@ -19,17 +19,108 @@ enum StatusItemMenu {
     }
 }
 
+private enum StatusItemIcon {
+    @MainActor
+    static let template: NSImage = {
+        let size: CGFloat = 16.5
+        let drawingScale = size / 22
+        let image = NSImage(size: NSSize(width: size, height: size))
+        image.lockFocus()
+        defer { image.unlockFocus() }
+
+        NSGraphicsContext.current?.shouldAntialias = true
+        NSColor.white.setStroke()
+
+        let frame = NSRect(
+            x: 2.2 * drawingScale,
+            y: 2.2 * drawingScale,
+            width: 17.6 * drawingScale,
+            height: 17.6 * drawingScale
+        )
+        let arm = 4.2 * drawingScale
+        let radius = 0.9 * drawingScale
+        let stroke = 2.1 * drawingScale
+
+        func strokePath(_ path: NSBezierPath) {
+            path.lineWidth = stroke
+            path.lineCapStyle = .round
+            path.lineJoinStyle = .round
+            path.stroke()
+        }
+
+        let topLeft = NSBezierPath()
+        topLeft.move(to: NSPoint(x: frame.minX + arm, y: frame.maxY))
+        topLeft.line(to: NSPoint(x: frame.minX + radius, y: frame.maxY))
+        topLeft.curve(
+            to: NSPoint(x: frame.minX, y: frame.maxY - radius),
+            controlPoint1: NSPoint(x: frame.minX + radius * 0.45, y: frame.maxY),
+            controlPoint2: NSPoint(x: frame.minX, y: frame.maxY - radius * 0.45)
+        )
+        topLeft.line(to: NSPoint(x: frame.minX, y: frame.maxY - arm))
+        strokePath(topLeft)
+
+        let topRight = NSBezierPath()
+        topRight.move(to: NSPoint(x: frame.maxX - arm, y: frame.maxY))
+        topRight.line(to: NSPoint(x: frame.maxX - radius, y: frame.maxY))
+        topRight.curve(
+            to: NSPoint(x: frame.maxX, y: frame.maxY - radius),
+            controlPoint1: NSPoint(x: frame.maxX - radius * 0.45, y: frame.maxY),
+            controlPoint2: NSPoint(x: frame.maxX, y: frame.maxY - radius * 0.45)
+        )
+        topRight.line(to: NSPoint(x: frame.maxX, y: frame.maxY - arm))
+        strokePath(topRight)
+
+        let bottomLeft = NSBezierPath()
+        bottomLeft.move(to: NSPoint(x: frame.minX + arm, y: frame.minY))
+        bottomLeft.line(to: NSPoint(x: frame.minX + radius, y: frame.minY))
+        bottomLeft.curve(
+            to: NSPoint(x: frame.minX, y: frame.minY + radius),
+            controlPoint1: NSPoint(x: frame.minX + radius * 0.45, y: frame.minY),
+            controlPoint2: NSPoint(x: frame.minX, y: frame.minY + radius * 0.45)
+        )
+        bottomLeft.line(to: NSPoint(x: frame.minX, y: frame.minY + arm))
+        strokePath(bottomLeft)
+
+        let bottomRight = NSBezierPath()
+        bottomRight.move(to: NSPoint(x: frame.maxX - arm, y: frame.minY))
+        bottomRight.line(to: NSPoint(x: frame.maxX - radius, y: frame.minY))
+        bottomRight.curve(
+            to: NSPoint(x: frame.maxX, y: frame.minY + radius),
+            controlPoint1: NSPoint(x: frame.maxX - radius * 0.45, y: frame.minY),
+            controlPoint2: NSPoint(x: frame.maxX, y: frame.minY + radius * 0.45)
+        )
+        bottomRight.line(to: NSPoint(x: frame.maxX, y: frame.minY + arm))
+        strokePath(bottomRight)
+
+        let lensDiameter = 7.4 * drawingScale
+        let lensRect = NSRect(
+            x: size / 2 - lensDiameter / 2,
+            y: size / 2 - lensDiameter / 2,
+            width: lensDiameter,
+            height: lensDiameter
+        )
+        let lens = NSBezierPath(ovalIn: lensRect)
+        lens.lineWidth = 2.0
+        lens.stroke()
+
+        let dotDiameter = 1.8 * drawingScale
+        NSBezierPath(ovalIn: NSRect(
+            x: size / 2 - dotDiameter / 2,
+            y: size / 2 - dotDiameter / 2,
+            width: dotDiameter,
+            height: dotDiameter
+        )).fill()
+
+        image.isTemplate = true
+        return image
+    }()
+}
+
 struct StatusItemLabel: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        Image(systemName: "camera.viewfinder")
-            // Use the standard status-item artwork height explicitly. The
-            // symbol's internal whitespace makes relative image scaling look
-            // smaller than neighboring menu bar icons.
-            .font(.system(size: 18, weight: .medium))
-            .scaleEffect(1.25)
-            .symbolRenderingMode(.monochrome)
+        Image(nsImage: StatusItemIcon.template)
             .accessibilityLabel("Shot")
             .help("Shot")
             .onAppear {

@@ -9,10 +9,34 @@ public enum OverlayFocusStyle {
     public static let focusedMaskOpacity: CGFloat = 0.42
     public static let dimOnlyMaskOpacity: CGFloat = 0.45
     public static let reducedTransparencyMaskOpacity: CGFloat = 0.52
+
+    /// Keep accent color as a precise focus cue instead of using it as a
+    /// saturated full-frame border over arbitrary desktop content.
+    public static let selectionBorderOpacity: CGFloat = 0.76
+    public static let selectionContrastOpacity: CGFloat = 0.48
+    public static let selectionContrastLineWidth: CGFloat = 2
+    public static let selectionBorderLineWidth: CGFloat = 1
+    public static let selectionDashLength: CGFloat = 4
+    public static let selectionDashGap: CGFloat = 3
+    public static let selectionHandleDiameter: CGFloat = 6
+    public static let selectionHandleMinimumDimension: CGFloat = 18
+
     /// Window focus uses a restrained tint so the captured content stays
-    /// legible beneath the semantic accent-color ring.
+    /// legible beneath a neutral semantic keyline.
     public static let windowHighlightOpacity: CGFloat = 0.08
     public static let reducedTransparencyWindowHighlightOpacity: CGFloat = 0.14
+    public static let windowContrastOpacity: CGFloat = 0.48
+    public static let windowBorderOpacity: CGFloat = 0.86
+    public static let windowContrastLineWidth: CGFloat = 2
+    public static let windowBorderLineWidth: CGFloat = 1
+
+    /// The lens is a floating inspection surface, so its chrome stays neutral
+    /// and adaptive while the captured pixels remain unmodified and sharp.
+    public static let magnifierBezelInset: CGFloat = 4
+    public static let magnifierBezelOpacity: CGFloat = 0.88
+    public static let magnifierShadowOpacity: CGFloat = 0.42
+    public static let magnifierBorderOpacity: CGFloat = 0.78
+    public static let magnifierBorderLineWidth: CGFloat = 1
 
     public static func maskOpacity(
         dimOnly: Bool,

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @ObservedObject private var settings = AppSettings.shared
@@ -13,7 +14,7 @@ struct SettingsView: View {
             Tab(String(localized: "截图"), systemImage: "camera") { screenshotsTab }
         }
         .scenePadding()
-        .frame(width: 520, height: 420)
+        .frame(width: 520, height: 500)
         .background {
             SettingsWindowConfigurator()
                 .frame(width: 0, height: 0)
@@ -39,6 +40,10 @@ struct SettingsView: View {
                 }
             }
             Text(String(localized: "原位置空间不足时，会自动缩放并移入当前显示器的可见区域；独立窗口可拖拽缩放。"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Toggle(String(localized: "允许 ⌘+滚轮缩放标注画布"), isOn: $settings.annotationZoomWithCommandScroll)
+            Text(String(localized: "普通鼠标滚轮默认缩放标注画布；开启后也可以按住 ⌘ 使用滚轮缩放。"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Toggle(String(localized: "保存或标注后同时复制到剪贴板"), isOn: $settings.copyOnComplete)
@@ -131,6 +136,39 @@ struct SettingsView: View {
                 Button(String(localized: "选择…")) { pickDirectory() }
             }
             Toggle(String(localized: "窗口截图包含阴影"), isOn: $settings.includeWindowShadow)
+            Section(String(localized: "窗口截图背景")) {
+                Picker(String(localized: "背景"), selection: $settings.screenshotBackgroundMode) {
+                    ForEach(ScreenshotBackgroundMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+
+                if settings.screenshotBackgroundMode == .custom {
+                    HStack {
+                        Text(settings.customScreenshotBackgroundURL?.lastPathComponent
+                            ?? String(localized: "未选择图片"))
+                            .foregroundStyle(settings.customScreenshotBackgroundURL == nil ? .secondary : .primary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        Button(String(localized: "选择图片…")) { pickBackgroundImage() }
+                            .help(String(localized: "选择用于窗口截图背景的图片。"))
+                    }
+                    if settings.customScreenshotBackgroundURL == nil {
+                        Text(String(localized: "请选择一张背景图片；未选择时不会添加背景。"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Text(String(localized: "窗口截图会自动留出边距，并使用截图所在显示器的桌面壁纸或自定义图片。"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Toggle(String(localized: "使用轻量透明提示"), isOn: $settings.useLightweightCaptureHUD)
+            Text(String(localized: "开启后，截图模式条使用更透明的原生 HUD 外观。"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
     }
@@ -143,6 +181,20 @@ struct SettingsView: View {
         panel.directoryURL = settings.saveDirectoryURL
         if panel.runModal() == .OK, let url = panel.url {
             settings.saveDirectoryURL = url
+        }
+    }
+
+    private func pickBackgroundImage() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.resolvesAliases = true
+        panel.message = String(localized: "选择用于窗口截图背景的图片。")
+        if panel.runModal() == .OK, let url = panel.url {
+            settings.customScreenshotBackgroundURL = url
+            settings.screenshotBackgroundMode = .custom
         }
     }
 }

@@ -598,21 +598,6 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         } else if let highlighted, screen.frame.intersects(highlighted.frame) {
             targetRect = highlighted.frame
             text = highlighted.title.isEmpty ? String(localized: "窗口") : String(highlighted.title.prefix(40))
-        } else if let idle = OverlayModeHint.caption(
-            for: mode,
-            toggleKey: AppSettings.shared.areaWindowToggleHotkey.localizedDisplayString
-        ), !isDragging {
-            if screen != mouseScreen {
-                hud.isHidden = true
-                return
-            }
-            targetRect = CGRect(
-                x: screen.visibleFrame.midX - 1,
-                y: screen.visibleFrame.minY + 110,
-                width: 2,
-                height: 2
-            )
-            text = idle
         } else {
             hud.isHidden = true
             return

@@ -190,33 +190,60 @@ final class SelectionOverlayView: NSView {
         guard !isWindow else { return }
         let accent = NSColor.controlAccentColor
 
+        // Follow the native Screenshot marquee: a neutral dashed outline does
+        // the contrast work while tiny accent handles identify the active
+        // selection without becoming a heavy blue rectangle.
         let frameRect = hole.insetBy(dx: -1, dy: -1)
-        let border = NSBezierPath(roundedRect: frameRect, xRadius: 2, yRadius: 2)
-        border.lineWidth = 1
-        accent.withAlphaComponent(0.72).setStroke()
-        border.stroke()
+        let marquee = NSBezierPath(
+            roundedRect: frameRect,
+            xRadius: radius + 1,
+            yRadius: radius + 1
+        )
+        marquee.setLineDash(
+            [OverlayFocusStyle.selectionDashLength, OverlayFocusStyle.selectionDashGap],
+            count: 2,
+            phase: 0
+        )
+        marquee.lineCapStyle = .butt
+        marquee.lineJoinStyle = .miter
+        marquee.lineWidth = OverlayFocusStyle.selectionContrastLineWidth
+        NSColor.black.withAlphaComponent(OverlayFocusStyle.selectionContrastOpacity).setStroke()
+        marquee.stroke()
 
-        let segments = FocusFrameGeometry.cornerSegments(in: frameRect)
-        guard !segments.isEmpty else { return }
+        marquee.lineWidth = OverlayFocusStyle.selectionBorderLineWidth
+        NSColor.white.withAlphaComponent(0.92).setStroke()
+        marquee.stroke()
 
-        let contrast = NSBezierPath()
-        let focus = NSBezierPath()
-        for segment in segments {
-            contrast.move(to: segment.start)
-            contrast.line(to: segment.end)
-            focus.move(to: segment.start)
-            focus.line(to: segment.end)
+        drawSelectionHandles(in: frameRect, accent: accent)
+    }
+
+    private func drawSelectionHandles(in frameRect: CGRect, accent: NSColor) {
+        guard min(frameRect.width, frameRect.height) >= OverlayFocusStyle.selectionHandleMinimumDimension else {
+            return
         }
 
-        contrast.lineWidth = 4
-        contrast.lineCapStyle = .round
-        NSColor.black.withAlphaComponent(0.7).setStroke()
-        contrast.stroke()
+        let radius = OverlayFocusStyle.selectionHandleDiameter / 2
+        let points = [
+            CGPoint(x: frameRect.minX, y: frameRect.minY),
+            CGPoint(x: frameRect.minX, y: frameRect.maxY),
+            CGPoint(x: frameRect.maxX, y: frameRect.minY),
+            CGPoint(x: frameRect.maxX, y: frameRect.maxY)
+        ]
 
-        focus.lineWidth = 2
-        focus.lineCapStyle = .round
-        accent.setStroke()
-        focus.stroke()
+        for point in points {
+            let handleFrame = CGRect(
+                x: point.x - radius,
+                y: point.y - radius,
+                width: radius * 2,
+                height: radius * 2
+            )
+            let handle = NSBezierPath(ovalIn: handleFrame)
+            NSColor.controlBackgroundColor.withAlphaComponent(0.96).setFill()
+            handle.fill()
+            handle.lineWidth = OverlayFocusStyle.selectionBorderLineWidth
+            accent.withAlphaComponent(OverlayFocusStyle.selectionBorderOpacity).setStroke()
+            handle.stroke()
+        }
     }
 
     private func drawWindowHighlight(inside hole: CGRect, radius: CGFloat) {
@@ -233,25 +260,18 @@ final class SelectionOverlayView: NSView {
         NSColor.controlAccentColor.withAlphaComponent(opacity).setFill()
         highlight.fill()
 
-        // A neutral contrast keyline keeps the accent ring readable over both
-        // bright and dark window contents. This is intentionally a crisp ring
-        // instead of a large glow, matching native macOS focus treatment.
-        let contrast = NSBezierPath(
-            roundedRect: hole.insetBy(dx: -1, dy: -1),
-            xRadius: radius + 1,
-            yRadius: radius + 1
-        )
-        contrast.lineWidth = 4
-        NSColor.black.withAlphaComponent(0.72).setStroke()
+        // A neutral contrast keyline keeps the target readable over both bright
+        // and dark window contents. This is intentionally a crisp ring instead
+        // of a large glow, matching native macOS focus treatment.
+        let frameRect = hole.insetBy(dx: -0.5, dy: -0.5)
+        let contrast = NSBezierPath(roundedRect: frameRect, xRadius: radius, yRadius: radius)
+        contrast.lineWidth = OverlayFocusStyle.windowContrastLineWidth
+        NSColor.black.withAlphaComponent(OverlayFocusStyle.windowContrastOpacity).setStroke()
         contrast.stroke()
 
-        let border = NSBezierPath(
-            roundedRect: hole.insetBy(dx: -0.5, dy: -0.5),
-            xRadius: radius + 0.5,
-            yRadius: radius + 0.5
-        )
-        border.lineWidth = 1.5
-        NSColor.controlAccentColor.setStroke()
+        let border = NSBezierPath(roundedRect: frameRect, xRadius: radius, yRadius: radius)
+        border.lineWidth = OverlayFocusStyle.windowBorderLineWidth
+        NSColor.white.withAlphaComponent(OverlayFocusStyle.windowBorderOpacity).setStroke()
         border.stroke()
     }
 
@@ -315,7 +335,23 @@ final class SelectionOverlayView: NSView {
         let frame = magnifierFrame.intersection(bounds)
         guard !frame.isNull, !frame.isEmpty else { return }
 
-        let clip = NSBezierPath(roundedRect: frame, xRadius: 12, yRadius: 12)
+        let bezelFrame = frame
+            .insetBy(dx: -OverlayFocusStyle.magnifierBezelInset, dy: -OverlayFocusStyle.magnifierBezelInset)
+            .intersection(bounds)
+        let bezel = NSBezierPath(ovalIn: bezelFrame)
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(OverlayFocusStyle.magnifierShadowOpacity)
+        shadow.shadowBlurRadius = 10
+        shadow.shadowOffset = CGSize(width: 0, height: -2)
+        NSGraphicsContext.saveGraphicsState()
+        shadow.set()
+        NSColor.controlBackgroundColor
+            .withAlphaComponent(OverlayFocusStyle.magnifierBezelOpacity)
+            .setFill()
+        bezel.fill()
+        NSGraphicsContext.restoreGraphicsState()
+
+        let clip = NSBezierPath(ovalIn: frame)
         NSGraphicsContext.saveGraphicsState()
         clip.addClip()
         NSGraphicsContext.current?.imageInterpolation = .none
@@ -329,14 +365,12 @@ final class SelectionOverlayView: NSView {
         )
         NSGraphicsContext.restoreGraphicsState()
 
-        let shadow = NSBezierPath(roundedRect: frame.insetBy(dx: 1.5, dy: 1.5), xRadius: 10.5, yRadius: 10.5)
-        shadow.lineWidth = 5
-        NSColor.black.withAlphaComponent(0.75).setStroke()
-        shadow.stroke()
-
-        let border = NSBezierPath(roundedRect: frame.insetBy(dx: 1, dy: 1), xRadius: 11, yRadius: 11)
-        border.lineWidth = 2
-        NSColor.controlAccentColor.setStroke()
+        // A neutral semantic keyline makes the lens read as a floating system
+        // inspection surface and avoids competing with the accent used by the
+        // selection itself.
+        let border = NSBezierPath(ovalIn: frame.insetBy(dx: 0.5, dy: 0.5))
+        border.lineWidth = OverlayFocusStyle.magnifierBorderLineWidth
+        NSColor.white.withAlphaComponent(OverlayFocusStyle.magnifierBorderOpacity).setStroke()
         border.stroke()
 
         let cursor = MagnifierLayout.cursorPosition(
@@ -354,7 +388,7 @@ final class SelectionOverlayView: NSView {
         // white or light captured content while preserving a white center on
         // dark content.
         NSGraphicsContext.saveGraphicsState()
-        NSBezierPath(roundedRect: frame, xRadius: 12, yRadius: 12).addClip()
+        NSBezierPath(ovalIn: frame).addClip()
         crosshair.lineWidth = 4
         NSColor.black.withAlphaComponent(0.85).setStroke()
         crosshair.stroke()

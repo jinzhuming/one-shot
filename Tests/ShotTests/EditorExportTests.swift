@@ -105,6 +105,81 @@ import Testing
     #expect(AppSettings(defaults: defaults).annotationWindowPlacement == .inPlace)
 }
 
+@Test @MainActor func appSettingsPersistsCommandScrollAnnotationZoomPreference() {
+    let suiteName = "ShotTests.AppSettings.AnnotationZoom.(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(!settings.annotationZoomWithCommandScroll)
+
+    settings.annotationZoomWithCommandScroll = true
+    #expect(defaults.object(forKey: "annotation.zoomWithCommandScroll") as? Bool == true)
+    #expect(AppSettings(defaults: defaults).annotationZoomWithCommandScroll)
+}
+
+@Test @MainActor func appSettingsPersistsLightweightCaptureHUDPreference() {
+    let suiteName = "ShotTests.AppSettings.LightweightCaptureHUD.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.useLightweightCaptureHUD)
+
+    settings.useLightweightCaptureHUD = false
+    #expect(defaults.object(forKey: "overlay.useLightweightCaptureHUD") as? Bool == false)
+    #expect(!AppSettings(defaults: defaults).useLightweightCaptureHUD)
+}
+
+@Test @MainActor func appSettingsDefaultsToDesktopBackgroundAndPersistsCustomChoice() {
+    let suiteName = "ShotTests.AppSettings.ScreenshotBackground.(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.screenshotBackgroundMode == .desktop)
+    #expect(settings.customScreenshotBackgroundURL == nil)
+
+    let customURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("Shot-background-(UUID().uuidString).png")
+    settings.customScreenshotBackgroundURL = customURL
+    settings.screenshotBackgroundMode = .custom
+
+    let reloaded = AppSettings(defaults: defaults)
+    #expect(reloaded.screenshotBackgroundMode == .custom)
+    #expect(reloaded.customScreenshotBackgroundURL == customURL)
+    #expect(defaults.string(forKey: "screenshot.backgroundMode") == "custom")
+    #expect(defaults.string(forKey: "screenshot.customBackground") == customURL.path)
+}
+
+@Test @MainActor func screenshotBackgroundRendererAddsPaddingAroundWindowImage() {
+    let screenshot = solidImage(color: .systemRed, size: CGSize(width: 100, height: 60))
+    let background = solidImage(color: .systemBlue, size: CGSize(width: 80, height: 80))
+
+    let composed = ScreenshotBackgroundRenderer.compose(
+        screenshot: screenshot,
+        background: background,
+        padding: 20
+    )
+
+    #expect(composed?.size == CGSize(width: 140, height: 100))
+    guard let composed else { return }
+    var proposed = CGRect(origin: .zero, size: composed.size)
+    guard let image = composed.cgImage(forProposedRect: &proposed, context: nil, hints: nil) else {
+        Issue.record("背景合成结果应包含可导出的图像")
+        return
+    }
+    let bitmap = NSBitmapImageRep(cgImage: image)
+    let corner = bitmap.colorAt(x: 2, y: 2)?.usingColorSpace(.deviceRGB)
+    let center = bitmap.colorAt(x: 70, y: 50)?.usingColorSpace(.deviceRGB)
+    let cornerBlue = corner?.blueComponent ?? 0
+    let cornerRed = corner?.redComponent ?? 1
+    let centerRed = center?.redComponent ?? 0
+    let centerBlue = center?.blueComponent ?? 1
+    #expect(cornerBlue > cornerRed)
+    #expect(centerRed > centerBlue)
+}
+
 @Test func imageFilenameAddsCollisionSuffixes() {
     let preferred = "Shot 2026-09-03 at 09.05.07.png"
     var taken = Set([preferred, "Shot 2026-09-03 at 09.05.07 (2).png"])
@@ -296,6 +371,70 @@ import Testing
     }
 }
 
+@Test @MainActor func recordingTargetOverlayDrawsLightMaskAndKeepsTargetClear() {
+    let viewSize = CGSize(width: 200, height: 200)
+    let view = RecordingTargetOverlayView(frame: CGRect(origin: .zero, size: viewSize))
+    view.wantsLayer = true
+    view.layer?.backgroundColor = NSColor.white.cgColor
+    let window = RecordingTargetOverlayWindow(
+        contentRect: CGRect(origin: .zero, size: viewSize),
+        styleMask: .borderless,
+        backing: .buffered,
+        defer: false
+    )
+    defer { window.close() }
+
+    window.isReleasedWhenClosed = false
+    window.ignoresMouseEvents = true
+    window.contentView = view
+    view.update(
+        targetRect: CGRect(x: 50, y: 50, width: 100, height: 100),
+        isWindow: false,
+        isFullScreen: false,
+        state: .recording,
+        elapsed: 12,
+        reduceTransparency: false
+    )
+
+    #expect(window.ignoresMouseEvents)
+    #expect(!window.canBecomeKey)
+    #expect(view.hitTest(CGPoint(x: 100, y: 100)) == nil)
+
+    let bitmap = cachedBitmap(for: view, size: viewSize)
+    let outside = bitmap.colorAt(x: 20, y: 20)
+    let inside = bitmap.colorAt(x: 100, y: 100)
+    #expect(brightness(of: outside) > 0.75)
+    #expect(brightness(of: inside) > 0.95)
+}
+
+@Test @MainActor func recordingTargetOverlayFullscreenDoesNotDimTheDisplay() {
+    let viewSize = CGSize(width: 200, height: 200)
+    let view = RecordingTargetOverlayView(frame: CGRect(origin: .zero, size: viewSize))
+    view.wantsLayer = true
+    view.layer?.backgroundColor = NSColor.white.cgColor
+    let window = RecordingTargetOverlayWindow(
+        contentRect: CGRect(origin: .zero, size: viewSize),
+        styleMask: .borderless,
+        backing: .buffered,
+        defer: false
+    )
+    defer { window.close() }
+
+    window.isReleasedWhenClosed = false
+    window.contentView = view
+    view.update(
+        targetRect: nil,
+        isWindow: false,
+        isFullScreen: true,
+        state: .recording,
+        elapsed: 0,
+        reduceTransparency: false
+    )
+
+    let bitmap = cachedBitmap(for: view, size: viewSize)
+    #expect(brightness(of: bitmap.colorAt(x: 100, y: 100)) > 0.95)
+}
+
 @Test func windowSnapshotBuilderRejectsDockBeforeFrontmostApplicationWindow() {
     let dockID: CGWindowID = 10
     let unshareableID: CGWindowID = 15
@@ -410,15 +549,26 @@ import Testing
     window.contentView = content
     content.layoutSubtreeIfNeeded()
 
+    guard let canvasScrollView = content.subviews.compactMap({ $0 as? NSScrollView }).first else {
+        Issue.record("The editor should install a scroll view for the canvas")
+        return
+    }
+    let canvasPoint = canvasScrollView.convert(
+        CGPoint(
+            x: canvasScrollView.contentView.bounds.midX,
+            y: canvasScrollView.contentView.bounds.midY
+        ),
+        to: content
+    )
     let canvasHit = content.hitTest(CGPoint(
-        x: content.canvas.frame.midX,
-        y: content.canvas.frame.midY
+        x: canvasPoint.x,
+        y: canvasPoint.y
     ))
     #expect(canvasHit === content.canvas)
 
     guard let toolbar = content.subviews.first(where: {
-        $0 !== content.canvas
-            && $0.frame.maxY <= arrangement.canvasFrame.minY
+        $0 !== canvasScrollView
+            && $0.frame.maxY <= canvasScrollView.frame.minY
     }) else {
         Issue.record("The editor toolbar host should be installed below the canvas")
         return
@@ -462,11 +612,15 @@ import Testing
     window.contentView = content
     content.layoutSubtreeIfNeeded()
 
+    guard let canvasScrollView = content.subviews.compactMap({ $0 as? NSScrollView }).first else {
+        Issue.record("The editor should install a scroll view for the canvas")
+        return
+    }
     let initialToolbarHeight = content.toolbarFittingSize.height
     #expect(!content.mouseDownCanMoveWindow)
     #expect(abs(initialToolbarHeight - AnnotationChromeMetrics.windowToolbarHeight) < 0.5)
-    #expect(content.canvas.frame.minX >= EditorLayout.windowedWorkspacePadding)
-    #expect(content.canvas.frame.maxX <= content.bounds.maxX - EditorLayout.windowedWorkspacePadding)
+    #expect(canvasScrollView.frame.minX >= EditorLayout.windowedWorkspacePadding)
+    #expect(canvasScrollView.frame.maxX <= content.bounds.maxX - EditorLayout.windowedWorkspacePadding)
 
     guard let toolbar = content.subviews.first(where: {
         $0 !== content.canvas && abs($0.frame.maxY - content.bounds.maxY) < 0.5
@@ -476,7 +630,7 @@ import Testing
     }
     #expect(abs(toolbar.frame.minX) < 0.5)
     #expect(abs(toolbar.frame.width - content.bounds.width) < 0.5)
-    #expect(content.canvas.frame.maxY <= toolbar.frame.minY - EditorLayout.windowedWorkspacePadding + 0.5)
+    #expect(canvasScrollView.frame.maxY <= toolbar.frame.minY - EditorLayout.windowedWorkspacePadding + 0.5)
     #expect(toolbar.appearance == nil)
     let toolbarHit = content.hitTest(CGPoint(x: toolbar.frame.midX, y: toolbar.frame.midY))
     #expect(toolbarHit !== content.canvas)

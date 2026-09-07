@@ -4,6 +4,7 @@ import ShotKit
 
 enum CaptureResultKind: Equatable {
     case standard
+    case window
     case scrolling
 }
 
@@ -12,6 +13,7 @@ struct CaptureResult {
     var rect: CGRect
     var screen: NSScreen
     var kind: CaptureResultKind = .standard
+    var hasAppliedBackground = false
 }
 
 struct RegionCaptureFrame {
@@ -216,7 +218,7 @@ final class CaptureService {
             height: CGFloat(cgImage.height) / scale
         )
         let image = NSImage(cgImage: cgImage, size: pointSize)
-        return CaptureResult(image: image, rect: cocoaFrame, screen: screen)
+        return CaptureResult(image: image, rect: cocoaFrame, screen: screen, kind: .window)
     }
 
     func captureRegionFrame(

@@ -1,8 +1,9 @@
 import AppKit
+import ShotKit
 
 @MainActor
 final class RecordingControlBarController: NSObject {
-    private static let size = NSSize(width: 420, height: 58)
+    static let size = NSSize(width: 420, height: 58)
 
     private var window: RecordingControlBarWindow?
     private var view: RecordingControlBarView?
@@ -108,6 +109,10 @@ final class RecordingControlBarController: NSObject {
 
     private func position(on screen: NSScreen) {
         guard let window else { return }
+        window.setFrameOrigin(Self.frame(on: screen).origin)
+    }
+
+    static func frame(on screen: NSScreen) -> CGRect {
         let visibleFrame = screen.visibleFrame
         let horizontalInset: CGFloat = 12
         let maximumX = max(
@@ -119,7 +124,12 @@ final class RecordingControlBarController: NSObject {
             maximumX
         )
         let y = visibleFrame.minY + 18
-        window.setFrameOrigin(CGPoint(x: x, y: y))
+        return CGRect(
+            x: x,
+            y: y,
+            width: Self.size.width,
+            height: Self.size.height
+        )
     }
 
     private func relayout() {
@@ -363,7 +373,6 @@ final class RecordingControlBarView: NSView {
     }
 
     private func formatElapsed(_ elapsed: TimeInterval) -> String {
-        let totalSeconds = max(0, Int(elapsed.rounded(.down)))
-        return String(format: "%02d:%02d", totalSeconds / 60, totalSeconds % 60)
+        RecordingLayout.formattedDuration(elapsed)
     }
 }

@@ -397,6 +397,28 @@
         }
       }
     },
+    "允许 ⌘+滚轮缩放标注画布": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许 ⌘+滚轮缩放标注画布"
+          }
+        }
+      }
+    },
+    "普通鼠标滚轮默认缩放标注画布；开启后也可以按住 ⌘ 使用滚轮缩放。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "普通鼠标滚轮默认缩放标注画布；开启后也可以按住 ⌘ 使用滚轮缩放。"
+          }
+        }
+      }
+    },
     "原位置": {
       "extractionState": "manual",
       "localizations": {
@@ -496,6 +518,28 @@
         }
       }
     },
+    "使用轻量透明提示": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用轻量透明提示"
+          }
+        }
+      }
+    },
+    "开启后，截图模式条使用更透明的原生 HUD 外观。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开启后，截图模式条使用更透明的原生 HUD 外观。"
+          }
+        }
+      }
+    },
     "从菜单栏或快捷键开始截图。悬停点选窗口，拖拽框选区域；截取后可以直接标注、复制或保存。": {
       "extractionState": "manual",
       "localizations": {
@@ -547,6 +591,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "打开文件夹"
+          }
+        }
+      }
+    },
+    "在访达中显示截图文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在访达中显示截图文件"
           }
         }
       }
@@ -1163,6 +1218,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "录屏控制"
+          }
+        }
+      }
+    },
+    "录制目标": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录制目标"
           }
         }
       }
@@ -2736,6 +2802,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "不透明度"
+          }
+        }
+      }
+    },
+    "窗口截图背景": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "窗口截图背景"
+          }
+        }
+      }
+    },
+    "背景": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "背景"
+          }
+        }
+      }
+    },
+    "桌面壁纸": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "桌面壁纸"
+          }
+        }
+      }
+    },
+    "自定义图片": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自定义图片"
+          }
+        }
+      }
+    },
+    "不添加背景": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不添加背景"
+          }
+        }
+      }
+    },
+    "未选择图片": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未选择图片"
+          }
+        }
+      }
+    },
+    "选择图片…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择图片…"
+          }
+        }
+      }
+    },
+    "选择用于窗口截图背景的图片。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择用于窗口截图背景的图片。"
+          }
+        }
+      }
+    },
+    "请选择一张背景图片；未选择时不会添加背景。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择一张背景图片；未选择时不会添加背景。"
+          }
+        }
+      }
+    },
+    "窗口截图会自动留出边距，并使用截图所在显示器的桌面壁纸或自定义图片。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "窗口截图会自动留出边距，并使用截图所在显示器的桌面壁纸或自定义图片。"
           }
         }
       }

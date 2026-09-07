@@ -15,8 +15,7 @@ final class EditorChromeView: NSView {
     private let toolbarHost: NonDraggableHostingView<AnnotationToolbar>
     private let session: EditSession
     private let presentationStyle: EditorPresentationStyle
-    private let scrollableCanvas: Bool
-    private let canvasScrollView: NSScrollView?
+    private let canvasScrollView: ZoomableCanvasScrollView
     private var didSetInitialScrollMagnification = false
     private var arrangement: EditorArrangement
     private var windowedLayout: EditorWindowLayout?
@@ -28,15 +27,13 @@ final class EditorChromeView: NSView {
         arrangement: EditorArrangement,
         presentationStyle: EditorPresentationStyle = .inPlace,
         windowedLayout: EditorWindowLayout? = nil,
-        scrollableCanvas: Bool = false,
         onCopy: @escaping () -> Void,
         onSave: @escaping () -> Void,
         onClose: @escaping () -> Void
     ) {
         self.session = session
         self.presentationStyle = presentationStyle
-        self.scrollableCanvas = scrollableCanvas
-        self.canvasScrollView = scrollableCanvas ? NSScrollView() : nil
+        self.canvasScrollView = ZoomableCanvasScrollView()
         self.arrangement = arrangement
         self.windowedLayout = windowedLayout
         self.coordinator = CanvasCoordinator(session: session)
@@ -57,18 +54,19 @@ final class EditorChromeView: NSView {
         canvas.delegate = coordinator
         canvas.selectedTool = session.selectedTool
         canvas.wantsLayer = true
-        if let canvasScrollView {
-            canvasScrollView.drawsBackground = true
-            canvasScrollView.backgroundColor = NSColor.underPageBackgroundColor
-            canvasScrollView.borderType = .noBorder
-            canvasScrollView.hasVerticalScroller = true
-            canvasScrollView.hasHorizontalScroller = true
-            canvasScrollView.autohidesScrollers = true
-            canvasScrollView.allowsMagnification = true
-            canvasScrollView.minMagnification = 0.1
-            canvasScrollView.maxMagnification = 4
-            canvasScrollView.documentView = canvas
-        }
+        canvasScrollView.drawsBackground = presentationStyle == .windowed
+        canvasScrollView.backgroundColor = presentationStyle == .windowed
+            ? NSColor.underPageBackgroundColor
+            : NSColor.clear
+        canvasScrollView.borderType = .noBorder
+        canvasScrollView.hasVerticalScroller = true
+        canvasScrollView.hasHorizontalScroller = true
+        canvasScrollView.autohidesScrollers = true
+        canvasScrollView.allowsMagnification = true
+        canvasScrollView.minMagnification = CanvasZoom.minimumMagnification
+        canvasScrollView.maxMagnification = CanvasZoom.maximumMagnification
+        canvasScrollView.commandScrollZoomEnabled = AppSettings.shared.annotationZoomWithCommandScroll
+        canvasScrollView.documentView = canvas
         canvasChrome.setAccessibilityElement(false)
         toolbarHost.wantsLayer = true
         toolbarHost.layer?.isOpaque = false
@@ -82,12 +80,8 @@ final class EditorChromeView: NSView {
         toolbarHost.setAccessibilityRole(.group)
         toolbarHost.setAccessibilityLabel(String(localized: "标注工具"))
         addSubview(canvasChrome)
-        if let canvasScrollView {
-            addSubview(canvasScrollView)
-        } else {
-            addSubview(canvas)
-        }
-        addSubview(toolbarHost, positioned: .above, relativeTo: canvasScrollView ?? canvas)
+        addSubview(canvasScrollView)
+        addSubview(toolbarHost, positioned: .above, relativeTo: canvasScrollView)
         syncCanvas()
         cancellable = session.objectWillChange
             .receive(on: DispatchQueue.main)
@@ -121,12 +115,14 @@ final class EditorChromeView: NSView {
 
     func apply(_ arrangement: EditorArrangement) {
         self.arrangement = arrangement
+        didSetInitialScrollMagnification = false
         setFrameSize(arrangement.windowFrame.size)
         needsLayout = true
     }
 
     func apply(_ layout: EditorWindowLayout) {
         windowedLayout = layout
+        didSetInitialScrollMagnification = false
         setFrameSize(layout.contentSize)
         needsLayout = true
     }
@@ -135,43 +131,12 @@ final class EditorChromeView: NSView {
         canvas.commitTextIfNeeded()
     }
 
+    func setSpaceHeld(_ held: Bool) {
+        canvas.setSpaceHeld(held)
+    }
+
     override func layout() {
         super.layout()
-        if presentationStyle == .windowed,
-           scrollableCanvas,
-           let canvasScrollView {
-            let toolbarSize = toolbarFittingSize
-            let toolbar = CGRect(
-                x: 0,
-                y: max(0, bounds.height - toolbarSize.height),
-                width: bounds.width,
-                height: min(toolbarSize.height, bounds.height)
-            )
-            let workspace = CGRect(
-                x: 0,
-                y: 0,
-                width: bounds.width,
-                height: max(1, toolbar.minY)
-            ).insetBy(
-                dx: EditorLayout.windowedWorkspacePadding,
-                dy: EditorLayout.windowedWorkspacePadding
-            )
-            toolbarHost.frame = toolbar
-            canvasScrollView.frame = workspace
-            canvasChrome.frame = workspace.insetBy(dx: -1, dy: -1)
-            canvasChrome.layer?.shadowPath = CGPath(rect: canvasChrome.bounds, transform: nil)
-
-            let imageSize = session.document.baseImage.size
-            canvas.frame = CGRect(origin: .zero, size: imageSize)
-            let availableWidth = max(1, canvasScrollView.contentView.bounds.width)
-            let fitWidth = min(1, availableWidth / max(1, imageSize.width))
-            if !didSetInitialScrollMagnification, availableWidth > 1 {
-                canvasScrollView.magnification = max(canvasScrollView.minMagnification, fitWidth)
-                didSetInitialScrollMagnification = true
-            }
-            return
-        }
-
         let layout: (canvas: CGRect, toolbar: CGRect)
         if presentationStyle == .windowed {
             let computed = EditorLayout.windowed(
@@ -195,10 +160,25 @@ final class EditorChromeView: NSView {
             }
             layout = (arrangement.canvasFrame, toolbar)
         }
-        canvas.frame = layout.canvas
+        toolbarHost.frame = layout.toolbar
+        canvasScrollView.frame = layout.canvas
         canvasChrome.frame = layout.canvas.insetBy(dx: -1, dy: -1)
         canvasChrome.layer?.shadowPath = CGPath(rect: canvasChrome.bounds, transform: nil)
-        toolbarHost.frame = layout.toolbar
+
+        let imageSize = session.document.baseImage.size
+        canvas.frame = CGRect(origin: .zero, size: imageSize)
+        if !didSetInitialScrollMagnification {
+            let viewportSize = canvasScrollView.contentView.bounds.size
+            let fittedSize = CGSize(
+                width: max(1, viewportSize.width),
+                height: max(1, viewportSize.height)
+            )
+            canvasScrollView.magnification = CanvasZoom.fittedMagnification(
+                imageSize: imageSize,
+                viewportSize: fittedSize
+            )
+            didSetInitialScrollMagnification = true
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -235,6 +215,7 @@ final class EditorChromeView: NSView {
         canvas.strokeColor = NSColor(session.color)
         canvas.lineWidth = session.lineWidth
         canvas.calloutWrapText = session.calloutWrapText
+        canvasScrollView.commandScrollZoomEnabled = AppSettings.shared.annotationZoomWithCommandScroll
         if canvas.isEditingText {
             if session.textEditOrigin == nil {
                 canvas.cancelTextEditing()
@@ -250,6 +231,54 @@ final class EditorChromeView: NSView {
                 ? NSColor.underPageBackgroundColor.cgColor
                 : NSColor.clear.cgColor
         }
+    }
+}
+
+private final class ZoomableCanvasScrollView: NSScrollView {
+    var commandScrollZoomEnabled = false
+
+    override func scrollWheel(with event: NSEvent) {
+        let action = CanvasZoom.scrollAction(
+            hasPreciseScrollingDeltas: event.hasPreciseScrollingDeltas,
+            commandPressed: event.modifierFlags.contains(.command),
+            commandScrollEnabled: commandScrollZoomEnabled
+        )
+        guard action == .zoom,
+              let documentView,
+              let point = documentView.windowPointToDocument(event.locationInWindow) else {
+            super.scrollWheel(with: event)
+            return
+        }
+
+        let delta = abs(event.scrollingDeltaY) >= abs(event.scrollingDeltaX)
+            ? event.scrollingDeltaY
+            : event.scrollingDeltaX
+        guard delta != 0 else { return }
+        let factor = CGFloat(pow(1.01, Double(delta)))
+        setMagnification(
+            CanvasZoom.clamped(magnification * factor),
+            centeredAt: point
+        )
+    }
+
+    override func magnify(with event: NSEvent) {
+        guard let documentView,
+              let point = documentView.windowPointToDocument(event.locationInWindow) else {
+            super.magnify(with: event)
+            return
+        }
+        let factor = max(0.01, 1 + event.magnification)
+        setMagnification(
+            CanvasZoom.clamped(magnification * factor),
+            centeredAt: point
+        )
+    }
+}
+
+private extension NSView {
+    func windowPointToDocument(_ point: CGPoint) -> CGPoint? {
+        guard window != nil else { return nil }
+        return convert(point, from: nil)
     }
 }
 

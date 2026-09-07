@@ -2,6 +2,11 @@ import AppKit
 import SwiftUI
 
 enum HUDChrome {
+    enum PanelTreatment: Equatable {
+        case standard
+        case lightweight
+    }
+
     static var reduceTransparency: Bool {
         NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
     }
@@ -20,6 +25,7 @@ enum HUDChrome {
 
     struct PanelBackground: View {
         var cornerRadius: CGFloat
+        var treatment: PanelTreatment = .standard
 
         var body: some View {
             let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -27,14 +33,22 @@ enum HUDChrome {
                 if HUDChrome.reduceTransparency {
                     shape.fill(HUDChrome.solidFill)
                 } else {
-                    VisualEffect(cornerRadius: cornerRadius)
+                    VisualEffect(
+                        cornerRadius: cornerRadius,
+                        opacity: treatment == .lightweight ? 0.88 : 1
+                    )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    shape.fill(HUDChrome.liftFill)
+                    shape.fill(treatment == .lightweight ? .clear : HUDChrome.liftFill)
                 }
             }
             .clipShape(shape)
             .overlay {
-                shape.strokeBorder(HUDChrome.hairline, lineWidth: 1)
+                shape.strokeBorder(
+                    treatment == .lightweight
+                        ? Color.white.opacity(0.16)
+                        : HUDChrome.hairline,
+                    lineWidth: 1
+                )
             }
         }
     }
@@ -106,12 +120,14 @@ private struct IconButtonBody: View {
 
 private struct VisualEffect: NSViewRepresentable {
     var cornerRadius: CGFloat
+    var opacity: CGFloat = 1
     var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
 
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.blendingMode = blendingMode
         view.state = .active
+        view.alphaValue = opacity
         view.wantsLayer = true
         view.layer?.masksToBounds = true
         apply(view)
@@ -130,6 +146,7 @@ private struct VisualEffect: NSViewRepresentable {
         view.material = .hudWindow
         view.blendingMode = blendingMode
         view.state = .active
+        view.alphaValue = opacity
         view.appearance = NSAppearance(named: .vibrantDark)
         view.layer?.cornerRadius = cornerRadius
         view.layer?.cornerCurve = .continuous
