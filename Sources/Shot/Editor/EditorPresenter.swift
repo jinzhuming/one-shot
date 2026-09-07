@@ -38,6 +38,7 @@ final class EditorPresenter {
     }
 
     func dismiss() {
+        AnnotationColorPickerController.dismiss()
         saveTask?.cancel()
         saveTask = nil
         session?.endExport()
@@ -116,6 +117,7 @@ final class EditorPresenter {
         }
 
         if let existing = panel {
+            AnnotationColorPickerController.dismiss()
             existing.orderOut(nil)
             existing.contentView = nil
             existing.close()

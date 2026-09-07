@@ -40,6 +40,7 @@ struct AnnotationToolbar: View {
                 windowToolbar
             }
         }
+        .focusEffectDisabled()
         .onReceive(
             NSWorkspace.shared.notificationCenter.publisher(
                 for: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
@@ -611,14 +612,14 @@ struct AnnotationToolbar: View {
     }
 
     private var floatingStyleGroup: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
             colorSwatches
             strokePresets
         }
     }
 
     private var colorSwatches: some View {
-        HStack(spacing: presentation.isFloating ? 4 : 2) {
+        HStack(spacing: presentation.isFloating ? 5 : 4) {
             ForEach(Array(Self.swatches.enumerated()), id: \.offset) { _, swatch in
                 Button {
                     session.color = Color(nsColor: swatch.color)
@@ -647,19 +648,19 @@ struct AnnotationToolbar: View {
                 .accessibilityLabel(swatch.help)
                 .accessibilityAddTraits(isSelected(swatch.color) ? [.isSelected] : [])
             }
-            ColorPicker(
-                String(localized: "选择自定义颜色"),
-                selection: $session.color,
-                supportsOpacity: false
+            NativeAnnotationColorWell(
+                color: $session.color,
+                accessibilityLabel: String(localized: "选择自定义颜色")
             )
-            .labelsHidden()
             .frame(
                 width: AnnotationChromeMetrics.controlSize,
                 height: AnnotationChromeMetrics.controlSize
             )
+            .padding(.horizontal, presentation.isFloating ? 5 : 4)
             .help(String(localized: "选择自定义颜色"))
             .accessibilityLabel(String(localized: "选择自定义颜色"))
         }
+        .padding(.horizontal, presentation.isFloating ? 6 : 4)
     }
 
     private var strokePresets: some View {
@@ -877,6 +878,75 @@ struct AnnotationToolbar: View {
     ]
 }
 
+/// The minimal AppKit color well uses the control itself as the popover anchor.
+/// Keep a reference so editor teardown can also deactivate a picker that is open.
+@MainActor
+enum AnnotationColorPickerController {
+    static weak var activeWell: NSColorWell?
+
+    static func dismiss() {
+        activeWell?.deactivate()
+        if NSColorPanel.sharedColorPanelExists {
+            NSColorPanel.shared.close()
+        }
+        activeWell = nil
+    }
+}
+
+private struct NativeAnnotationColorWell: NSViewRepresentable {
+    @Binding var color: Color
+    let accessibilityLabel: String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(color: $color)
+    }
+
+    func makeNSView(context: Context) -> NSColorWell {
+        let well = NSColorWell(style: .minimal)
+        well.color = NSColor(color)
+        well.supportsAlpha = false
+        well.isContinuous = true
+        well.focusRingType = .none
+        well.target = context.coordinator
+        well.action = #selector(Coordinator.colorChanged(_:))
+        well.setAccessibilityElement(true)
+        well.setAccessibilityRole(NSAccessibility.Role.button)
+        well.setAccessibilityLabel(accessibilityLabel)
+        AnnotationColorPickerController.activeWell = well
+        return well
+    }
+
+    func updateNSView(_ well: NSColorWell, context: Context) {
+        context.coordinator.color = $color
+        well.setAccessibilityLabel(accessibilityLabel)
+        let newColor = NSColor(color)
+        if !well.color.isEqual(newColor) {
+            well.color = newColor
+        }
+        AnnotationColorPickerController.activeWell = well
+    }
+
+    static func dismantleNSView(_ well: NSColorWell, coordinator: Coordinator) {
+        well.deactivate()
+        if AnnotationColorPickerController.activeWell === well {
+            AnnotationColorPickerController.activeWell = nil
+        }
+    }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var color: Binding<Color>
+
+        init(color: Binding<Color>) {
+            self.color = color
+        }
+
+        @objc func colorChanged(_ sender: NSColorWell) {
+            color.wrappedValue = Color(nsColor: sender.color)
+        }
+    }
+}
+
 private struct AnnotationIconButtonStyle: ButtonStyle {
     let presentation: AnnotationToolbarPresentation
     var isSelected = false
@@ -900,7 +970,6 @@ private struct AnnotationIconButtonBody: View {
 
     @State private var isHovered = false
     @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.isFocused) private var isFocused
 
     var body: some View {
         label
@@ -917,17 +986,6 @@ private struct AnnotationIconButtonBody: View {
                     style: .continuous
                 )
             )
-            .overlay {
-                RoundedRectangle(
-                    cornerRadius: AnnotationChromeMetrics.buttonCornerRadius,
-                    style: .continuous
-                )
-                .strokeBorder(
-                    isFocused && isEnabled ? Color.accentColor : .clear,
-                    lineWidth: 2
-                )
-                .padding(1)
-            }
             .opacity(isEnabled ? 1 : 0.38)
             .onHover { hovering in
                 isHovered = isEnabled && hovering

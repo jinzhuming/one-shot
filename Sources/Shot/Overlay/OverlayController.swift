@@ -564,20 +564,40 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         }
 
         let cursor = NSEvent.mouseLocation
-        let globalFrame = MagnifierLayout.frame(
-            cursor: cursor,
-            visibleFrame: screen.visibleFrame
-        )
+        let globalFrame: CGRect
+        if let selectionRect, selectionRect.width > 2, selectionRect.height > 2 {
+            globalFrame = MagnifierLayout.frame(
+                nextTo: selectionRect,
+                visibleFrame: screen.visibleFrame,
+                chromeInset: OverlayFocusStyle.magnifierBezelInset
+            )
+        } else {
+            globalFrame = MagnifierLayout.frame(
+                cursor: cursor,
+                visibleFrame: screen.visibleFrame,
+                chromeInset: OverlayFocusStyle.magnifierBezelInset
+            )
+        }
+        guard !globalFrame.isEmpty else {
+            view.magnifierFrame = nil
+            view.magnifierSourceRect = nil
+            view.magnifierCursor = nil
+            return
+        }
         let inWindow = window.convertFromScreen(globalFrame)
-        let inView = view.convert(inWindow, from: nil)
+        let outerFrameInView = view.convert(inWindow, from: nil)
+        let contentFrameInView = MagnifierLayout.contentFrame(
+            for: outerFrameInView,
+            chromeInset: OverlayFocusStyle.magnifierBezelInset
+        )
         let cursorInWindow = window.convertFromScreen(NSRect(origin: cursor, size: .zero)).origin
         let cursorInView = view.convert(cursorInWindow, from: nil)
         let source = MagnifierLayout.sourceRect(
             cursor: cursorInView,
             imageBounds: view.bounds,
-            destinationSize: inView.size
+            destinationSize: contentFrameInView.size
         )
-        view.magnifierFrame = inView
+        view.magnifierFrame = outerFrameInView
         view.magnifierSourceRect = source
         view.magnifierCursor = cursorInView
     }

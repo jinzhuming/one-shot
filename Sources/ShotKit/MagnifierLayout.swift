@@ -1,30 +1,49 @@
 import CoreGraphics
 
 public enum MagnifierLayout {
+    /// Size of the captured content inside the lens. The returned frame also
+    /// includes the surrounding HUD chrome.
     public static let defaultSize = CGSize(width: 124, height: 124)
     public static let defaultGap: CGFloat = 18
     public static let defaultZoom: CGFloat = 8
+    public static let defaultChromeInset: CGFloat = 6
 
     public static func frame(
         cursor: CGPoint,
         size: CGSize = defaultSize,
         visibleFrame: CGRect,
         gap: CGFloat = defaultGap,
-        margin: CGFloat = 8
+        margin: CGFloat = 8,
+        chromeInset: CGFloat = defaultChromeInset
     ) -> CGRect {
-        guard size.width > 0, size.height > 0, visibleFrame.width > 0, visibleFrame.height > 0 else {
+        guard size.width > 0,
+              size.height > 0,
+              visibleFrame.width > 0,
+              visibleFrame.height > 0,
+              gap.isFinite,
+              margin.isFinite,
+              margin >= 0,
+              chromeInset.isFinite,
+              chromeInset >= 0
+        else {
             return .zero
         }
 
+        let outerSize = CGSize(
+            width: size.width + chromeInset * 2,
+            height: size.height + chromeInset * 2
+        )
+        guard outerSize.width.isFinite, outerSize.height.isFinite else { return .zero }
+
         let safe = visibleFrame.insetBy(dx: margin, dy: margin)
-        var x = cursor.x - size.width / 2
-        x = min(max(x, safe.minX), max(safe.minX, safe.maxX - size.width))
+        var x = cursor.x - outerSize.width / 2
+        x = min(max(x, safe.minX), max(safe.minX, safe.maxX - outerSize.width))
 
         let above = CGRect(
             x: x,
             y: cursor.y + gap,
-            width: size.width,
-            height: size.height
+            width: outerSize.width,
+            height: outerSize.height
         )
         if safe.contains(above) {
             return above
@@ -32,11 +51,100 @@ public enum MagnifierLayout {
 
         let below = CGRect(
             x: x,
-            y: cursor.y - gap - size.height,
-            width: size.width,
-            height: size.height
+            y: cursor.y - gap - outerSize.height,
+            width: outerSize.width,
+            height: outerSize.height
         )
         return RectMath.clampedRect(below, in: safe)
+    }
+
+    /// Places the lens outside a live selection, preferring the selection's
+    /// lower-right corner. The zero rect means there is no unobstructed
+    /// placement in the visible area.
+    public static func frame(
+        nextTo selectionRect: CGRect,
+        size: CGSize = defaultSize,
+        visibleFrame: CGRect,
+        gap: CGFloat = defaultGap,
+        margin: CGFloat = 8,
+        chromeInset: CGFloat = defaultChromeInset
+    ) -> CGRect {
+        guard size.width > 0,
+              size.height > 0,
+              visibleFrame.width > 0,
+              visibleFrame.height > 0,
+              selectionRect.width > 0,
+              selectionRect.height > 0,
+              selectionRect.minX.isFinite,
+              selectionRect.minY.isFinite,
+              selectionRect.maxX.isFinite,
+              selectionRect.maxY.isFinite,
+              gap.isFinite,
+              gap >= 0,
+              margin.isFinite,
+              margin >= 0,
+              chromeInset.isFinite,
+              chromeInset >= 0
+        else {
+            return .zero
+        }
+
+        let outerSize = CGSize(
+            width: size.width + chromeInset * 2,
+            height: size.height + chromeInset * 2
+        )
+        guard outerSize.width.isFinite, outerSize.height.isFinite else { return .zero }
+
+        let safe = visibleFrame.insetBy(dx: margin, dy: margin)
+        let selection = selectionRect.standardized
+        let candidates = [
+            // Keep the lens visually tied to the requested lower-right corner
+            // while placing the entire HUD below the captured area.
+            CGRect(
+                x: selection.maxX - outerSize.width,
+                y: selection.minY - gap - outerSize.height,
+                width: outerSize.width,
+                height: outerSize.height
+            ),
+            // If the bottom edge is unavailable, keep it beside the right edge.
+            CGRect(
+                x: selection.maxX + gap,
+                y: selection.minY,
+                width: outerSize.width,
+                height: outerSize.height
+            ),
+            // Then try the matching position above the selection.
+            CGRect(
+                x: selection.maxX - outerSize.width,
+                y: selection.maxY + gap,
+                width: outerSize.width,
+                height: outerSize.height
+            ),
+            // Last resort: the lower-left side still keeps the image unobscured.
+            CGRect(
+                x: selection.minX - gap - outerSize.width,
+                y: selection.minY,
+                width: outerSize.width,
+                height: outerSize.height
+            )
+        ]
+
+        return candidates.first {
+            safe.contains($0) && !$0.intersects(selection)
+        } ?? .zero
+    }
+
+    /// Returns the screenshot window inside the outer HUD frame.
+    public static func contentFrame(
+        for outerFrame: CGRect,
+        chromeInset: CGFloat = defaultChromeInset
+    ) -> CGRect {
+        guard outerFrame.width > chromeInset * 2,
+              outerFrame.height > chromeInset * 2,
+              chromeInset.isFinite,
+              chromeInset >= 0
+        else { return .zero }
+        return outerFrame.insetBy(dx: chromeInset, dy: chromeInset)
     }
 
     public static func sourceRect(

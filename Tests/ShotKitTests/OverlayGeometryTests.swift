@@ -130,6 +130,52 @@ import Testing
     #expect(top.minX >= visible.minX + 8)
 }
 
+@Test func magnifierFrameKeepsChromeInsideSafeAreaAndContentAligned() {
+    let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
+    let contentSize = CGSize(width: 124, height: 124)
+    let outer = MagnifierLayout.frame(
+        cursor: CGPoint(x: 720, y: 400),
+        size: contentSize,
+        visibleFrame: visible
+    )
+    let content = MagnifierLayout.contentFrame(for: outer)
+
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(outer))
+    #expect(abs(content.width - contentSize.width) < 0.001)
+    #expect(abs(content.height - contentSize.height) < 0.001)
+    #expect(abs(outer.midX - content.midX) < 0.001)
+    #expect(abs(outer.midY - content.midY) < 0.001)
+    #expect(abs(outer.width - content.width - MagnifierLayout.defaultChromeInset * 2) < 0.001)
+}
+
+@Test func magnifierFrameStaysOutsideSelectionAtItsLowerRightCorner() {
+    let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
+    let selection = CGRect(x: 320, y: 420, width: 360, height: 220)
+    let frame = MagnifierLayout.frame(
+        nextTo: selection,
+        visibleFrame: visible
+    )
+
+    #expect(!frame.isEmpty)
+    #expect(!frame.intersects(selection))
+    #expect(abs(frame.maxX - selection.maxX) < 0.001)
+    #expect(frame.maxY < selection.minY)
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(frame))
+}
+
+@Test func magnifierFrameUsesAnotherSideWhenLowerRightSpaceIsUnavailable() {
+    let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
+    let selection = CGRect(x: 1180, y: 60, width: 220, height: 500)
+    let frame = MagnifierLayout.frame(
+        nextTo: selection,
+        visibleFrame: visible
+    )
+
+    #expect(!frame.isEmpty)
+    #expect(!frame.intersects(selection))
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(frame))
+}
+
 @Test func magnifierSourceRectPreservesLensAspectAndZoom() {
     let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
     let source = MagnifierLayout.sourceRect(

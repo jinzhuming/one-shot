@@ -83,6 +83,11 @@ final class SelectionOverlayView: NSView {
         layer?.backgroundColor = NSColor.clear.cgColor
     }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+
     deinit {
         maskAnimationTimer?.invalidate()
     }
@@ -332,31 +337,41 @@ final class SelectionOverlayView: NSView {
               magnifierSourceRect.height > 1
         else { return }
 
-        let frame = magnifierFrame.intersection(bounds)
-        guard !frame.isNull, !frame.isEmpty else { return }
+        let outerFrame = magnifierFrame.intersection(bounds)
+        guard !outerFrame.isNull,
+              !outerFrame.isEmpty,
+              abs(outerFrame.width - magnifierFrame.width) < 0.01,
+              abs(outerFrame.height - magnifierFrame.height) < 0.01
+        else { return }
 
-        let bezelFrame = frame
-            .insetBy(dx: -OverlayFocusStyle.magnifierBezelInset, dy: -OverlayFocusStyle.magnifierBezelInset)
-            .intersection(bounds)
-        let bezel = NSBezierPath(ovalIn: bezelFrame)
+        let contentFrame = MagnifierLayout.contentFrame(
+            for: outerFrame,
+            chromeInset: OverlayFocusStyle.magnifierBezelInset
+        )
+        guard !contentFrame.isNull, !contentFrame.isEmpty else { return }
+
+        // Keep the outer HUD plate, image window, and keylines on distinct
+        // geometry. This prevents the bezel from stealing pixels from the
+        // sampled image and keeps the border aligned at display edges.
+        let bezel = NSBezierPath(ovalIn: outerFrame.insetBy(dx: 0.5, dy: 0.5))
         let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(OverlayFocusStyle.magnifierShadowOpacity)
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            shadow.shadowColor = NSColor.shadowColor.withAlphaComponent(OverlayFocusStyle.magnifierShadowOpacity)
+        }
         shadow.shadowBlurRadius = 10
         shadow.shadowOffset = CGSize(width: 0, height: -2)
         NSGraphicsContext.saveGraphicsState()
         shadow.set()
-        NSColor.controlBackgroundColor
-            .withAlphaComponent(OverlayFocusStyle.magnifierBezelOpacity)
-            .setFill()
+        drawMagnifierBezelFill()
         bezel.fill()
         NSGraphicsContext.restoreGraphicsState()
 
-        let clip = NSBezierPath(ovalIn: frame)
+        let clip = NSBezierPath(ovalIn: contentFrame)
         NSGraphicsContext.saveGraphicsState()
         clip.addClip()
         NSGraphicsContext.current?.imageInterpolation = .none
         backgroundImage.draw(
-            in: frame,
+            in: contentFrame,
             from: magnifierSourceRect,
             operation: .copy,
             fraction: 1,
@@ -365,18 +380,33 @@ final class SelectionOverlayView: NSView {
         )
         NSGraphicsContext.restoreGraphicsState()
 
-        // A neutral semantic keyline makes the lens read as a floating system
-        // inspection surface and avoids competing with the accent used by the
-        // selection itself.
-        let border = NSBezierPath(ovalIn: frame.insetBy(dx: 0.5, dy: 0.5))
-        border.lineWidth = OverlayFocusStyle.magnifierBorderLineWidth
-        NSColor.white.withAlphaComponent(OverlayFocusStyle.magnifierBorderOpacity).setStroke()
-        border.stroke()
+        // Contrast keylines make the lens readable over either a bright or a
+        // dark desktop. The inner keyline is the exact boundary of the pixels.
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            let outerBorder = NSBezierPath(ovalIn: outerFrame.insetBy(dx: 0.5, dy: 0.5))
+            outerBorder.lineWidth = OverlayFocusStyle.magnifierBorderLineWidth
+            NSColor.separatorColor
+                .withAlphaComponent(OverlayFocusStyle.magnifierOuterBorderOpacity)
+                .setStroke()
+            outerBorder.stroke()
+
+            let innerContrast = NSBezierPath(ovalIn: contentFrame.insetBy(dx: -0.5, dy: -0.5))
+            innerContrast.lineWidth = OverlayFocusStyle.magnifierContrastLineWidth
+            NSColor.shadowColor.withAlphaComponent(0.62).setStroke()
+            innerContrast.stroke()
+
+            let innerBorder = NSBezierPath(ovalIn: contentFrame.insetBy(dx: 0.5, dy: 0.5))
+            innerBorder.lineWidth = OverlayFocusStyle.magnifierBorderLineWidth
+            NSColor.labelColor
+                .withAlphaComponent(OverlayFocusStyle.magnifierInnerBorderOpacity)
+                .setStroke()
+            innerBorder.stroke()
+        }
 
         let cursor = MagnifierLayout.cursorPosition(
             cursor: magnifierCursor,
             sourceRect: magnifierSourceRect,
-            destinationFrame: frame
+            destinationFrame: contentFrame
         )
         let crosshair = NSBezierPath()
         crosshair.move(to: CGPoint(x: cursor.x - 12, y: cursor.y))
@@ -388,7 +418,7 @@ final class SelectionOverlayView: NSView {
         // white or light captured content while preserving a white center on
         // dark content.
         NSGraphicsContext.saveGraphicsState()
-        NSBezierPath(ovalIn: frame).addClip()
+        NSBezierPath(ovalIn: contentFrame).addClip()
         crosshair.lineWidth = 4
         NSColor.black.withAlphaComponent(0.85).setStroke()
         crosshair.stroke()
@@ -396,5 +426,16 @@ final class SelectionOverlayView: NSView {
         NSColor.white.withAlphaComponent(0.9).setStroke()
         crosshair.stroke()
         NSGraphicsContext.restoreGraphicsState()
+    }
+
+    private func drawMagnifierBezelFill() {
+        let opacity = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+            ? 0.96
+            : OverlayFocusStyle.magnifierBezelOpacity
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            NSColor.controlBackgroundColor
+                .withAlphaComponent(opacity)
+                .setFill()
+        }
     }
 }
