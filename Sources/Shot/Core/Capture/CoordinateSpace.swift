@@ -13,12 +13,12 @@ enum CoordinateSpace {
     }
 
     static func screen(for rect: CGRect) -> NSScreen? {
-        NSScreen.screens
-            .map { screen in
-                (screen: screen, area: screen.frame.intersection(rect).area)
-            }
-            .max { lhs, rhs in lhs.area < rhs.area }
-            .flatMap { $0.area > 0 ? $0.screen : nil }
+        let screens = NSScreen.screens
+        guard let index = RectMath.largestIntersectionIndex(
+            of: rect,
+            in: screens.map(\.frame)
+        ) else { return nil }
+        return screens[index]
     }
 
     static func display(matching screen: NSScreen, in displays: [SCDisplay]) -> SCDisplay? {
@@ -28,6 +28,14 @@ enum CoordinateSpace {
 
     static func cocoaRect(fromCGWindowBounds bounds: CGRect) -> CGRect {
         RectMath.cocoaRect(fromCGWindowBounds: bounds, primaryHeight: primaryDisplayHeight)
+    }
+
+    static func windowGeometry(
+        fromCGWindowBounds bounds: CGRect
+    ) -> (frame: CGRect, screen: NSScreen)? {
+        let frame = cocoaRect(fromCGWindowBounds: bounds)
+        guard let screen = screen(for: frame) else { return nil }
+        return (frame, screen)
     }
 
     static var primaryDisplayHeight: CGFloat {
@@ -42,10 +50,6 @@ enum CoordinateSpace {
     static func displaySourceRect(_ cocoaGlobal: CGRect, on screen: NSScreen) -> CGRect {
         RectMath.displaySourceRect(cocoaGlobal: cocoaGlobal, screenFrame: screen.frame)
     }
-}
-
-private extension CGRect {
-    var area: CGFloat { width * height }
 }
 
 extension NSScreen {

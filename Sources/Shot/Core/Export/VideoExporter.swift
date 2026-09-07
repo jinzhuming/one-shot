@@ -35,10 +35,12 @@ enum VideoExporter {
         return panel.runModal() == .OK ? panel.url : nil
     }
 
-    static func copyToClipboard(_ url: URL) {
+    @discardableResult
+    static func copyToClipboard(_ url: URL) -> Bool {
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.writeObjects([url as NSURL])
+        return pasteboard.writeObjects([url as NSURL])
     }
 
     static func copy(_ sourceURL: URL, to destinationURL: URL) async throws {
@@ -57,11 +59,14 @@ enum VideoExporter {
 
     enum ExportError: LocalizedError {
         case destinationExists
+        case clipboardFailed
 
         var errorDescription: String? {
             switch self {
             case .destinationExists:
                 return String(localized: "目标文件已存在，请选择其他位置。")
+            case .clipboardFailed:
+                return String(localized: "无法复制视频文件到剪贴板。")
             }
         }
     }

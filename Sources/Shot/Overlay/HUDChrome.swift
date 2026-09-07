@@ -39,6 +39,26 @@ enum HUDChrome {
         }
     }
 
+    struct DockedBackground: View {
+        var body: some View {
+            let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+            ZStack {
+                if HUDChrome.reduceTransparency {
+                    shape.fill(HUDChrome.solidFill)
+                } else {
+                    VisualEffect(cornerRadius: 12, blendingMode: .withinWindow)
+                        .clipShape(shape)
+                    shape.fill(HUDChrome.liftFill)
+                }
+            }
+            .clipShape(shape)
+            .overlay {
+                shape.strokeBorder(HUDChrome.hairline, lineWidth: 1)
+            }
+            .environment(\.colorScheme, .dark)
+        }
+    }
+
     struct IconButtonStyle: ButtonStyle {
         var isSelected = false
         var cornerRadius: CGFloat = 6
@@ -106,10 +126,11 @@ private struct IconButtonBody: View {
 
 private struct VisualEffect: NSViewRepresentable {
     var cornerRadius: CGFloat
+    var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
 
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.blendingMode = .behindWindow
+        view.blendingMode = blendingMode
         view.state = .active
         view.wantsLayer = true
         view.layer?.masksToBounds = true
@@ -127,7 +148,7 @@ private struct VisualEffect: NSViewRepresentable {
 
     private func apply(_ view: NSVisualEffectView) {
         view.material = .hudWindow
-        view.blendingMode = .behindWindow
+        view.blendingMode = blendingMode
         view.state = .active
         view.appearance = NSAppearance(named: .vibrantDark)
         view.layer?.cornerRadius = cornerRadius

@@ -62,7 +62,7 @@ public struct Hotkey: Equatable, Codable, Sendable {
 
     public static let defaultAllInOne = Hotkey(
         keyCode: 0,
-        modifierRaw: NSEvent.ModifierFlags([.command, .shift]).rawValue,
+        modifierRaw: NSEvent.ModifierFlags([.control, .command]).rawValue,
         character: "a"
     )
 

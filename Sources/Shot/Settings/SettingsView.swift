@@ -33,6 +33,14 @@ struct SettingsView: View {
                     Text(action.title).tag(action)
                 }
             }
+            Picker(String(localized: "标注位置"), selection: $settings.annotationWindowPlacement) {
+                ForEach(AnnotationWindowPlacement.allCases) { placement in
+                    Text(placement.title).tag(placement)
+                }
+            }
+            Text(String(localized: "原位置空间不足时，会自动缩放并移入当前显示器的可见区域；独立窗口可拖拽缩放。"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
             Toggle(String(localized: "保存或标注后同时复制到剪贴板"), isOn: $settings.copyOnComplete)
             if settings.afterCaptureAction != .copy, settings.copyOnComplete {
                 Text(String(localized: "保存截图或完成标注后，会同时把最终图片复制到剪贴板。"))

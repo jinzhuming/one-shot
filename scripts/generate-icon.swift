@@ -13,55 +13,88 @@ try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories
 try FileManager.default.createDirectory(at: xcassets, withIntermediateDirectories: true)
 _ = NSApplication.shared
 
-func whiteSymbol(pointSize: CGFloat) -> NSImage? {
-    let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
-    guard let symbol = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: nil)?
-        .withSymbolConfiguration(config) else { return nil }
-    let tinted = NSImage(size: symbol.size)
-    tinted.lockFocus()
+private func roundedStroke(_ path: NSBezierPath, width: CGFloat) {
+    path.lineWidth = width
+    path.lineCapStyle = .round
+    path.lineJoinStyle = .round
+    path.stroke()
+}
+
+private func drawViewfinderMark(in rect: NSRect) {
+    let size = min(rect.width, rect.height)
+    let left = rect.midX - size * 0.31
+    let right = rect.midX + size * 0.31
+    let bottom = rect.midY - size * 0.31
+    let top = rect.midY + size * 0.31
+    let arm = size * 0.15
+    let stroke = size * 0.072
+
+    NSColor.white.setStroke()
+    let topLeft = NSBezierPath()
+    topLeft.move(to: NSPoint(x: left + arm, y: top))
+    topLeft.line(to: NSPoint(x: left, y: top))
+    topLeft.line(to: NSPoint(x: left, y: top - arm))
+    roundedStroke(topLeft, width: stroke)
+
+    let topRight = NSBezierPath()
+    topRight.move(to: NSPoint(x: right - arm, y: top))
+    topRight.line(to: NSPoint(x: right, y: top))
+    topRight.line(to: NSPoint(x: right, y: top - arm))
+    roundedStroke(topRight, width: stroke)
+
+    let bottomLeft = NSBezierPath()
+    bottomLeft.move(to: NSPoint(x: left + arm, y: bottom))
+    bottomLeft.line(to: NSPoint(x: left, y: bottom))
+    bottomLeft.line(to: NSPoint(x: left, y: bottom + arm))
+    roundedStroke(bottomLeft, width: stroke)
+
+    let bottomRight = NSBezierPath()
+    bottomRight.move(to: NSPoint(x: right - arm, y: bottom))
+    bottomRight.line(to: NSPoint(x: right, y: bottom))
+    bottomRight.line(to: NSPoint(x: right, y: bottom + arm))
+    roundedStroke(bottomRight, width: stroke)
+
+    let lensRadius = size * 0.125
+    let lens = NSBezierPath(ovalIn: NSRect(
+        x: rect.midX - lensRadius,
+        y: rect.midY - lensRadius,
+        width: lensRadius * 2,
+        height: lensRadius * 2
+    ))
+    roundedStroke(lens, width: stroke)
+
     NSColor.white.setFill()
-    NSRect(origin: .zero, size: symbol.size).fill()
-    symbol.draw(in: NSRect(origin: .zero, size: symbol.size), from: .zero, operation: .destinationIn, fraction: 1)
-    tinted.unlockFocus()
-    return tinted
+    NSBezierPath(ovalIn: NSRect(
+        x: rect.midX - size * 0.032,
+        y: rect.midY - size * 0.032,
+        width: size * 0.064,
+        height: size * 0.064
+    )).fill()
 }
 
 func renderIcon(size: CGFloat) -> NSImage {
-    let symbol = whiteSymbol(pointSize: size * 0.42)
     let image = NSImage(size: NSSize(width: size, height: size))
     image.lockFocus()
 
     let rect = NSRect(x: 0, y: 0, width: size, height: size)
-    let background = NSBezierPath(
-        roundedRect: rect.insetBy(dx: size * 0.015, dy: size * 0.015),
-        xRadius: size * 0.22,
-        yRadius: size * 0.22
-    )
-    background.addClip()
     let gradient = NSGradient(colors: [
-        NSColor(calibratedRed: 0.22, green: 0.18, blue: 0.82, alpha: 1),
-        NSColor(calibratedRed: 0.08, green: 0.48, blue: 0.96, alpha: 1)
+        NSColor(calibratedRed: 0.36, green: 0.34, blue: 0.91, alpha: 1),
+        NSColor(calibratedRed: 0.08, green: 0.43, blue: 0.82, alpha: 1)
     ])
-    gradient?.draw(in: rect, angle: 90)
+    gradient?.draw(in: rect, angle: 35)
 
-    NSColor.white.withAlphaComponent(0.18).setFill()
-    let highlight = NSBezierPath(ovalIn: NSRect(
-        x: size * -0.15,
-        y: size * 0.45,
-        width: size * 1.3,
-        height: size * 0.8
-    ))
-    highlight.fill()
+    // A restrained light sweep adds depth without baking in a rounded-rectangle
+    // mask; macOS applies the app-icon shape in Finder and the Dock.
+    NSColor.white.withAlphaComponent(0.10).setFill()
+    NSBezierPath(ovalIn: NSRect(
+        x: size * -0.28,
+        y: size * 0.56,
+        width: size * 0.95,
+        height: size * 0.72
+    )).fill()
 
-    if let symbol {
-        let symbolRect = NSRect(
-            x: (size - symbol.size.width) / 2,
-            y: (size - symbol.size.height) / 2,
-            width: symbol.size.width,
-            height: symbol.size.height
-        )
-        symbol.draw(in: symbolRect, from: .zero, operation: .sourceOver, fraction: 1)
-    }
+    NSGraphicsContext.current?.shouldAntialias = true
+    drawViewfinderMark(in: rect)
 
     image.unlockFocus()
     return image

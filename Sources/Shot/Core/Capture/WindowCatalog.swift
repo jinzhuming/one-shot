@@ -12,15 +12,37 @@ struct CapturableWindow: Identifiable, Equatable, @unchecked Sendable {
 }
 
 enum WindowSnapshotBuilder {
-    static func build(primaryDisplayHeight: CGFloat, ourPID: pid_t) -> [CapturableWindow] {
+    static func build(
+        primaryDisplayHeight: CGFloat,
+        ourPID: pid_t,
+        allowedWindowIDs: Set<CGWindowID>? = nil
+    ) -> [CapturableWindow] {
         let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
         let dictionaries = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] ?? []
+        return build(
+            dictionaries: dictionaries,
+            primaryDisplayHeight: primaryDisplayHeight,
+            ourPID: ourPID,
+            allowedWindowIDs: allowedWindowIDs
+        )
+    }
+
+    static func build(
+        dictionaries: [[String: Any]],
+        primaryDisplayHeight: CGFloat,
+        ourPID: pid_t,
+        allowedWindowIDs: Set<CGWindowID>? = nil
+    ) -> [CapturableWindow] {
         var ordered: [CapturableWindow] = []
         var seen = Set<CGWindowID>()
 
         for dict in dictionaries {
             guard let windowID = dict[kCGWindowNumber as String] as? CGWindowID,
                   seen.insert(windowID).inserted else { continue }
+            if let allowedWindowIDs,
+               !WindowInclusion.isShareable(windowID: windowID, in: allowedWindowIDs) {
+                continue
+            }
             let processID = (dict[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value ?? 0
             let layer = (dict[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
             guard let rawBounds = dict[kCGWindowBounds as String] as? NSDictionary,
@@ -63,6 +85,7 @@ final class WindowCatalog {
     private var idleReleaseTask: Task<Void, Never>?
     private var isSessionActive = false
     private var refreshEpoch = 0
+    private(set) var shareableWindowIDs: Set<CGWindowID>?
 
     private init() {}
 
@@ -106,13 +129,15 @@ final class WindowCatalog {
         content = nil
         displays = []
         windows = []
+        shareableWindowIDs = nil
         lastShareableRefresh = nil
     }
 
     func refreshWindowsFromCG() {
         windows = WindowSnapshotBuilder.build(
             primaryDisplayHeight: CoordinateSpace.primaryDisplayHeight,
-            ourPID: ProcessInfo.processInfo.processIdentifier
+            ourPID: ProcessInfo.processInfo.processIdentifier,
+            allowedWindowIDs: shareableWindowIDs
         )
     }
 
@@ -185,6 +210,7 @@ final class WindowCatalog {
         try Task.checkCancellation()
         self.content = content
         self.displays = content.displays
+        shareableWindowIDs = Set(content.windows.map(\.windowID))
         lastShareableRefresh = Date()
         refreshWindowsFromCG()
     }

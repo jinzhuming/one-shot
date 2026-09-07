@@ -11,15 +11,18 @@ struct CaptureResult {
 struct DisplayCaptureSnapshot {
     let screen: NSScreen
     let image: CGImage
-    let imageWithoutWindowShadows: CGImage?
 
     var scale: CGFloat { screen.backingScaleFactor }
+}
+
+private struct DisplayCaptureTaskResult: @unchecked Sendable {
+    let screen: NSScreen
+    let image: CGImage
 }
 
 struct CaptureSnapshot {
     let displays: [CGDirectDisplayID: DisplayCaptureSnapshot]
     let windows: [CapturableWindow]
-    let windowFrames: [CGWindowID: CGRect]
 
     var matchesCurrentScreens: Bool {
         let currentScreens = NSScreen.screens
@@ -37,31 +40,6 @@ struct CaptureSnapshot {
             throw CaptureError.regionOutsideDisplay
         }
         return result(from: display.image, crop: crop, rect: selection.rect, screen: display.screen)
-    }
-
-    func cropWindow(id: CGWindowID, includeShadow: Bool) throws -> CaptureResult {
-        guard let frame = windowFrames[id],
-              let display = display(containing: frame),
-              let crop = cropRect(frame, in: display) else {
-            throw CaptureError.regionOutsideDisplay
-        }
-        let image = includeShadow
-            ? display.image
-            : (display.imageWithoutWindowShadows ?? display.image)
-        return result(from: image, crop: crop, rect: frame, screen: display.screen)
-    }
-
-    private func display(containing rect: CGRect) -> DisplayCaptureSnapshot? {
-        var best: (display: DisplayCaptureSnapshot, area: CGFloat)?
-        for display in displays.values {
-            let intersection = display.screen.frame.intersection(rect)
-            let area = intersection.width * intersection.height
-            guard area > 0, display.screen.frame.contains(rect) else { continue }
-            if best == nil || area > best!.area {
-                best = (display, area)
-            }
-        }
-        return best?.display
     }
 
     private func cropRect(_ rect: CGRect, in display: DisplayCaptureSnapshot) -> CGRect? {
@@ -111,10 +89,7 @@ enum CaptureError: LocalizedError {
 
 @MainActor
 final class CaptureService {
-    func captureSnapshot(
-        catalog: WindowCatalog,
-        needsNoShadowVariant: Bool
-    ) async throws -> CaptureSnapshot {
+    func captureSnapshot(catalog: WindowCatalog) async throws -> CaptureSnapshot {
         try await catalog.refreshLatest()
         try Task.checkCancellation()
 
@@ -122,41 +97,51 @@ final class CaptureService {
             throw CaptureError.failed
         }
 
+        let screens = NSScreen.screens
+        let results = try await withThrowingTaskGroup(of: DisplayCaptureTaskResult.self) { group in
+            for screen in screens {
+                try Task.checkCancellation()
+                guard let display = CoordinateSpace.display(matching: screen, in: catalog.displays) else {
+                    throw CaptureError.noDisplay
+                }
+                group.addTask { [self] in
+                    try Task.checkCancellation()
+                    let image = try await captureDisplayImage(
+                        display: display,
+                        screen: screen,
+                        content: content,
+                        ignoreWindowShadows: false
+                    )
+                    try Task.checkCancellation()
+                    return DisplayCaptureTaskResult(screen: screen, image: image)
+                }
+            }
+
+            var results: [DisplayCaptureTaskResult] = []
+            for try await result in group {
+                guard screenConfigurationMatches(screens) else {
+                    throw CaptureError.noDisplay
+                }
+                results.append(result)
+            }
+            return results
+        }
+        try Task.checkCancellation()
+
         var displays: [CGDirectDisplayID: DisplayCaptureSnapshot] = [:]
-        for screen in NSScreen.screens {
-            try Task.checkCancellation()
-            guard let display = CoordinateSpace.display(matching: screen, in: catalog.displays) else {
-                throw CaptureError.noDisplay
-            }
-            let image = try await captureDisplayImage(
-                display: display,
-                screen: screen,
-                content: content,
-                ignoreWindowShadows: false
-            )
-            var imageWithoutWindowShadows: CGImage?
-            if needsNoShadowVariant {
-                imageWithoutWindowShadows = try await captureDisplayImage(
-                    display: display,
-                    screen: screen,
-                    content: content,
-                    ignoreWindowShadows: true
-                )
-            }
-            displays[screen.displayID] = DisplayCaptureSnapshot(
-                screen: screen,
-                image: image,
-                imageWithoutWindowShadows: imageWithoutWindowShadows
+        for result in results {
+            displays[result.screen.displayID] = DisplayCaptureSnapshot(
+                screen: result.screen,
+                image: result.image
             )
         }
+        guard displays.count == screens.count else {
+            throw CaptureError.noDisplay
+        }
 
-        let windowFrames = Dictionary(
-            uniqueKeysWithValues: content.windows.map { ($0.windowID, $0.frame) }
-        )
         return CaptureSnapshot(
             displays: displays,
-            windows: catalog.windows,
-            windowFrames: windowFrames
+            windows: catalog.windows
         )
     }
 
@@ -177,14 +162,24 @@ final class CaptureService {
         includeShadow: Bool
     ) async throws -> CaptureResult {
         let filter = SCContentFilter(desktopIndependentWindow: scWindow)
-        guard let screen = CoordinateSpace.screen(for: scWindow.frame) else {
+        // ScreenCaptureKit reports window bounds in the same top-left-origin
+        // global space as kCGWindowBounds. CaptureResult and editor layout use
+        // AppKit's bottom-left-origin Cocoa screen space, so convert exactly
+        // once before selecting the display and handing the result downstream.
+        guard let geometry = CoordinateSpace.windowGeometry(
+            fromCGWindowBounds: scWindow.frame
+        ) else {
             throw CaptureError.noDisplay
         }
+        let cocoaFrame = geometry.frame
+        let screen = geometry.screen
         let scale = screen.backingScaleFactor
         let config = SCStreamConfiguration()
         config.capturesAudio = false
         config.showsCursor = false
-        config.ignoreShadowsSingleWindow = !includeShadow
+        config.ignoreShadowsSingleWindow = WindowCapturePolicy.ignoresShadowsSingleWindow(
+            includeShadow: includeShadow
+        )
         config.width = pixelSize(scWindow.frame.width, scale: scale)
         config.height = pixelSize(scWindow.frame.height, scale: scale)
         if #available(macOS 15.0, *) {
@@ -197,7 +192,7 @@ final class CaptureService {
             height: CGFloat(cgImage.height) / scale
         )
         let image = NSImage(cgImage: cgImage, size: pointSize)
-        return CaptureResult(image: image, rect: scWindow.frame, screen: screen)
+        return CaptureResult(image: image, rect: cocoaFrame, screen: screen)
     }
 
     func captureRegion(_ selection: RegionSelection, catalog: WindowCatalog) async throws -> CaptureResult {
@@ -241,8 +236,13 @@ final class CaptureService {
             content: catalog.content,
             ignoreWindowShadows: false
         )
-        let image = NSImage(cgImage: cgImage, size: display.frame.size)
-        return CaptureResult(image: image, rect: display.frame, screen: screen)
+        // `CaptureResult.rect` is consumed by AppKit window layout, so keep it
+        // in the same global Cocoa coordinate space as `NSScreen.frame`.
+        // ScreenCaptureKit's display frame can use a different origin on a
+        // multi-display arrangement (notably for displays above/below the
+        // primary display), even though its size matches the captured image.
+        let image = NSImage(cgImage: cgImage, size: screen.frame.size)
+        return CaptureResult(image: image, rect: screen.frame, screen: screen)
     }
 
     private func captureDisplayImage(
@@ -273,5 +273,17 @@ final class CaptureService {
 
     private func pixelSize(_ points: CGFloat, scale: CGFloat) -> Int {
         max(1, Int((points * scale).rounded()))
+    }
+
+    private func screenConfigurationMatches(_ initialScreens: [NSScreen]) -> Bool {
+        let currentScreens = NSScreen.screens
+        guard currentScreens.count == initialScreens.count else { return false }
+        return initialScreens.allSatisfy { initial in
+            guard let current = currentScreens.first(where: { $0.displayID == initial.displayID }) else {
+                return false
+            }
+            return current.frame == initial.frame
+                && current.backingScaleFactor == initial.backingScaleFactor
+        }
     }
 }

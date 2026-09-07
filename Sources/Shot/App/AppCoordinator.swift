@@ -5,8 +5,8 @@ import SwiftUI
 final class AppCoordinator: NSObject, NSWindowDelegate {
     static let shared = AppCoordinator()
 
-    private var statusItem: NSStatusItem?
     private var onboardingWindow: NSWindow?
+    private var openSettingsAction: OpenSettingsAction?
     private var settingsPresentation: Task<Void, Never>?
     private var settingsPresentationGeneration = 0
     private var isPresentingSettings = false
@@ -16,7 +16,6 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
         NSApp.setActivationPolicy(.accessory)
         observeWindowCloses()
         dismissLaunchSettingsPlaceholder()
-        setupStatusItem()
         HotkeyCenter.shared.register()
         PermissionService.shared.refresh()
         if PermissionService.shared.hasScreenRecording {
@@ -28,7 +27,6 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
     }
 
     func startCapture(_ mode: CaptureMode) {
-        statusItem?.menu?.cancelTracking()
         // Let the status-item menu finish closing before changing the
         // activation policy or presenting capture windows. This matters
         // especially when the settings window just changed the app from
@@ -40,7 +38,6 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
     }
 
     func toggleRecording() {
-        statusItem?.menu?.cancelTracking()
         CaptureSession.shared.toggleRecording()
     }
 
@@ -54,11 +51,20 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
         restoreAccessoryPolicyIfIdle()
     }
 
-    func showSettings() {
+    func installOpenSettingsAction(_ action: OpenSettingsAction) {
+        openSettingsAction = action
+    }
+
+    func showSettings(using action: OpenSettingsAction? = nil) {
         // Full-screen capture chrome sits above a normal Settings window.
         if CaptureSession.shared.phase == .capturing, !CaptureSession.shared.isRecording {
             CaptureSession.shared.cancel()
         }
+
+        if let action {
+            openSettingsAction = action
+        }
+        guard let openSettingsAction else { return }
 
         settingsPresentation?.cancel()
         settingsPresentationGeneration += 1
@@ -78,13 +84,11 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
             guard !Task.isCancelled else { return }
 
             becomeRegularApp()
-            let settingsSelector = Selector(("showSettingsWindow:"))
             let knownWindows = Set(NSApp.windows.map { ObjectIdentifier($0) })
-            _ = NSApp.sendAction(settingsSelector, to: nil, from: nil)
+            openSettingsAction()
 
-            // SwiftUI creates the Settings scene lazily and first tags it with
-            // `com_apple_SwiftUI_Settings_window`. Retry until that window
-            // exists, then pin our identifier and bring it forward.
+            // SwiftUI creates the Settings scene lazily. Retry until that
+            // window exists, then pin our identifier and bring it forward.
             for attempt in 0..<24 {
                 try? await Task.sleep(for: .milliseconds(50))
                 guard !Task.isCancelled else { return }
@@ -94,7 +98,7 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
                     return
                 }
                 if attempt < 23 {
-                    _ = NSApp.sendAction(settingsSelector, to: nil, from: nil)
+                    openSettingsAction()
                 }
             }
             restoreAccessoryPolicyIfIdle()
@@ -275,23 +279,4 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
         }
     }
 
-    private func setupStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        let configuration = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
-        let image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Shot")?
-            .withSymbolConfiguration(configuration)
-        image?.isTemplate = true
-        image?.size = NSSize(width: 18, height: 18)
-        item.button?.image = image
-        item.button?.imagePosition = .imageOnly
-        item.button?.imageScaling = .scaleProportionallyDown
-        item.button?.toolTip = "Shot"
-        item.isVisible = true
-        item.menu = StatusItemMenu.build()
-        statusItem = item
-    }
-
-    func reloadStatusMenu() {
-        statusItem?.menu = StatusItemMenu.build()
-    }
 }

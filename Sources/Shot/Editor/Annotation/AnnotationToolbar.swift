@@ -2,28 +2,47 @@ import SwiftUI
 import AppKit
 import ShotKit
 
+enum AnnotationToolbarPresentation {
+    case floating
+    case docked
+}
+
 struct AnnotationToolbar: View {
     @ObservedObject var session: EditSession
     var onCopy: () -> Void
     var onSave: () -> Void
     var onClose: () -> Void
+    var presentation: AnnotationToolbarPresentation = .floating
 
     var body: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: presentation == .docked ? 2 : 5) {
             primaryToolbar
-            detailToolbar
+            if presentation == .floating
+                || session.selectedTool != .select
+                || session.hasSelection {
+                detailToolbar
+            }
         }
         .environment(\.colorScheme, .dark)
-        .shadow(color: .black.opacity(0.22), radius: 1, y: 0)
+        .background {
+            if presentation == .docked {
+                HUDChrome.DockedBackground()
+            }
+        }
         .shadow(
-            color: .black.opacity(0.42),
-            radius: EditorLayout.toolbarShadowRadius,
-            y: EditorLayout.toolbarShadowOffsetY
+            color: .black.opacity(presentation == .floating ? 0.22 : 0.28),
+            radius: presentation == .floating ? 1 : 14,
+            y: 0
+        )
+        .shadow(
+            color: .black.opacity(presentation == .floating ? 0.42 : 0.16),
+            radius: presentation == .floating ? EditorLayout.toolbarShadowRadius : 6,
+            y: presentation == .floating ? EditorLayout.toolbarShadowOffsetY : 2
         )
     }
 
     private var primaryToolbar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: presentation == .docked ? 6 : 8) {
             ForEach(Array(AnnotationToolID.groups.enumerated()), id: \.offset) { index, group in
                 if index > 0 { divider }
                 toolCluster(group)
@@ -35,16 +54,18 @@ struct AnnotationToolbar: View {
             divider
             actionGroup
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, presentation == .docked ? 8 : 10)
+        .padding(.vertical, presentation == .docked ? 5 : 7)
         .contentShape(Rectangle())
         .background {
-            HUDChrome.PanelBackground(cornerRadius: 12)
+            if presentation == .floating {
+                HUDChrome.PanelBackground(cornerRadius: 12)
+            }
         }
     }
 
     private var detailToolbar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: presentation == .docked ? 6 : 10) {
             Image(systemName: session.selectedTool.systemImage)
                 .font(.system(size: 12, weight: .semibold))
                 .frame(width: 20, height: 20)
@@ -55,11 +76,13 @@ struct AnnotationToolbar: View {
             divider
             detailControls
         }
-        .frame(minHeight: 34)
-        .padding(.horizontal, 10)
+        .frame(minHeight: presentation == .docked ? 30 : 34)
+        .padding(.horizontal, presentation == .docked ? 8 : 10)
         .contentShape(Rectangle())
         .background {
-            HUDChrome.PanelBackground(cornerRadius: 10)
+            if presentation == .floating {
+                HUDChrome.PanelBackground(cornerRadius: 10)
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "工具详细设置"))
@@ -68,6 +91,8 @@ struct AnnotationToolbar: View {
     @ViewBuilder
     private var detailControls: some View {
         switch session.selectedTool {
+        case .select:
+            selectionDetailControls
         case .arrow, .rect, .ellipse, .line:
             detailSlider(
                 label: String(localized: "线宽（pt）"),
@@ -85,7 +110,7 @@ struct AnnotationToolbar: View {
                 valueText: numberText(session.lineWidth)
             )
         case .highlighter:
-            HStack(spacing: 12) {
+            HStack(spacing: presentation == .docked ? 8 : 12) {
                 detailSlider(
                     label: String(localized: "荧光笔粗细（pt）"),
                     value: $session.lineWidth,
@@ -136,6 +161,56 @@ struct AnnotationToolbar: View {
         }
     }
 
+    @ViewBuilder
+    private var selectionDetailControls: some View {
+        if let selected = session.document.selectedObject {
+            HStack(spacing: presentation == .docked ? 8 : 12) {
+                Text(String(localized: "已选择"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                switch selected.element {
+                case .mosaic:
+                    detailSlider(
+                        label: String(localized: "颗粒大小（pt）"),
+                        value: $session.mosaicBlockSize,
+                        range: 2...32,
+                        step: 1,
+                        valueText: numberText(session.mosaicBlockSize)
+                    )
+                case .spotlight:
+                    detailSlider(
+                        label: String(localized: "遮罩不透明度"),
+                        value: $session.spotlightOpacity,
+                        range: 0.1...0.9,
+                        step: 0.05,
+                        valueText: percentageText(session.spotlightOpacity)
+                    )
+                default:
+                    detailSlider(
+                        label: String(localized: "线宽（pt）"),
+                        value: $session.lineWidth,
+                        range: 1...24,
+                        step: 1,
+                        valueText: numberText(session.lineWidth)
+                    )
+                    if case .highlighter = selected.element {
+                        detailSlider(
+                            label: String(localized: "透明度"),
+                            value: $session.highlighterOpacity,
+                            range: 0.1...1,
+                            step: 0.05,
+                            valueText: percentageText(session.highlighterOpacity)
+                        )
+                    }
+                }
+            }
+        } else {
+            Text(String(localized: "点击标注以选择"))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private func detailSlider(
         label: String,
         value: Binding<Double>,
@@ -143,18 +218,24 @@ struct AnnotationToolbar: View {
         step: Double,
         valueText: String
     ) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: presentation == .docked ? 4 : 6) {
             Text(label)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-            Slider(value: value, in: range, step: step)
-                .frame(width: 120)
+            Slider(value: value, in: range, step: step, onEditingChanged: { editing in
+                if editing {
+                    session.beginStyleAdjustment()
+                } else {
+                    session.endStyleAdjustment()
+                }
+            })
+                .frame(width: presentation == .docked ? 96 : 120)
                 .help(label)
                 .accessibilityLabel(label)
                 .accessibilityValue(valueText)
             Text(valueText)
                 .font(.system(size: 11, design: .monospaced))
-                .frame(minWidth: 34, alignment: .trailing)
+                .frame(minWidth: presentation == .docked ? 30 : 34, alignment: .trailing)
                 .foregroundStyle(.primary)
         }
     }
@@ -168,7 +249,7 @@ struct AnnotationToolbar: View {
     }
 
     private func toolCluster(_ tools: [AnnotationToolID]) -> some View {
-        HStack(spacing: 2) {
+        HStack(spacing: presentation == .docked ? 1 : 2) {
             ForEach(tools) { tool in
                 toolButton(tool)
             }
@@ -195,8 +276,8 @@ struct AnnotationToolbar: View {
     }
 
     private var styleGroup: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 5) {
+        HStack(spacing: presentation == .docked ? 6 : 8) {
+            HStack(spacing: presentation == .docked ? 4 : 5) {
                 ForEach(Array(Self.swatches.enumerated()), id: \.offset) { _, swatch in
                     Button {
                         session.color = Color(nsColor: swatch.color)
@@ -220,7 +301,7 @@ struct AnnotationToolbar: View {
                     .accessibilityAddTraits(isSelected(swatch.color) ? [.isSelected] : [])
                 }
             }
-            HStack(spacing: 2) {
+            HStack(spacing: presentation == .docked ? 1 : 2) {
                 ForEach(Array(Self.strokeSizes.enumerated()), id: \.offset) { _, size in
                     Button {
                         session.lineWidth = size.width
@@ -242,7 +323,7 @@ struct AnnotationToolbar: View {
     }
 
     private var historyGroup: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: presentation == .docked ? 1 : 2) {
             Button {
                 session.undo()
             } label: {
@@ -272,7 +353,35 @@ struct AnnotationToolbar: View {
     }
 
     private var actionGroup: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: presentation == .docked ? 4 : 6) {
+            if presentation == .floating || session.hasSelection {
+                Button {
+                    session.duplicateSelection()
+                } label: {
+                    Image(systemName: "plus.square.on.square")
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(HUDChrome.IconButtonStyle())
+                .help(String(localized: "复制选中标注（⌘D）"))
+                .accessibilityLabel(String(localized: "复制选中标注"))
+                .disabled(session.isExporting)
+
+                Button {
+                    session.deleteSelection()
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(HUDChrome.IconButtonStyle())
+                .help(String(localized: "删除选中标注（Delete）"))
+                .accessibilityLabel(String(localized: "删除选中标注"))
+                .disabled(session.isExporting)
+            }
+
             Button(String(localized: "复制"), action: onCopy)
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
@@ -286,17 +395,19 @@ struct AnnotationToolbar: View {
                 .accessibilityLabel(String(localized: "保存最终图片"))
                 .accessibilityHint(String(localized: "提交未完成的文字标注后保存"))
                 .disabled(session.isExporting)
-            Button {
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
+            if presentation == .floating {
+                Button {
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(HUDChrome.IconButtonStyle())
+                .help(String(localized: "关闭编辑器（Esc）"))
+                .accessibilityLabel(String(localized: "关闭"))
             }
-            .buttonStyle(HUDChrome.IconButtonStyle())
-            .help(String(localized: "关闭编辑器（Esc）"))
-            .accessibilityLabel(String(localized: "关闭"))
         }
         .controlSize(.small)
     }
@@ -304,7 +415,7 @@ struct AnnotationToolbar: View {
     private var divider: some View {
         Rectangle()
             .fill(Color.white.opacity(0.28))
-            .frame(width: 1, height: 18)
+            .frame(width: 1, height: presentation == .docked ? 16 : 18)
     }
 
     private func isSelected(_ color: NSColor) -> Bool {

@@ -9,12 +9,38 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
     private static let previewSize = CGSize(width: 360, height: 240)
     private var windows: [UUID: RecordingPreviewWindow] = [:]
     private var order: [UUID] = []
+    private var screenParametersObserver: NSObjectProtocol?
+
+    override init() {
+        super.init()
+        screenParametersObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: NSApp,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.relayoutForCurrentScreens()
+            }
+        }
+    }
+
+    deinit {
+        if let screenParametersObserver {
+            NotificationCenter.default.removeObserver(screenParametersObserver)
+        }
+    }
 
     func present(_ result: RecordingResult) {
         let id = UUID()
         let view = RecordingPreviewView(
             url: result.url,
-            onCopy: { VideoExporter.copyToClipboard(result.url) },
+            onCopy: { [weak self] in
+                guard VideoExporter.copyToClipboard(result.url) else {
+                    self?.presentError(VideoExporter.ExportError.clipboardFailed)
+                    return
+                }
+                SaveLocationPresenter.showCopied(on: result.screen)
+            },
             onSave: { [weak self] in self?.save(result.url) },
             onClose: { [weak self] in self?.close(id: id) }
         )
@@ -47,6 +73,8 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? RecordingPreviewWindow,
               let id = window.recordingID else { return }
+        (window.contentView as? RecordingPreviewView)?.stopPlayback()
+        window.contentView = nil
         windows.removeValue(forKey: id)
         order.removeAll { $0 == id }
         relayout()
@@ -71,6 +99,20 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
                 windows[id]?.setFrame(frames[index], display: true)
             }
         }
+    }
+
+    private func relayoutForCurrentScreens() {
+        let screens = NSScreen.screens
+        guard let fallback = screens.first else { return }
+        for window in windows.values where !screens.contains(where: { $0.displayID == window.displayID }) {
+            window.displayID = fallback.displayID
+        }
+        relayout()
+    }
+
+    private func presentError(_ error: Error) {
+        NSApp.activate(ignoringOtherApps: true)
+        NSAlert(error: error).runModal()
     }
 
     private func save(_ sourceURL: URL) {
@@ -122,6 +164,15 @@ final class RecordingPreviewView: NSView {
 
     func startPlayback() {
         player.play()
+    }
+
+    func stopPlayback() {
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+    }
+
+    deinit {
+        player.pause()
     }
 
     override func updateTrackingAreas() {

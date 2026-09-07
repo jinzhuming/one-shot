@@ -29,6 +29,9 @@ enum RecordingError: LocalizedError {
     case noWindow
     case unsupportedOutput
     case failed
+    case startTimedOut
+    case finishTimedOut
+    case stopTimedOut
 
     var errorDescription: String? {
         switch self {
@@ -44,8 +47,47 @@ enum RecordingError: LocalizedError {
             return String(localized: "当前系统不支持 H.264 MP4 录屏。")
         case .failed:
             return String(localized: "录屏失败。")
+        case .startTimedOut:
+            return String(localized: "录屏启动超时。")
+        case .finishTimedOut:
+            return String(localized: "录屏文件写入超时。")
+        case .stopTimedOut:
+            return String(localized: "录屏停止超时。")
         }
     }
+}
+
+private final class ThrowingContinuationGate<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Value, Error>?
+
+    init(_ continuation: CheckedContinuation<Value, Error>) {
+        self.continuation = continuation
+    }
+
+    func resume(returning value: Value) {
+        lock.lock()
+        let continuation = self.continuation
+        self.continuation = nil
+        lock.unlock()
+        continuation?.resume(returning: value)
+    }
+
+    func resume(throwing error: Error) {
+        lock.lock()
+        let continuation = self.continuation
+        self.continuation = nil
+        lock.unlock()
+        continuation?.resume(throwing: error)
+    }
+}
+
+enum RecordingState: Equatable {
+    case idle
+    case starting
+    case recording
+    case stopping
+    case failed
 }
 
 @MainActor
@@ -54,13 +96,18 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
     private var recordingOutput: SCRecordingOutput?
     private var outputURL: URL?
     private var outputScreen: NSScreen?
-    private var startContinuation: CheckedContinuation<Void, Error>?
-    private var finishContinuation: CheckedContinuation<Void, Error>?
+    private var startGate: ThrowingContinuationGate<Void>?
+    private var finishGate: ThrowingContinuationGate<Void>?
+    private var startTimeoutTask: Task<Void, Never>?
+    private var finishTimeoutTask: Task<Void, Never>?
     private var stopRequested = false
 
-    private(set) var isRecording = false
-    private(set) var isStarting = false
+    private(set) var state: RecordingState = .idle
     private(set) var startedAt: Date?
+    var onFailure: ((Error) -> Void)?
+
+    var isRecording: Bool { state == .recording }
+    var isStarting: Bool { state == .starting }
 
     var elapsed: TimeInterval? {
         guard let startedAt else { return nil }
@@ -73,8 +120,8 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         directory: URL,
         options: RecordingOptions = RecordingOptions()
     ) async throws {
-        guard stream == nil else { throw RecordingError.alreadyRecording }
-        isStarting = true
+        guard state == .idle else { throw RecordingError.alreadyRecording }
+        state = .starting
         do {
             let resolved = try await resolve(target: target, catalog: catalog, options: options)
             let url = try VideoExporter.recordingURL(in: directory)
@@ -102,7 +149,13 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
             stopRequested = false
 
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                startContinuation = continuation
+                let gate = ThrowingContinuationGate(continuation)
+                startGate = gate
+                startTimeoutTask = Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .seconds(5))
+                    guard !Task.isCancelled else { return }
+                    self?.resumeStart(with: RecordingError.startTimedOut)
+                }
                 newStream.startCapture { [weak self] error in
                     guard let error else { return }
                     Task { @MainActor in
@@ -110,11 +163,9 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
                     }
                 }
             }
-            isStarting = false
-            isRecording = true
+            state = .recording
             startedAt = Date()
         } catch {
-            isStarting = false
             await cleanupAfterFailure()
             throw error
         }
@@ -133,12 +184,19 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
               let screen = outputScreen else {
             throw RecordingError.notRecording
         }
-        guard isRecording else { throw RecordingError.notRecording }
+        guard state == .recording else { throw RecordingError.notRecording }
 
         stopRequested = true
+        state = .stopping
         do {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                finishContinuation = continuation
+                let gate = ThrowingContinuationGate(continuation)
+                finishGate = gate
+                finishTimeoutTask = Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .seconds(15))
+                    guard !Task.isCancelled else { return }
+                    self?.resumeFinish(with: RecordingError.finishTimedOut)
+                }
                 do {
                     try stream.removeRecordingOutput(output)
                 } catch {
@@ -168,8 +226,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
 
     nonisolated func recordingOutput(_ recordingOutput: SCRecordingOutput, didFailWithError error: Error) {
         Task { @MainActor [weak self] in
-            self?.resumeStart(with: error)
-            self?.resumeFinish(with: error)
+            await self?.handleStreamFailure(error)
         }
     }
 
@@ -181,9 +238,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
 
     nonisolated func stream(_ stream: SCStream, didStopWithError error: Error) {
         Task { @MainActor [weak self] in
-            guard let self, !self.stopRequested else { return }
-            self.resumeStart(with: error)
-            self.resumeFinish(with: error)
+            await self?.handleStreamFailure(error)
         }
     }
 
@@ -245,9 +300,14 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         _ window: SCWindow,
         options: RecordingOptions
     ) throws -> ResolvedCapture {
-        guard let screen = CoordinateSpace.screen(for: window.frame) else {
+        // Keep recording aligned with screenshot capture: SCWindow uses the
+        // top-left global window space, while NSScreen uses Cocoa coordinates.
+        guard let geometry = CoordinateSpace.windowGeometry(
+            fromCGWindowBounds: window.frame
+        ) else {
             throw RecordingError.noDisplay
         }
+        let screen = geometry.screen
         let filter = SCContentFilter(desktopIndependentWindow: window)
         let configuration = baseConfiguration(
             width: window.frame.width,
@@ -255,7 +315,9 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
             scale: screen.backingScaleFactor,
             options: options
         )
-        configuration.ignoreShadowsSingleWindow = true
+        configuration.ignoreShadowsSingleWindow = WindowCapturePolicy.ignoresShadowsSingleWindow(
+            includeShadow: false
+        )
         return ResolvedCapture(filter: filter, configuration: configuration, screen: screen)
     }
 
@@ -287,40 +349,67 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         return SCContentFilter(display: display, excludingWindows: ourWindows)
     }
 
-    private func stopCapture(_ stream: SCStream) async throws {
+    private func stopCapture(_ stream: SCStream, timeout: Duration = .seconds(15)) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let gate = ThrowingContinuationGate(continuation)
+            let timeoutTask = Task {
+                try? await Task.sleep(for: timeout)
+                guard !Task.isCancelled else { return }
+                gate.resume(throwing: RecordingError.stopTimedOut)
+            }
             stream.stopCapture { error in
+                timeoutTask.cancel()
                 if let error {
-                    continuation.resume(throwing: error)
+                    gate.resume(throwing: error)
                 } else {
-                    continuation.resume()
+                    gate.resume(returning: ())
                 }
             }
         }
     }
 
     private func resumeStartSuccessfully() {
-        guard let continuation = startContinuation else { return }
-        startContinuation = nil
-        continuation.resume()
+        startTimeoutTask?.cancel()
+        startTimeoutTask = nil
+        let gate = startGate
+        startGate = nil
+        gate?.resume(returning: ())
     }
 
     private func resumeStart(with error: Error) {
-        guard let continuation = startContinuation else { return }
-        startContinuation = nil
-        continuation.resume(throwing: error)
+        startTimeoutTask?.cancel()
+        startTimeoutTask = nil
+        let gate = startGate
+        startGate = nil
+        gate?.resume(throwing: error)
     }
 
     private func resumeFinishSuccessfully() {
-        guard let continuation = finishContinuation else { return }
-        finishContinuation = nil
-        continuation.resume()
+        finishTimeoutTask?.cancel()
+        finishTimeoutTask = nil
+        let gate = finishGate
+        finishGate = nil
+        gate?.resume(returning: ())
     }
 
     private func resumeFinish(with error: Error) {
-        guard let continuation = finishContinuation else { return }
-        finishContinuation = nil
-        continuation.resume(throwing: error)
+        finishTimeoutTask?.cancel()
+        finishTimeoutTask = nil
+        let gate = finishGate
+        finishGate = nil
+        gate?.resume(throwing: error)
+    }
+
+    private func handleStreamFailure(_ error: Error) async {
+        guard state != .failed, state != .idle else { return }
+        let hasWaitingOperation = startGate != nil || finishGate != nil
+        state = .failed
+        resumeStart(with: error)
+        resumeFinish(with: error)
+        guard !hasWaitingOperation else { return }
+
+        await cleanupAfterFailure()
+        onFailure?(error)
     }
 
     private func cleanupAfterFailure() async {
@@ -328,7 +417,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
             try? stream.removeRecordingOutput(output)
         }
         if let stream {
-            try? await stopCapture(stream)
+            try? await stopCapture(stream, timeout: .seconds(2))
         }
         if let outputURL {
             try? FileManager.default.removeItem(at: outputURL)
@@ -337,15 +426,18 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
     }
 
     private func clearState() {
-        startContinuation = nil
-        finishContinuation = nil
+        startTimeoutTask?.cancel()
+        finishTimeoutTask?.cancel()
+        startTimeoutTask = nil
+        finishTimeoutTask = nil
+        startGate = nil
+        finishGate = nil
         stream = nil
         recordingOutput = nil
         outputURL = nil
         outputScreen = nil
         stopRequested = false
-        isRecording = false
         startedAt = nil
-        isStarting = false
+        state = .idle
     }
 }

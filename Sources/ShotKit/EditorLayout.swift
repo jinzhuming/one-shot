@@ -30,6 +30,27 @@ public struct EditorArrangement: Equatable, Sendable {
     }
 }
 
+/// Layout for the standard, resizable annotation window. Frames are local to
+/// the window's content view, whose origin is the bottom-left corner.
+public struct EditorWindowLayout: Equatable, Sendable {
+    public var contentSize: CGSize
+    public var canvasFrame: CGRect
+    public var toolbarFrame: CGRect
+    public var imageSize: CGSize
+
+    public init(
+        contentSize: CGSize,
+        canvasFrame: CGRect,
+        toolbarFrame: CGRect,
+        imageSize: CGSize
+    ) {
+        self.contentSize = contentSize
+        self.canvasFrame = canvasFrame
+        self.toolbarFrame = toolbarFrame
+        self.imageSize = imageSize
+    }
+}
+
 public enum EditorLayout {
     /// The toolbar shadow is rendered outside the toolbar view's bounds.
     /// Keep these values in sync with AnnotationToolbar so the shadow remains
@@ -46,6 +67,12 @@ public enum EditorLayout {
     /// The annotation toolbar has a primary row and a fixed-height detail row.
     public static let estimatedToolbarHeight: CGFloat = 84
     public static let minContentWidth: CGFloat = 760
+    /// Compact editor chrome follows the screenshot editor convention: a
+    /// modest inset around the canvas, with the toolbar as a separate pill
+    /// below it rather than a full-width band.
+    public static let windowedWorkspacePadding: CGFloat = 12
+    public static let windowedToolbarGap: CGFloat = 8
+    public static let windowedMinimumWorkspaceHeight: CGFloat = 160
 
     public static func chromeSize(toolbarHeight: CGFloat) -> CGSize {
         CGSize(
@@ -86,6 +113,85 @@ public enum EditorLayout {
             maxSize.height / max(imageSize.height, 1)
         )
         return CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+    }
+
+    /// Chooses the initial content size for the standard editor window. The
+    /// image stays at 1x whenever it fits, while large captures are reduced to
+    /// the visible display area. The toolbar is docked below the canvas and
+    /// therefore determines the minimum useful width.
+    public static func windowedInitialContentSize(
+        imageSize: CGSize,
+        toolbarSize: CGSize,
+        maxContentSize: CGSize,
+        padding: CGFloat = windowedWorkspacePadding,
+        minimumWorkspaceHeight: CGFloat = windowedMinimumWorkspaceHeight
+    ) -> CGSize {
+        let maxSize = CGSize(
+            width: max(1, maxContentSize.width),
+            height: max(1, maxContentSize.height)
+        )
+        let toolbar = normalizedToolbarSize(toolbarSize)
+        let maxImage = CGSize(
+            width: max(1, maxSize.width - padding * 2),
+            height: max(1, maxSize.height - toolbar.height - windowedToolbarGap - padding * 3)
+        )
+        let fitted = fittedSize(imageSize: imageSize, in: maxImage)
+        let minimumWidth = min(maxSize.width, max(minContentWidth, toolbar.width))
+        let naturalWidth = max(fitted.width + padding * 2, minimumWidth)
+        let naturalHeight = max(
+            fitted.height + toolbar.height + windowedToolbarGap + padding * 3,
+            toolbar.height + windowedToolbarGap + minimumWorkspaceHeight + padding * 3
+        )
+        return CGSize(
+            width: min(maxSize.width, max(1, naturalWidth)),
+            height: min(maxSize.height, max(1, naturalHeight))
+        )
+    }
+
+    /// Computes the docked-toolbar and canvas frames for the current content
+    /// size. This is called again after every window resize.
+    public static func windowed(
+        imageSize: CGSize,
+        toolbarSize: CGSize,
+        contentSize: CGSize,
+        padding: CGFloat = windowedWorkspacePadding
+    ) -> EditorWindowLayout {
+        let size = CGSize(width: max(1, contentSize.width), height: max(1, contentSize.height))
+        let toolbar = normalizedToolbarSize(toolbarSize)
+        let toolbarWidth = min(
+            toolbar.width,
+            max(1, size.width - padding * 2)
+        )
+        let toolbarHeight = min(toolbar.height, size.height)
+        let toolbarFrame = CGRect(
+            x: (size.width - toolbarWidth) / 2,
+            y: padding,
+            width: toolbarWidth,
+            height: toolbarHeight
+        )
+        let workspace = CGRect(
+            x: 0,
+            y: toolbarFrame.maxY + windowedToolbarGap,
+            width: size.width,
+            height: max(1, size.height - toolbarFrame.maxY - windowedToolbarGap)
+        )
+        let maxImage = CGSize(
+            width: max(1, workspace.width - padding * 2),
+            height: max(1, workspace.height - padding * 2)
+        )
+        let fitted = fittedSize(imageSize: imageSize, in: maxImage)
+        let canvasFrame = CGRect(
+            x: workspace.midX - fitted.width / 2,
+            y: workspace.midY - fitted.height / 2,
+            width: fitted.width,
+            height: fitted.height
+        ).standardized
+        return EditorWindowLayout(
+            contentSize: size,
+            canvasFrame: canvasFrame,
+            toolbarFrame: toolbarFrame,
+            imageSize: fitted
+        )
     }
 
     public static func clampedOrigin(
@@ -172,6 +278,11 @@ public enum EditorLayout {
 
         let spaceBelow = captureRect.minY - safe.minY
         let spaceAbove = safe.maxY - captureRect.maxY
+        // The capture may touch the display's visible edges (so do not use
+        // `safe` here), but it must still be wholly on this display before we
+        // preserve its original size and position. This also covers full
+        // display captures that include the menu bar or Dock area.
+        let captureFitsVisibleFrame = visibleFrame.contains(captureRect)
 
         var imageSize = captureRect.size
         var canvasScreen = captureRect
@@ -186,10 +297,22 @@ public enum EditorLayout {
                 margin: margin
             )
         }
+        // A very narrow display cannot host the full toolbar beside an
+        // in-place capture. Let the existing centered layout reduce the
+        // toolbar frame and image together instead of allowing the toolbar to
+        // extend beyond the source display.
+        guard toolbar.width <= safe.width, toolbar.height <= safe.height else {
+            return centered(
+                imageSize: captureRect.size,
+                toolbarSize: toolbar,
+                visibleFrame: visibleFrame,
+                margin: margin
+            )
+        }
 
-        if spaceBelow >= stack {
+        if captureFitsVisibleFrame, spaceBelow >= stack {
             anchor = .below
-        } else if spaceAbove >= stack {
+        } else if captureFitsVisibleFrame, spaceAbove >= stack {
             anchor = .above
         } else {
             aligned = false

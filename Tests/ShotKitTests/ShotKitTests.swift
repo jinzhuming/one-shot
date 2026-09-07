@@ -102,9 +102,11 @@ import Testing
     #expect(crop?.size == CGSize(width: 1600, height: 1200))
 }
 
-@Test func shadowedWindowUsesSingleWindowCaptureRoute() {
+@Test func singleWindowShadowPreferenceMapsToScreenCaptureKitFlag() {
     #expect(WindowCapturePolicy.route(includeShadow: true) == .singleWindow)
-    #expect(WindowCapturePolicy.route(includeShadow: false) == .displaySnapshot)
+    #expect(WindowCapturePolicy.route(includeShadow: false) == .singleWindow)
+    #expect(!WindowCapturePolicy.ignoresShadowsSingleWindow(includeShadow: true))
+    #expect(WindowCapturePolicy.ignoresShadowsSingleWindow(includeShadow: false))
 }
 
 @Test func cocoaRectFlipsFromCGWindowOrigin() {
@@ -113,6 +115,63 @@ import Testing
     #expect(abs(cocoa.origin.x - 100) < 0.001)
     #expect(abs(cocoa.origin.y - 632) < 0.001)
     #expect(cocoa.size == cg.size)
+}
+
+@Test func cocoaRectPreservesVerticalDisplayOffset() {
+    let cg = CGRect(x: 1920, y: 900, width: 800, height: 300)
+    let cocoa = RectMath.cocoaRect(fromCGWindowBounds: cg, primaryHeight: 1080)
+    #expect(cocoa == CGRect(x: 1920, y: -120, width: 800, height: 300))
+}
+
+@Test func cocoaRectHandlesDisplaysOnEverySideOfPrimary() {
+    let primaryHeight: CGFloat = 1080
+    let cocoaRects = [
+        CGRect(x: -1200, y: 160, width: 800, height: 500),
+        CGRect(x: 2080, y: 120, width: 800, height: 500),
+        CGRect(x: 240, y: 1240, width: 800, height: 500),
+        CGRect(x: 240, y: -760, width: 800, height: 500)
+    ]
+
+    for cocoa in cocoaRects {
+        let cg = CGRect(
+            x: cocoa.minX,
+            y: primaryHeight - cocoa.minY - cocoa.height,
+            width: cocoa.width,
+            height: cocoa.height
+        )
+        #expect(RectMath.cocoaRect(fromCGWindowBounds: cg, primaryHeight: primaryHeight) == cocoa)
+    }
+}
+
+@Test func largestIntersectionSelectsTheCorrectDisplayArrangement() {
+    let frames = [
+        CGRect(x: 0, y: 0, width: 1920, height: 1080),
+        CGRect(x: -1280, y: 0, width: 1280, height: 1024),
+        CGRect(x: 1920, y: 120, width: 1440, height: 900),
+        CGRect(x: 0, y: 1080, width: 1920, height: 1200),
+        CGRect(x: 0, y: -900, width: 1600, height: 900)
+    ]
+
+    #expect(RectMath.largestIntersectionIndex(
+        of: CGRect(x: -1000, y: 100, width: 600, height: 500),
+        in: frames
+    ) == 1)
+    #expect(RectMath.largestIntersectionIndex(
+        of: CGRect(x: 1800, y: 300, width: 500, height: 500),
+        in: frames
+    ) == 2)
+    #expect(RectMath.largestIntersectionIndex(
+        of: CGRect(x: 200, y: 1000, width: 800, height: 600),
+        in: frames
+    ) == 3)
+    #expect(RectMath.largestIntersectionIndex(
+        of: CGRect(x: 200, y: -700, width: 800, height: 500),
+        in: frames
+    ) == 4)
+    #expect(RectMath.largestIntersectionIndex(
+        of: CGRect(x: 5000, y: 5000, width: 100, height: 100),
+        in: frames
+    ) == nil)
 }
 
 @Test func exportFilenameMatchesSystemScreenshotStyle() {
@@ -155,7 +214,7 @@ import Testing
     #expect(decoded == hotkey)
     #expect(hotkey.keyCode == 0)
     #expect(hotkey.character == "a")
-    #expect(hotkey.displayString == "⇧⌘A")
+    #expect(hotkey.displayString == "⌃⌘A")
     #expect(hotkey.carbonModifiers != 0)
     #expect(Hotkey.defaultRecording.displayString == "⇧⌘6")
 }
@@ -312,6 +371,98 @@ import Testing
     #expect(EditorLayout.toolbarShadowBleed >= EditorLayout.toolbarShadowRadius + EditorLayout.toolbarShadowOffsetY)
 }
 
+@Test func centeredEditorKeepsCanvasAndToolbarInsideVisibleFrame() {
+    let visible = CGRect(x: 120, y: 40, width: 1440, height: 860)
+    let arrangement = EditorLayout.centered(
+        imageSize: CGSize(width: 640, height: 400),
+        toolbarSize: CGSize(width: 760, height: 52),
+        visibleFrame: visible
+    )
+    let canvas = arrangement.canvasFrame.offsetBy(
+        dx: arrangement.windowFrame.minX,
+        dy: arrangement.windowFrame.minY
+    )
+    let toolbar = arrangement.toolbarFrame.offsetBy(
+        dx: arrangement.windowFrame.minX,
+        dy: arrangement.windowFrame.minY
+    )
+
+    #expect(!arrangement.keepsCaptureAligned)
+    #expect(arrangement.windowFrame.minX >= visible.minX + 8 - 0.5)
+    #expect(arrangement.windowFrame.maxX <= visible.maxX - 8 + 0.5)
+    #expect(arrangement.windowFrame.minY >= visible.minY + 8 - 0.5)
+    #expect(arrangement.windowFrame.maxY <= visible.maxY - 8 + 0.5)
+    #expect(abs(arrangement.windowFrame.midX - visible.midX) < 0.5)
+    #expect(abs(arrangement.windowFrame.midY - visible.midY) < 0.5)
+    #expect(toolbar.maxY <= canvas.minY)
+    #expect(!canvas.intersects(toolbar))
+}
+
+@Test func windowedEditorDocksToolbarBelowCanvasAndPreservesImageBounds() {
+    let contentSize = EditorLayout.windowedInitialContentSize(
+        imageSize: CGSize(width: 640, height: 400),
+        toolbarSize: CGSize(width: 800, height: 84),
+        maxContentSize: CGSize(width: 1440, height: 860)
+    )
+    let layout = EditorLayout.windowed(
+        imageSize: CGSize(width: 640, height: 400),
+        toolbarSize: CGSize(width: 800, height: 84),
+        contentSize: contentSize
+    )
+
+    #expect(layout.contentSize == contentSize)
+    #expect(layout.canvasFrame.minY >= layout.toolbarFrame.maxY)
+    #expect(!layout.toolbarFrame.intersects(layout.canvasFrame))
+    #expect(layout.toolbarFrame.width < layout.contentSize.width)
+    #expect(layout.canvasFrame.width == 640)
+    #expect(layout.canvasFrame.height == 400)
+    #expect(layout.canvasFrame.minX >= EditorLayout.windowedWorkspacePadding)
+    #expect(layout.canvasFrame.maxX <= contentSize.width - EditorLayout.windowedWorkspacePadding)
+}
+
+@Test func windowedEditorResizesCanvasWithoutUpscalingOrLeavingWorkspace() {
+    let compact = EditorLayout.windowed(
+        imageSize: CGSize(width: 1200, height: 800),
+        toolbarSize: CGSize(width: 760, height: 84),
+        contentSize: CGSize(width: 900, height: 520)
+    )
+    let resized = EditorLayout.windowed(
+        imageSize: CGSize(width: 1200, height: 800),
+        toolbarSize: CGSize(width: 760, height: 84),
+        contentSize: CGSize(width: 1440, height: 900)
+    )
+
+    #expect(compact.imageSize.width < 1200)
+    #expect(compact.imageSize.height < 800)
+    #expect(resized.imageSize.width <= 1200)
+    #expect(resized.imageSize.height <= 800)
+    #expect(compact.canvasFrame.minX >= EditorLayout.windowedWorkspacePadding - 0.5)
+    #expect(compact.canvasFrame.minY >= compact.toolbarFrame.maxY + EditorLayout.windowedToolbarGap + EditorLayout.windowedWorkspacePadding - 0.5)
+    #expect(compact.canvasFrame.maxX <= compact.contentSize.width - EditorLayout.windowedWorkspacePadding + 0.5)
+    #expect(compact.canvasFrame.maxY <= compact.contentSize.height - EditorLayout.windowedWorkspacePadding + 0.5)
+    #expect(resized.canvasFrame.width > compact.canvasFrame.width)
+}
+
+@Test func windowedEditorInitialSizeClampsToSmallDisplayAndToolbar() {
+    let size = EditorLayout.windowedInitialContentSize(
+        imageSize: CGSize(width: 1600, height: 1000),
+        toolbarSize: CGSize(width: 900, height: 84),
+        maxContentSize: CGSize(width: 640, height: 480)
+    )
+
+    #expect(size.width == 640)
+    #expect(size.height == 480)
+    let layout = EditorLayout.windowed(
+        imageSize: CGSize(width: 1600, height: 1000),
+        toolbarSize: CGSize(width: 900, height: 84),
+        contentSize: size
+    )
+    #expect(layout.canvasFrame.minX >= 0)
+    #expect(layout.canvasFrame.minY >= 0)
+    #expect(layout.canvasFrame.maxX <= size.width)
+    #expect(layout.canvasFrame.minY >= layout.toolbarFrame.maxY)
+}
+
 @Test func inPlaceEditorFlipsToolbarOffTheCapture() {
     let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
     let toolbarSize = CGSize(width: 760, height: 52)
@@ -412,6 +563,42 @@ import Testing
     #expect(canvas.maxY <= visible.maxY - 8 + 0.5)
 }
 
+@Test func inPlaceEditorClampsCaptureOutsideVisibleFrame() {
+    let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
+    let capture = CGRect(x: -240, y: 400, width: 480, height: 300)
+    let layout = EditorLayout.inPlace(
+        captureRect: capture,
+        toolbarSize: CGSize(width: 760, height: 52),
+        visibleFrame: visible
+    )
+    let canvas = layout.canvasFrame.offsetBy(dx: layout.windowFrame.minX, dy: layout.windowFrame.minY)
+    let toolbar = layout.toolbarFrame.offsetBy(dx: layout.windowFrame.minX, dy: layout.windowFrame.minY)
+
+    #expect(!layout.keepsCaptureAligned)
+    #expect(canvas.minX >= visible.minX + 8 - 0.5)
+    #expect(canvas.maxX <= visible.maxX - 8 + 0.5)
+    #expect(canvas.minY >= visible.minY + 8 - 0.5)
+    #expect(canvas.maxY <= visible.maxY - 8 + 0.5)
+    #expect(!canvas.intersects(toolbar))
+}
+
+@Test func inPlaceEditorFallsBackWhenToolbarCannotFitDisplayWidth() {
+    let visible = CGRect(x: 0, y: 0, width: 640, height: 480)
+    let layout = EditorLayout.inPlace(
+        captureRect: CGRect(x: 120, y: 180, width: 200, height: 120),
+        toolbarSize: CGSize(width: 760, height: 52),
+        visibleFrame: visible
+    )
+    let canvas = layout.canvasFrame.offsetBy(dx: layout.windowFrame.minX, dy: layout.windowFrame.minY)
+    let toolbar = layout.toolbarFrame.offsetBy(dx: layout.windowFrame.minX, dy: layout.windowFrame.minY)
+
+    #expect(!layout.keepsCaptureAligned)
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(layout.windowFrame))
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(canvas))
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(toolbar))
+    #expect(!canvas.intersects(toolbar))
+}
+
 @Test func overlayHUDStaysInsideVisibleBounds() {
     let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
     let hud = CGSize(width: 96, height: 24)
@@ -492,7 +679,8 @@ import Testing
     #expect(four.isSystemScreenshotShortcut)
     #expect(five.isSystemScreenshotShortcut)
     #expect(!Hotkey.defaultAllInOne.isSystemScreenshotShortcut)
-    let same = Hotkey(keyCode: 0, modifierRaw: commandShift, character: "a")
+    let controlCommand = NSEvent.ModifierFlags([.control, .command]).rawValue
+    let same = Hotkey(keyCode: 0, modifierRaw: controlCommand, character: "a")
     #expect(Hotkey.defaultAllInOne.conflicts(with: same))
     #expect(!Hotkey.defaultAllInOne.conflicts(with: three))
 }
@@ -516,10 +704,82 @@ import Testing
 @Test func windowInclusionFiltersLayerSizeAndPID() {
     let our: pid_t = 100
     #expect(WindowInclusion.shouldInclude(layer: 0, size: CGSize(width: 80, height: 80), processID: 200, ourPID: our))
+    // System-owned full-screen surfaces such as Dock and the menu bar must
+    // never outrank an application window during hover hit-testing.
+    #expect(!WindowInclusion.shouldInclude(layer: 1, size: CGSize(width: 80, height: 80), processID: 200, ourPID: our))
+    #expect(!WindowInclusion.shouldInclude(layer: 20, size: CGSize(width: 1920, height: 1080), processID: 200, ourPID: our))
     #expect(!WindowInclusion.shouldInclude(layer: 0, size: CGSize(width: 80, height: 80), processID: our, ourPID: our))
     #expect(!WindowInclusion.shouldInclude(layer: 0, size: CGSize(width: 20, height: 80), processID: 200, ourPID: our))
     #expect(!WindowInclusion.shouldInclude(layer: -1, size: CGSize(width: 80, height: 80), processID: 200, ourPID: our))
     #expect(!WindowInclusion.shouldInclude(layer: 25, size: CGSize(width: 80, height: 80), processID: 200, ourPID: our))
+}
+
+@Test func windowInclusionRejectsWindowMissingFromShareableContent() {
+    let shareable: Set<CGWindowID> = [42, 84]
+    #expect(WindowInclusion.isShareable(windowID: 42, in: shareable))
+    #expect(!WindowInclusion.isShareable(windowID: 99, in: shareable))
+}
+
+@Test func magnifierFramePrefersVisibleSpaceAndClampsToScreen() {
+    let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
+    let size = CGSize(width: 124, height: 124)
+
+    let above = MagnifierLayout.frame(
+        cursor: CGPoint(x: 720, y: 400),
+        size: size,
+        visibleFrame: visible
+    )
+    #expect(above.minY > 400)
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(above))
+
+    let top = MagnifierLayout.frame(
+        cursor: CGPoint(x: 20, y: 890),
+        size: size,
+        visibleFrame: visible
+    )
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(top))
+    #expect(top.minX >= visible.minX + 8)
+}
+
+@Test func magnifierSourceRectStaysInsideImageBounds() {
+    let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
+    let source = MagnifierLayout.sourceRect(
+        cursor: CGPoint(x: 0, y: 900),
+        imageBounds: bounds,
+        displaySize: bounds.size,
+        zoom: 8
+    )
+    #expect(bounds.contains(source))
+    #expect(source.width == 180)
+    #expect(source.height == 112.5)
+}
+
+@Test func overlayFocusStyleUsesLighterIdleMaskAndFocusedMask() {
+    #expect(OverlayFocusStyle.maskOpacity(
+        dimOnly: false,
+        hasFocus: false,
+        reduceTransparency: false
+    ) == OverlayFocusStyle.idleMaskOpacity)
+    #expect(OverlayFocusStyle.maskOpacity(
+        dimOnly: false,
+        hasFocus: true,
+        reduceTransparency: false
+    ) == OverlayFocusStyle.focusedMaskOpacity)
+    #expect(OverlayFocusStyle.focusedMaskOpacity > OverlayFocusStyle.idleMaskOpacity)
+}
+
+@Test func overlayFocusStylePrioritizesAccessibilityAndDimOnlyModes() {
+    #expect(OverlayFocusStyle.maskOpacity(
+        dimOnly: true,
+        hasFocus: false,
+        reduceTransparency: false
+    ) == OverlayFocusStyle.dimOnlyMaskOpacity)
+    #expect(OverlayFocusStyle.maskOpacity(
+        dimOnly: false,
+        hasFocus: true,
+        reduceTransparency: true
+    ) == OverlayFocusStyle.reducedTransparencyMaskOpacity)
+    #expect(OverlayFocusStyle.reducedTransparencyMaskOpacity > OverlayFocusStyle.focusedMaskOpacity)
 }
 
 @Test func windowHitTestingFrontmostAndCycle() {
@@ -556,6 +816,31 @@ import Testing
     #expect(!stack.canRedo)
 }
 
+@Test func undoStackIsBoundedAndCoalescesTransactions() {
+    var stack = UndoStack<Int>(historyLimit: 3)
+    for value in 0..<5 {
+        stack.append(value)
+    }
+
+    stack.undo()
+    stack.undo()
+    stack.undo()
+    #expect(stack.items == [0, 1])
+    stack.undo()
+    #expect(stack.items == [0, 1])
+
+    var transaction = UndoStack<Int>(historyLimit: 100)
+    transaction.append(1)
+    transaction.beginTransaction()
+    transaction.replace(at: 0, with: 2)
+    transaction.replace(at: 0, with: 3)
+    transaction.endTransaction()
+    transaction.undo()
+    #expect(transaction.items == [1])
+    transaction.redo()
+    #expect(transaction.items == [3])
+}
+
 @Test func annotationFontSizeScalesWithStroke() {
     #expect(abs(AnnotationMath.fontSize(lineWidth: 2) - 24) < 0.001)
     #expect(abs(AnnotationMath.fontSize(lineWidth: 4) - 32) < 0.001)
@@ -585,4 +870,58 @@ import Testing
     )
     #expect(abs(diagonal.x - diagonal.y) < 0.001)
     #expect(abs(hypot(diagonal.x, diagonal.y) - hypot(10, 9)) < 0.001)
+}
+
+@Test func annotationGeometryHitTestsTopLevelShapesAndPaths() {
+    #expect(AnnotationGeometry.hitTest(
+        point: CGPoint(x: 10, y: 10),
+        shape: .strokeRect(CGRect(x: 8, y: 8, width: 40, height: 24)),
+        tolerance: 3
+    ))
+    #expect(!AnnotationGeometry.hitTest(
+        point: CGPoint(x: 28, y: 20),
+        shape: .strokeRect(CGRect(x: 8, y: 8, width: 40, height: 24)),
+        tolerance: 3
+    ))
+    #expect(AnnotationGeometry.hitTest(
+        point: CGPoint(x: 50, y: 51),
+        shape: .line(CGPoint(x: 10, y: 10), CGPoint(x: 90, y: 90)),
+        tolerance: 2
+    ))
+    #expect(AnnotationGeometry.hitTest(
+        point: CGPoint(x: 45, y: 44),
+        shape: .polyline([CGPoint(x: 10, y: 10), CGPoint(x: 45, y: 45), CGPoint(x: 90, y: 90)]),
+        tolerance: 3
+    ))
+}
+
+@Test func annotationGeometryResizesInsideCanvasAndPreservesAspect() {
+    let canvas = CGRect(x: 0, y: 0, width: 320, height: 180)
+    let original = CGRect(x: 80, y: 40, width: 100, height: 60)
+    let handle = AnnotationGeometry.resizedRect(
+        original,
+        handle: .bottomRight,
+        to: CGPoint(x: 310, y: 175),
+        preservingAspectRatio: true,
+        inside: canvas
+    )
+
+    #expect(handle.maxX <= canvas.maxX)
+    #expect(handle.maxY <= canvas.maxY)
+    #expect(abs(handle.width / handle.height - original.width / original.height) < 0.001)
+    #expect(handle.width >= 3)
+}
+
+@Test func annotationGeometrySmoothsJitterButRetainsEndpoints() {
+    let points = [
+        CGPoint(x: 0, y: 0),
+        CGPoint(x: 10, y: 0.8),
+        CGPoint(x: 11, y: -0.7),
+        CGPoint(x: 20, y: 0)
+    ]
+    let smooth = AnnotationGeometry.smoothedPath(points, minimumDistance: 0.5)
+
+    #expect(smooth.first == points.first)
+    #expect(smooth.last == points.last)
+    #expect(smooth.count <= points.count)
 }

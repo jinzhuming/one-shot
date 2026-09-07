@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import ShotKit
 
 final class OverlayWindow: NSWindow {
@@ -31,12 +32,22 @@ final class SelectionOverlayView: NSView {
     var backgroundImage: NSImage? {
         didSet { needsDisplay = true }
     }
+    var magnifierFrame: CGRect? {
+        didSet { needsDisplay = true }
+    }
+    var magnifierSourceRect: CGRect? {
+        didSet { needsDisplay = true }
+    }
     var visual = OverlayVisualState() {
         didSet {
             guard oldValue != visual else { return }
             needsDisplay = true
+            animateMaskOpacity()
         }
     }
+
+    private var maskOpacity: CGFloat = OverlayFocusStyle.idleMaskOpacity
+    private var maskAnimationTimer: Timer?
 
     override var isFlipped: Bool { false }
     override var isOpaque: Bool { false }
@@ -51,12 +62,16 @@ final class SelectionOverlayView: NSView {
         layer?.backgroundColor = NSColor.clear.cgColor
     }
 
+    deinit {
+        maskAnimationTimer?.invalidate()
+    }
+
     override func isAccessibilityElement() -> Bool { true }
     override func accessibilityRole() -> NSAccessibility.Role { .layoutArea }
     override func accessibilityLabel() -> String? { String(localized: "截图选区") }
     override func accessibilityHelp() -> String? {
         let key = AppSettings.shared.areaWindowToggleHotkey.localizedDisplayString
-        return String(localized: "拖拽框选区域，或点击切换窗口。\(key) 在区域和窗口之间切换。Tab 切换重叠窗口。按 Esc 取消。")
+        return String(localized: "拖拽框选区域，Shift 保持等比例，空格移动选区。\(key) 在区域和窗口之间切换。Tab 切换重叠窗口。按 Esc 取消。")
     }
 
     override func updateTrackingAreas() {
@@ -99,12 +114,13 @@ final class SelectionOverlayView: NSView {
             overlay.append(NSBezierPath(roundedRect: hole, xRadius: radius, yRadius: radius))
             overlay.windingRule = .evenOdd
         }
-        NSColor.black.withAlphaComponent(visual.dimOnly ? 0.45 : 0.55).setFill()
+        NSColor.black.withAlphaComponent(maskOpacity).setFill()
         overlay.fill()
 
         if let hole {
             drawHighlight(around: hole, radius: radius, isWindow: visual.holeIsWindow)
         }
+        drawMagnifier()
     }
 
     override func mouseEntered(with event: NSEvent) {
@@ -159,13 +175,18 @@ final class SelectionOverlayView: NSView {
                 xRadius: radius + 1,
                 yRadius: radius + 1
             )
-            border.lineWidth = 3
+            border.lineWidth = 2
             accent.setStroke()
             border.stroke()
             return
         }
 
         let frameRect = hole.insetBy(dx: -1, dy: -1)
+        let border = NSBezierPath(roundedRect: frameRect, xRadius: 2, yRadius: 2)
+        border.lineWidth = 1
+        accent.withAlphaComponent(0.72).setStroke()
+        border.stroke()
+
         let segments = FocusFrameGeometry.cornerSegments(in: frameRect)
         guard !segments.isEmpty else { return }
 
@@ -189,6 +210,38 @@ final class SelectionOverlayView: NSView {
         focus.stroke()
     }
 
+    private func animateMaskOpacity() {
+        let hasFocus = visual.selectionRect != nil || visual.highlightedWindow != nil
+        let target = OverlayFocusStyle.maskOpacity(
+            dimOnly: visual.dimOnly,
+            hasFocus: hasFocus,
+            reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        )
+        guard abs(target - maskOpacity) > 0.001 else { return }
+
+        maskAnimationTimer?.invalidate()
+        let start = maskOpacity
+        let startTime = CACurrentMediaTime()
+        let duration = 0.12
+        maskAnimationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+
+            let progress = min(1, (CACurrentMediaTime() - startTime) / duration)
+            let eased = 1 - pow(1 - progress, 3)
+            self.maskOpacity = start + (target - start) * eased
+            self.needsDisplay = true
+
+            if progress >= 1 {
+                self.maskOpacity = target
+                timer.invalidate()
+                self.maskAnimationTimer = nil
+            }
+        }
+    }
+
     private func holeRectInView() -> CGRect? {
         let global: CGRect?
         if let selection = visual.selectionRect, selection.width > 2, selection.height > 2 {
@@ -201,5 +254,53 @@ final class SelectionOverlayView: NSView {
         let local = convert(inWindow, from: nil).intersection(bounds.insetBy(dx: -2, dy: -2))
         guard !local.isNull, !local.isEmpty, local.width > 1, local.height > 1 else { return nil }
         return local
+    }
+
+    private func drawMagnifier() {
+        guard let backgroundImage,
+              let magnifierFrame,
+              let magnifierSourceRect,
+              magnifierFrame.width > 1,
+              magnifierFrame.height > 1,
+              magnifierSourceRect.width > 1,
+              magnifierSourceRect.height > 1
+        else { return }
+
+        let frame = magnifierFrame.intersection(bounds)
+        guard !frame.isNull, !frame.isEmpty else { return }
+
+        let clip = NSBezierPath(roundedRect: frame, xRadius: 12, yRadius: 12)
+        NSGraphicsContext.saveGraphicsState()
+        clip.addClip()
+        NSGraphicsContext.current?.imageInterpolation = .none
+        backgroundImage.draw(
+            in: frame,
+            from: magnifierSourceRect,
+            operation: .copy,
+            fraction: 1,
+            respectFlipped: isFlipped,
+            hints: nil
+        )
+        NSGraphicsContext.restoreGraphicsState()
+
+        let shadow = NSBezierPath(roundedRect: frame.insetBy(dx: 1.5, dy: 1.5), xRadius: 10.5, yRadius: 10.5)
+        shadow.lineWidth = 5
+        NSColor.black.withAlphaComponent(0.75).setStroke()
+        shadow.stroke()
+
+        let border = NSBezierPath(roundedRect: frame.insetBy(dx: 1, dy: 1), xRadius: 11, yRadius: 11)
+        border.lineWidth = 2
+        NSColor.controlAccentColor.setStroke()
+        border.stroke()
+
+        let center = CGPoint(x: frame.midX, y: frame.midY)
+        let crosshair = NSBezierPath()
+        crosshair.move(to: CGPoint(x: center.x - 12, y: center.y))
+        crosshair.line(to: CGPoint(x: center.x + 12, y: center.y))
+        crosshair.move(to: CGPoint(x: center.x, y: center.y - 12))
+        crosshair.line(to: CGPoint(x: center.x, y: center.y + 12))
+        crosshair.lineWidth = 1
+        NSColor.white.withAlphaComponent(0.9).setStroke()
+        crosshair.stroke()
     }
 }

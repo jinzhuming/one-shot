@@ -25,6 +25,12 @@ final class CaptureSession: OverlayControllerDelegate {
 
     private init() {
         overlay.delegate = self
+        recordingService.onFailure = { [weak self] error in
+            guard let self else { return }
+            self.isFinishingRecording = false
+            self.fail(error)
+            StatusItemMenu.reload()
+        }
         editor.onFinish = { [weak self] in
             self?.removeEscapeToCancel()
             self?.resetMachine()
@@ -48,6 +54,7 @@ final class CaptureSession: OverlayControllerDelegate {
         }
         guard prepareSession() else { return }
         installEscapeToCancel()
+        overlay.showPreparationHUD()
         runCapture { [weak self] in
             guard let self else { return }
             do {
@@ -56,7 +63,7 @@ final class CaptureSession: OverlayControllerDelegate {
                 let selection = RegionSelection(rect: rect, displayID: last.displayID)
                 let result = try await self.captureService.captureRegion(selection, catalog: WindowCatalog.shared)
                 try Task.checkCancellation()
-                await self.handle(result, kind: .region)
+                await self.handle(result)
             } catch is CancellationError {
                 return
             } catch {
@@ -81,6 +88,7 @@ final class CaptureSession: OverlayControllerDelegate {
         guard prepareSession(for: intent) else { return }
         if mode == .fullscreen {
             installEscapeToCancel()
+            overlay.showPreparationHUD()
             runCapture { [weak self] in
                 await self?.captureFullscreenUnderCursor()
             }
@@ -92,6 +100,7 @@ final class CaptureSession: OverlayControllerDelegate {
             overlay.present(mode: mode)
             return
         }
+        overlay.showPreparationHUD()
         runCapture { [weak self] in
             await self?.prepareScreenshotOverlay(mode: mode)
         }
@@ -122,18 +131,21 @@ final class CaptureSession: OverlayControllerDelegate {
     }
 
     func overlayDidPickWindow(id: CGWindowID) {
+        overlay.showPreparationHUD()
         runCapture { [weak self] in
             await self?.captureWindow(id: id)
         }
     }
 
     func overlayDidPickRegion(selection: RegionSelection) {
+        overlay.showPreparationHUD()
         runCapture { [weak self] in
             await self?.captureRegion(selection)
         }
     }
 
     func overlayDidPickFullscreen(screen: NSScreen) {
+        overlay.showPreparationHUD()
         runCapture { [weak self] in
             await self?.captureScreen(screen)
         }
@@ -182,36 +194,18 @@ final class CaptureSession: OverlayControllerDelegate {
             return
         }
         do {
-            let result: CaptureResult
             let includeShadow = AppSettings.shared.includeWindowShadow
-            // A display snapshot contains shadows outside the SCWindow.frame.
-            // Cropping that snapshot to the frame cuts the shadow on every edge,
-            // so shadowed window captures must use the single-window SCK path.
-            if WindowCapturePolicy.route(includeShadow: includeShadow) == .displaySnapshot,
-               let captureSnapshot {
-                do {
-                    result = try captureSnapshot.cropWindow(
-                        id: id,
-                        includeShadow: false
-                    )
-                } catch CaptureError.regionOutsideDisplay {
-                    // Keep the existing ScreenCaptureKit window path for a
-                    // window that straddles displays or is clipped at an edge.
-                    result = try await captureService.captureWindow(
-                        id: id,
-                        catalog: overlay.windowCatalog,
-                        includeShadow: false
-                    )
-                }
-            } else {
-                result = try await captureService.captureWindow(
-                    id: id,
-                    catalog: overlay.windowCatalog,
-                    includeShadow: includeShadow
-                )
-            }
+            // A display snapshot cannot preserve a window shadow at the
+            // window boundary. Capture the selected window lazily so the
+            // interactive session never needs two full-display variants.
+            captureSnapshot = nil
+            let result = try await captureService.captureWindow(
+                id: id,
+                catalog: overlay.windowCatalog,
+                includeShadow: includeShadow
+            )
             try Task.checkCancellation()
-            await handle(result, kind: .window)
+            await handle(result)
         } catch is CancellationError {
             return
         } catch {
@@ -226,13 +220,15 @@ final class CaptureSession: OverlayControllerDelegate {
         }
         do {
             let result: CaptureResult
-            if let captureSnapshot {
-                result = try captureSnapshot.cropRegion(selection)
+            let snapshot = captureSnapshot
+            captureSnapshot = nil
+            if let snapshot {
+                result = try snapshot.cropRegion(selection)
             } else {
                 result = try await captureService.captureRegion(selection, catalog: overlay.windowCatalog)
             }
             try Task.checkCancellation()
-            await handle(result, kind: .region)
+            await handle(result)
         } catch is CancellationError {
             return
         } catch {
@@ -249,7 +245,7 @@ final class CaptureSession: OverlayControllerDelegate {
             }
             let result = try await captureService.captureDisplay(screen, catalog: WindowCatalog.shared)
             try Task.checkCancellation()
-            await handle(result, kind: .fullscreen)
+            await handle(result)
         } catch is CancellationError {
             return
         } catch {
@@ -265,7 +261,7 @@ final class CaptureSession: OverlayControllerDelegate {
         do {
             let result = try await captureService.captureDisplay(screen, catalog: overlay.windowCatalog)
             try Task.checkCancellation()
-            await handle(result, kind: .fullscreen)
+            await handle(result)
         } catch is CancellationError {
             return
         } catch {
@@ -275,14 +271,9 @@ final class CaptureSession: OverlayControllerDelegate {
 
     private func prepareScreenshotOverlay(mode: CaptureMode) async {
         do {
-            // Area mode can switch to window mode while the overlay is up, so
-            // keep the no-shadow variant available for every interactive
-            // screenshot session.
-            let needsNoShadowVariant = !AppSettings.shared.includeWindowShadow
-            let snapshot = try await captureService.captureSnapshot(
-                catalog: overlay.windowCatalog,
-                needsNoShadowVariant: needsNoShadowVariant
-            )
+            // Keep one full-resolution display image per display while the
+            // overlay is interactive. Window captures are lazy and direct.
+            let snapshot = try await captureService.captureSnapshot(catalog: overlay.windowCatalog)
             try Task.checkCancellation()
             guard snapshot.matchesCurrentScreens else {
                 throw CaptureError.noDisplay
@@ -359,17 +350,20 @@ final class CaptureSession: OverlayControllerDelegate {
         resetMachine()
     }
 
-    private enum Kind { case region, window, fullscreen }
-
-    private func handle(_ result: CaptureResult, kind: Kind) async {
+    private func handle(_ result: CaptureResult) async {
         removeEscapeToCancel()
         switch AppSettings.shared.afterCaptureAction {
         case .annotate:
-            presentEditor(result, kind: kind)
+            presentEditor(result)
         case .copy:
-            ImageExporter.copyToClipboard(result.image)
-            overlay.dismiss()
-            resetMachine()
+            if ImageExporter.copyToClipboard(result.image) {
+                overlay.dismiss()
+                resetMachine()
+                SaveLocationPresenter.showCopied(on: result.screen)
+            } else {
+                presentEditor(result)
+                presentErrorPreservingEditor(ImageExporter.ExportError.clipboardFailed)
+            }
         case .save:
             overlay.suspendForModal()
             switch await finishSave(result.image) {
@@ -378,21 +372,23 @@ final class CaptureSession: OverlayControllerDelegate {
                 resetMachine()
                 SaveLocationPresenter.showSaved(at: url, on: result.screen)
             case .cancelled:
-                overlay.resumeAfterModal()
-                presentEditor(result, kind: kind)
+                overlay.dismiss()
+                resetMachine()
             case .failed(let error):
-                fail(error)
+                overlay.resumeAfterModal()
+                presentEditor(result)
+                presentErrorPreservingEditor(error)
             }
         }
     }
 
-    private func presentEditor(_ result: CaptureResult, kind: Kind) {
+    private func presentEditor(_ result: CaptureResult) {
         machine.startEditing()
-        switch kind {
-        case .region:
-            editor.presentRegion(result: result, overlay: overlay)
-        case .window, .fullscreen:
-            editor.presentFloating(result: result, overlay: overlay)
+        switch AppSettings.shared.annotationWindowPlacement {
+        case .inPlace:
+            editor.presentInPlace(result: result, overlay: overlay)
+        case .centered:
+            editor.presentCentered(result: result, overlay: overlay)
         }
     }
 
@@ -409,8 +405,9 @@ final class CaptureSession: OverlayControllerDelegate {
         }
         do {
             try await ImageExporter.save(image, format: settings.saveFormat, to: url)
-            if settings.copyOnComplete {
-                ImageExporter.copyToClipboard(image)
+            if settings.copyOnComplete,
+               !ImageExporter.copyToClipboard(image) {
+                return .failed(ImageExporter.ExportError.clipboardFailed)
             }
             return .saved(url)
         } catch {
@@ -435,6 +432,13 @@ final class CaptureSession: OverlayControllerDelegate {
     }
 
     private func presentError(_ error: Error) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert(error: error)
+        alert.window.level = NSWindow.Level(rawValue: CaptureWindowLevels.editor.rawValue + 1)
+        alert.runModal()
+    }
+
+    private func presentErrorPreservingEditor(_ error: Error) {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert(error: error)
         alert.window.level = NSWindow.Level(rawValue: CaptureWindowLevels.editor.rawValue + 1)

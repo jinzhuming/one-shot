@@ -19,6 +19,34 @@ public enum RectMath {
         )
     }
 
+    /// Returns the first frame with the largest positive intersection area.
+    /// Keeping this calculation independent from `NSScreen` makes window-to-
+    /// display routing deterministic and testable for arbitrary arrangements.
+    public static func largestIntersectionIndex(of rect: CGRect, in frames: [CGRect]) -> Int? {
+        guard rect.width.isFinite,
+              rect.height.isFinite,
+              rect.width > 0,
+              rect.height > 0 else { return nil }
+
+        var bestIndex: Int?
+        var bestArea: CGFloat = 0
+        for (index, frame) in frames.enumerated() {
+            let intersection = frame.intersection(rect)
+            guard !intersection.isNull,
+                  intersection.width.isFinite,
+                  intersection.height.isFinite,
+                  intersection.width > 0,
+                  intersection.height > 0 else { continue }
+            let area = intersection.width * intersection.height
+            guard area.isFinite else { continue }
+            if area > bestArea {
+                bestArea = area
+                bestIndex = index
+            }
+        }
+        return bestIndex
+    }
+
     /// Cocoa global selection → ScreenCaptureKit `sourceRect` for one display.
     /// Overlay selection uses `NSScreen.frame` (origin bottom-left); SCK wants
     /// points in that display's logical space with origin at the top-left.

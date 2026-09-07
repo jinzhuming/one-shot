@@ -12,12 +12,21 @@ settings:
     SWIFT_VERSION: "5.0"
     MACOSX_DEPLOYMENT_TARGET: "15.0"
 targets:
+  ShotKit:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Sources/ShotKit
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: true
   Shot:
     type: application
     platform: macOS
     sources:
       - path: Sources/Shot
-      - path: Sources/ShotKit
       - path: Support/Assets.xcassets
         buildPhase: resources
       - path: Support/Shot.icns
@@ -47,3 +56,5 @@ targets:
           CODE_SIGN_IDENTITY: "-"
         Release:
           CODE_SIGN_IDENTITY: "Developer ID Application"
+    dependencies:
+      - target: ShotKit

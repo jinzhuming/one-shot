@@ -20,6 +20,7 @@ final class AppSettings: ObservableObject {
         static let includeWindowShadow = "includeWindowShadow"
         static let lastSelection = "lastSelection"
         static let areaWindowToggleHotkey = "overlay.areaWindowToggleHotkey"
+        static let annotationWindowPlacement = "annotation.windowPlacement"
         static let annotationPreferences = "annotation.preferences"
     }
 
@@ -29,6 +30,10 @@ final class AppSettings: ObservableObject {
 
     @Published var afterCaptureAction: AfterCaptureAction {
         didSet { defaults.set(afterCaptureAction.rawValue, forKey: Key.afterCaptureAction) }
+    }
+
+    @Published var annotationWindowPlacement: AnnotationWindowPlacement {
+        didSet { defaults.set(annotationWindowPlacement.rawValue, forKey: Key.annotationWindowPlacement) }
     }
 
     @Published var copyOnComplete: Bool {
@@ -111,11 +116,6 @@ final class AppSettings: ObservableObject {
     }
 
     static var defaultSaveDirectory: URL {
-        FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
-    }
-
-    private static var legacyDefaultSaveDirectory: URL {
         let pictures = FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Pictures")
         return pictures.appendingPathComponent("Shot", isDirectory: true)
@@ -127,17 +127,18 @@ final class AppSettings: ObservableObject {
         self.defaults = defaults
         hasCompletedOnboarding = defaults.bool(forKey: Key.hasCompletedOnboarding)
         afterCaptureAction = AfterCaptureAction(rawValue: defaults.string(forKey: Key.afterCaptureAction) ?? "") ?? .annotate
+        annotationWindowPlacement = AnnotationWindowPlacement(
+            rawValue: defaults.string(forKey: Key.annotationWindowPlacement) ?? ""
+        ) ?? .inPlace
         copyOnComplete = defaults.object(forKey: Key.copyOnComplete) as? Bool ?? true
         saveFormat = SaveFormat(rawValue: defaults.string(forKey: Key.saveFormat) ?? "") ?? .png
         askWhereToSave = defaults.bool(forKey: Key.askWhereToSave)
         includeWindowShadow = defaults.object(forKey: Key.includeWindowShadow) as? Bool ?? false
         let storedSaveDirectory = defaults.string(forKey: Key.saveDirectory)
-        let resolvedSaveDirectory: String
-        if storedSaveDirectory == nil || storedSaveDirectory == Self.legacyDefaultSaveDirectory.path {
-            resolvedSaveDirectory = Self.defaultSaveDirectory.path
-        } else {
-            resolvedSaveDirectory = storedSaveDirectory!
-        }
+        // Keep an explicitly stored path untouched. This prevents changing a
+        // user's existing Downloads or custom location when the fresh-install
+        // default evolves.
+        let resolvedSaveDirectory = storedSaveDirectory ?? Self.defaultSaveDirectory.path
         saveDirectoryPath = resolvedSaveDirectory
         if storedSaveDirectory != resolvedSaveDirectory {
             defaults.set(resolvedSaveDirectory, forKey: Key.saveDirectory)

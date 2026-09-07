@@ -9,10 +9,15 @@ enum ImageExporter {
         ExportNaming.filename(fileExtension: format.fileExtension, date: date)
     }
 
-    static func copyToClipboard(_ image: NSImage) {
+    @discardableResult
+    static func copyToClipboard(_ image: NSImage) -> Bool {
+        guard cgImage(from: image) != nil else { return false }
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.writeObjects([image])
+        // Do not clear a second time on failure. Some pasteboard providers can
+        // fail after declaring their types; a second clear only makes recovery
+        // worse and cannot improve the result.
+        return pasteboard.writeObjects([image])
     }
 
     static func save(_ image: NSImage, format: SaveFormat, to url: URL) async throws {
@@ -56,7 +61,13 @@ enum ImageExporter {
             return promptSaveURL(format: settings.saveFormat, directory: settings.saveDirectoryURL)
         }
         let directory = settings.saveDirectoryURL
-        return directory.appendingPathComponent(defaultFilename(format: settings.saveFormat))
+        let preferred = defaultFilename(format: settings.saveFormat)
+        let filename = ExportNaming.uniqueFilename(preferred: preferred) { candidate in
+            FileManager.default.fileExists(
+                atPath: directory.appendingPathComponent(candidate).path
+            )
+        }
+        return directory.appendingPathComponent(filename)
     }
 
     static func cgImage(from image: NSImage) -> CGImage? {
@@ -73,9 +84,15 @@ enum ImageExporter {
 
     enum ExportError: LocalizedError {
         case encodingFailed
+        case clipboardFailed
 
         var errorDescription: String? {
-            String(localized: "无法编码截图。")
+            switch self {
+            case .encodingFailed:
+                return String(localized: "无法编码截图。")
+            case .clipboardFailed:
+                return String(localized: "无法复制截图到剪贴板。")
+            }
         }
     }
 }

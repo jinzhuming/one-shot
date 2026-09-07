@@ -144,6 +144,17 @@
         }
       }
     },
+    "截图已复制到剪贴板": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图已复制到剪贴板"
+          }
+        }
+      }
+    },
     "标注工具": {
       "extractionState": "manual",
       "localizations": {
@@ -162,6 +173,61 @@
           "stringUnit": {
             "state": "translated",
             "value": "标注画布"
+          }
+        }
+      }
+    },
+    "标注位置": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标注位置"
+          }
+        }
+      }
+    },
+    "原位置": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原位置"
+          }
+        }
+      }
+    },
+    "原位置空间不足时，会自动缩放并移入当前显示器的可见区域。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原位置空间不足时，会自动缩放并移入当前显示器的可见区域。"
+          }
+        }
+      }
+    },
+    "原位置空间不足时，会自动缩放并移入当前显示器的可见区域；独立窗口可拖拽缩放。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原位置空间不足时，会自动缩放并移入当前显示器的可见区域；独立窗口可拖拽缩放。"
+          }
+        }
+      }
+    },
+    "独立窗口（居中）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "独立窗口（居中）"
           }
         }
       }
@@ -309,24 +375,24 @@
         }
       }
     },
-    "点击窗口 · %@ 或拖拽切换区域": {
+    "点击窗口 · 拖拽区域 · Esc 取消 · %@ 切换": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "点击窗口 · %1$@ 或拖拽切换区域"
+            "value": "点击窗口 · 拖拽区域 · Esc 取消 · %1$@ 切换"
           }
         }
       }
     },
-    "点击窗口 · 拖拽区域": {
+    "点击窗口 · 拖拽区域（Shift 等比例，空格移动）· Esc 取消": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "点击窗口 · 拖拽区域"
+            "value": "点击窗口 · 拖拽区域（Shift 等比例，空格移动）· Esc 取消"
           }
         }
       }
@@ -628,6 +694,17 @@
         }
       }
     },
+    "截图模式": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图模式"
+          }
+        }
+      }
+    },
     "截图区域必须位于同一个显示器内。": {
       "extractionState": "manual",
       "localizations": {
@@ -771,6 +848,39 @@
         }
       }
     },
+    "录屏停止超时。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏停止超时。"
+          }
+        }
+      }
+    },
+    "录屏启动超时。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏启动超时。"
+          }
+        }
+      }
+    },
+    "录屏文件写入超时。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏文件写入超时。"
+          }
+        }
+      }
+    },
     "录制视频预览": {
       "extractionState": "manual",
       "localizations": {
@@ -815,13 +925,13 @@
         }
       }
     },
-    "默认保存到「下载」。主快捷键为 ⌘⇧A，可在设置里更改。": {
+    "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，可在设置里更改。": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "默认保存到「下载」。主快捷键为 ⌘⇧A，可在设置里更改。"
+            "value": "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，可在设置里更改。"
           }
         }
       }
@@ -866,6 +976,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "屏幕录制已授权"
+          }
+        }
+      }
+    },
+    "屏幕居中": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "屏幕居中"
+          }
+        }
+      }
+    },
+    "Shot 标注": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shot 标注"
           }
         }
       }
@@ -1112,24 +1244,24 @@
         }
       }
     },
-    "拖拽框选 · %@ 或点击切换窗口": {
+    "拖拽框选 · Shift 等比例 · 空格移动 · Esc 取消 · %@ 切换窗口": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "拖拽框选 · %1$@ 或点击切换窗口"
+            "value": "拖拽框选 · Shift 等比例 · 空格移动 · Esc 取消 · %1$@ 切换窗口"
           }
         }
       }
     },
-    "拖拽框选区域，或点击切换窗口。%@ 在区域和窗口之间切换。Tab 切换重叠窗口。按 Esc 取消。": {
+    "拖拽框选区域，Shift 保持等比例，空格移动选区。%@ 在区域和窗口之间切换。Tab 切换重叠窗口。按 Esc 取消。": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "拖拽框选区域，或点击切换窗口。%1$@ 在区域和窗口之间切换。Tab 切换重叠窗口。按 Esc 取消。"
+            "value": "拖拽框选区域，Shift 保持等比例，空格移动选区。%1$@ 在区域和窗口之间切换。Tab 切换重叠窗口。按 Esc 取消。"
           }
         }
       }
@@ -1233,6 +1365,28 @@
         }
       }
     },
+    "无法复制截图到剪贴板。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法复制截图到剪贴板。"
+          }
+        }
+      }
+    },
+    "无法复制视频文件到剪贴板。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法复制视频文件到剪贴板。"
+          }
+        }
+      }
+    },
     "细": {
       "extractionState": "manual",
       "localizations": {
@@ -1262,6 +1416,127 @@
           "stringUnit": {
             "state": "translated",
             "value": "选区尺寸 %1$@"
+          }
+        }
+      }
+    },
+    "选择": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择"
+          }
+        }
+      }
+    },
+    "选择并编辑标注（V）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择并编辑标注（V）"
+          }
+        }
+      }
+    },
+    "已选择": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选择"
+          }
+        }
+      }
+    },
+    "绘制模式": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "绘制模式"
+          }
+        }
+      }
+    },
+    "未选择标注": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未选择标注"
+          }
+        }
+      }
+    },
+    "已选择标注，可移动或缩放": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选择标注，可移动或缩放"
+          }
+        }
+      }
+    },
+    "点击标注以选择": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击标注以选择"
+          }
+        }
+      }
+    },
+    "复制选中标注（⌘D）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制选中标注（⌘D）"
+          }
+        }
+      }
+    },
+    "复制选中标注": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制选中标注"
+          }
+        }
+      }
+    },
+    "删除选中标注（Delete）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除选中标注（Delete）"
+          }
+        }
+      }
+    },
+    "删除选中标注": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除选中标注"
           }
         }
       }
@@ -1812,6 +2087,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "关闭编辑器（Esc）"
+          }
+        }
+      }
+    },
+    "正在准备截图": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在准备截图"
+          }
+        }
+      }
+    },
+    "正在准备截图…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在准备截图…"
           }
         }
       }

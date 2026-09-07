@@ -38,31 +38,84 @@ public struct UndoStack<Element> {
     public private(set) var items: [Element]
     private var undoItems: [[Element]]
     private var redoItems: [[Element]]
+    private let historyLimit: Int
+    private var transactionStart: [Element]?
+    private var transactionChanged = false
 
-    public init(items: [Element] = []) {
+    public init(items: [Element] = [], historyLimit: Int = 100) {
         self.items = items
         self.undoItems = []
         self.redoItems = []
+        self.historyLimit = max(1, historyLimit)
+        self.transactionStart = nil
     }
 
     public var canUndo: Bool { !undoItems.isEmpty }
     public var canRedo: Bool { !redoItems.isEmpty }
 
-    public mutating func append(_ item: Element) {
-        undoItems.append(items)
+    /// Coalesces a continuous interaction (for example, a slider drag) into
+    /// one undo step while keeping each intermediate value in `items`.
+    public mutating func beginTransaction() {
+        guard transactionStart == nil else { return }
+        transactionStart = items
+        transactionChanged = false
+    }
+
+    public mutating func endTransaction() {
+        guard let previous = transactionStart else { return }
+        transactionStart = nil
+        guard transactionChanged else { return }
+        undoItems.append(previous)
+        trimHistory(&undoItems)
         redoItems.removeAll()
+        transactionChanged = false
+    }
+
+    public mutating func append(_ item: Element) {
+        recordMutation()
         items.append(item)
     }
 
+    public mutating func replace(at index: Int, with item: Element) {
+        guard items.indices.contains(index) else { return }
+        recordMutation()
+        items[index] = item
+    }
+
+    public mutating func remove(at index: Int) {
+        guard items.indices.contains(index) else { return }
+        recordMutation()
+        items.remove(at: index)
+    }
+
     public mutating func undo() {
+        endTransaction()
         guard let previous = undoItems.popLast() else { return }
         redoItems.append(items)
+        trimHistory(&redoItems)
         items = previous
     }
 
     public mutating func redo() {
         guard let next = redoItems.popLast() else { return }
         undoItems.append(items)
+        trimHistory(&undoItems)
         items = next
+    }
+
+    private mutating func recordMutation() {
+        if transactionStart != nil {
+            transactionChanged = true
+        } else {
+            undoItems.append(items)
+            trimHistory(&undoItems)
+            redoItems.removeAll()
+        }
+    }
+
+    private func trimHistory(_ history: inout [[Element]]) {
+        let excess = history.count - historyLimit
+        guard excess > 0 else { return }
+        history.removeFirst(excess)
     }
 }

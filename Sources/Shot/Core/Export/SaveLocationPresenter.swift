@@ -9,14 +9,37 @@ enum SaveLocationPresenter {
         dismissTask?.cancel()
 
         let panel = panel ?? makePanel()
-        panel.configure(fileURL: url)
+        panel.configureSaved(fileURL: url)
         if let screen = screen ?? screenUnderPointer() {
             panel.position(on: screen)
         }
         panel.orderFrontRegardless()
+        panel.announce(String(localized: "截图已保存"))
 
         dismissTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            panel.orderOut(nil)
+            if self.panel === panel {
+                self.panel = nil
+            }
+            self.dismissTask = nil
+        }
+    }
+
+    static func showCopied(on screen: NSScreen? = nil) {
+        dismissTask?.cancel()
+
+        let panel = panel ?? makePanel()
+        panel.configureCopied()
+        if let screen = screen ?? screenUnderPointer() {
+            panel.position(on: screen)
+        }
+        panel.orderFrontRegardless()
+        panel.announce(String(localized: "截图已复制到剪贴板"))
+
+        dismissTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.5))
             guard !Task.isCancelled else { return }
             panel.orderOut(nil)
             if self.panel === panel {
@@ -82,9 +105,22 @@ private final class SaveConfirmationPanel: NSPanel {
         }
     }
 
-    func configure(fileURL: URL) {
+    func configureSaved(fileURL: URL) {
         self.fileURL = fileURL
-        confirmationView.configure(fileURL: fileURL)
+        confirmationView.configureSaved(fileURL: fileURL)
+    }
+
+    func configureCopied() {
+        fileURL = nil
+        confirmationView.configureCopied()
+    }
+
+    func announce(_ message: String) {
+        NSAccessibility.post(
+            element: self,
+            notification: .announcementRequested,
+            userInfo: [.announcement: message]
+        )
     }
 
     func position(on screen: NSScreen) {
@@ -122,12 +158,18 @@ private final class SaveConfirmationView: NSView {
         effectView.blendingMode = .behindWindow
         effectView.state = .active
         effectView.appearance = NSAppearance(named: .vibrantDark)
+        if HUDChrome.reduceTransparency {
+            effectView.isHidden = true
+            layer?.backgroundColor = NSColor.black.withAlphaComponent(0.92).cgColor
+        }
         addSubview(effectView)
 
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = .white
         titleLabel.setAccessibilityLabel(String(localized: "截图已保存"))
         addSubview(titleLabel)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.group)
 
         fileLabel.font = .systemFont(ofSize: 11)
         fileLabel.textColor = NSColor.white.withAlphaComponent(0.7)
@@ -147,9 +189,25 @@ private final class SaveConfirmationView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configure(fileURL: URL) {
+    func configureSaved(fileURL: URL) {
+        titleLabel.stringValue = String(localized: "截图已保存")
+        titleLabel.setAccessibilityLabel(String(localized: "截图已保存"))
+        setAccessibilityLabel(String(localized: "截图已保存"))
         fileLabel.stringValue = fileURL.lastPathComponent
+        fileLabel.isHidden = false
+        openButton.isHidden = false
         toolTip = fileURL.path
+        needsLayout = true
+    }
+
+    func configureCopied() {
+        titleLabel.stringValue = String(localized: "截图已复制到剪贴板")
+        titleLabel.setAccessibilityLabel(String(localized: "截图已复制到剪贴板"))
+        setAccessibilityLabel(String(localized: "截图已复制到剪贴板"))
+        fileLabel.stringValue = ""
+        fileLabel.isHidden = true
+        openButton.isHidden = true
+        toolTip = nil
         needsLayout = true
     }
 
@@ -164,7 +222,7 @@ private final class SaveConfirmationView: NSView {
             width: buttonSize.width,
             height: buttonSize.height
         )
-        let labelWidth = max(1, openButton.frame.minX - 30)
+        let labelWidth = max(1, openButton.isHidden ? bounds.width - 28 : openButton.frame.minX - 30)
         titleLabel.frame = CGRect(x: 14, y: 38, width: labelWidth, height: 18)
         fileLabel.frame = CGRect(x: 14, y: 17, width: labelWidth, height: 16)
     }

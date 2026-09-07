@@ -4,8 +4,8 @@ import ShotKit
 @MainActor
 protocol AnnotationCanvasDelegate: AnyObject {
     func canvasDidReceive(_ event: CanvasEvent)
-    func canvasDidBeginText(at imagePoint: CGPoint)
-    func canvasDidCommitText(_ string: String, at imagePoint: CGPoint)
+    func canvasDidBeginText(at imagePoint: CGPoint, replacing id: UUID?)
+    func canvasDidCommitText(_ string: String, at imagePoint: CGPoint, replacing id: UUID?)
     func canvasDidCancelText()
 }
 
@@ -14,7 +14,10 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
     var image: NSImage? {
         didSet { needsDisplay = true }
     }
-    var annotations: [AnnotationElement] = [] {
+    var annotations: [AnnotationObject] = [] {
+        didSet { needsDisplay = true }
+    }
+    var selectedObjectID: UUID? {
         didSet { needsDisplay = true }
     }
     var sourceImageSize: CGSize = .zero
@@ -28,6 +31,7 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
     private var textView: AnnotationTextView?
     private var placeholder: NSTextField?
     private var textImageOrigin: CGPoint?
+    private var textReplacingID: UUID?
     private var pendingTextPoint: CGPoint?
     private var ignoreNextMouseUp = false
     private var isTrackingGesture = false
@@ -41,12 +45,19 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
     override func isAccessibilityElement() -> Bool { true }
     override func accessibilityRole() -> NSAccessibility.Role { .image }
     override func accessibilityLabel() -> String? { String(localized: "标注画布") }
+    override func accessibilityValue() -> Any? {
+        guard selectedTool == .select else { return String(localized: "绘制模式") }
+        return selectedObjectID == nil
+            ? String(localized: "未选择标注")
+            : String(localized: "已选择标注，可移动或缩放")
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         NSColor.clear.setFill()
         bounds.fill()
         guard let image else { return }
+
         image.draw(
             in: bounds,
             from: CGRect(origin: .zero, size: image.size),
@@ -56,37 +67,38 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
             hints: nil
         )
 
-        guard !annotations.isEmpty else { return }
         let imageSize = image.size
-        guard imageSize.width > 0, imageSize.height > 0,
-              let context = NSGraphicsContext.current?.cgContext else { return }
-        context.saveGState()
-        context.scaleBy(
-            x: bounds.width / imageSize.width,
-            y: bounds.height / imageSize.height
+        if imageSize.width > 0, imageSize.height > 0,
+           let context = NSGraphicsContext.current?.cgContext {
+            context.saveGState()
+            context.scaleBy(
+                x: bounds.width / imageSize.width,
+                y: bounds.height / imageSize.height
+            )
+            AnnotationRenderer.draw(
+                annotations,
+                baseImage: image,
+                in: CGRect(origin: .zero, size: imageSize)
+            )
+            context.restoreGState()
+        }
+        drawSelectionOverlay()
+    }
+
+    override func layout() {
+        super.layout()
+        guard let textImageOrigin, editorChrome != nil else { return }
+        let viewPoint = CanvasMapping.viewPoint(
+            imagePoint: textImageOrigin,
+            viewSize: bounds.size,
+            imageSize: mappingImageSize
         )
-        AnnotationRenderer.draw(
-            annotations,
-            baseImage: image,
-            in: CGRect(origin: .zero, size: imageSize)
-        )
-        context.restoreGState()
+        layoutEditor(at: viewPoint)
     }
 
     override func resetCursorRects() {
         discardCursorRects()
         addCursorRect(bounds, cursor: cursorForCurrentTool)
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        guard bounds.contains(point) else { return nil }
-        if let chrome = editorChrome {
-            let chromePoint = convert(point, to: chrome)
-            if let hit = chrome.hitTest(chromePoint) {
-                return hit
-            }
-        }
-        return self
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -97,6 +109,13 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         }
         if selectedTool == .text {
             pendingTextPoint = imageLocation(in: event)
+            return
+        }
+        if selectedTool == .select, event.clickCount == 2,
+           let selectedObjectID,
+           let selected = annotations.first(where: { $0.id == selectedObjectID }),
+           case .text(let string, let origin, _) = selected.element {
+            beginTextEditing(at: origin, initialText: string, replacingID: selected.id)
             return
         }
         window?.makeFirstResponder(self)
@@ -129,7 +148,7 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         delegate?.canvasDidReceive(.drag(imageLocationFromScreen(), shift: shiftHeld(in: event)))
     }
 
-    func beginTextEditing(at imagePoint: CGPoint) {
+    func beginTextEditing(at imagePoint: CGPoint, initialText: String = "", replacingID: UUID? = nil) {
         commitTextIfNeeded()
         let fontSize = AnnotationMath.fontSize(lineWidth: lineWidth)
         let font = NSFont.systemFont(ofSize: fontSize, weight: .medium)
@@ -165,6 +184,7 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         editor.isAutomaticTextReplacementEnabled = false
         editor.isAutomaticSpellingCorrectionEnabled = false
         editor.textContainerInset = NSSize(width: 10, height: 8)
+        editor.string = initialText
         editor.setAccessibilityLabel(String(localized: "文字"))
 
         let hint = NSTextField(labelWithString: String(localized: "输入文字"))
@@ -184,9 +204,10 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         textView = editor
         placeholder = hint
         textImageOrigin = imagePoint
+        textReplacingID = replacingID
 
         layoutEditor(at: viewPoint)
-        delegate?.canvasDidBeginText(at: imagePoint)
+        delegate?.canvasDidBeginText(at: imagePoint, replacing: replacingID)
         DispatchQueue.main.async { [weak self] in
             guard let self, let editor = self.textView else { return }
             self.window?.makeKeyAndOrderFront(nil)
@@ -205,10 +226,11 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
 
     func commitTextIfNeeded() {
         guard let editor = textView, let origin = textImageOrigin else { return }
+        let replacingID = textReplacingID
         let text = editor.string.trimmingCharacters(in: .whitespacesAndNewlines)
         removeEditor()
         if !text.isEmpty {
-            delegate?.canvasDidCommitText(text, at: origin)
+            delegate?.canvasDidCommitText(text, at: origin, replacing: replacingID)
         } else {
             delegate?.canvasDidCancelText()
         }
@@ -277,10 +299,71 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         textView = nil
         placeholder = nil
         textImageOrigin = nil
+        textReplacingID = nil
     }
 
     private var cursorForCurrentTool: NSCursor {
-        selectedTool == .text ? .iBeam : .crosshair
+        switch selectedTool {
+        case .text: return .iBeam
+        case .select: return .arrow
+        default: return .crosshair
+        }
+    }
+
+    private func drawSelectionOverlay() {
+        guard selectedTool == .select,
+              let selectedObjectID,
+              let selected = annotations.first(where: { $0.id == selectedObjectID }) else { return }
+        let imageBounds = selected.bounds
+        let origin = CanvasMapping.viewPoint(
+            imagePoint: CGPoint(x: imageBounds.minX, y: imageBounds.minY),
+            viewSize: bounds.size,
+            imageSize: mappingImageSize
+        )
+        let maxPoint = CanvasMapping.viewPoint(
+            imagePoint: CGPoint(x: imageBounds.maxX, y: imageBounds.maxY),
+            viewSize: bounds.size,
+            imageSize: mappingImageSize
+        )
+        let selectionRect = CGRect(
+            x: origin.x,
+            y: origin.y,
+            width: maxPoint.x - origin.x,
+            height: maxPoint.y - origin.y
+        ).standardized
+
+        NSColor.controlAccentColor.setStroke()
+        let border = NSBezierPath(rect: selectionRect)
+        border.lineWidth = 1
+        let dash: [CGFloat] = [4, 3]
+        border.setLineDash(dash, count: dash.count, phase: 0)
+        border.stroke()
+
+        let handleSize: CGFloat = 8
+        let centers = [
+            CGPoint(x: selectionRect.minX, y: selectionRect.minY),
+            CGPoint(x: selectionRect.midX, y: selectionRect.minY),
+            CGPoint(x: selectionRect.maxX, y: selectionRect.minY),
+            CGPoint(x: selectionRect.maxX, y: selectionRect.midY),
+            CGPoint(x: selectionRect.maxX, y: selectionRect.maxY),
+            CGPoint(x: selectionRect.midX, y: selectionRect.maxY),
+            CGPoint(x: selectionRect.minX, y: selectionRect.maxY),
+            CGPoint(x: selectionRect.minX, y: selectionRect.midY)
+        ]
+        for center in centers {
+            let handle = CGRect(
+                x: center.x - handleSize / 2,
+                y: center.y - handleSize / 2,
+                width: handleSize,
+                height: handleSize
+            )
+            NSColor.controlAccentColor.setFill()
+            handle.fill()
+            NSColor.white.setStroke()
+            let outline = NSBezierPath(rect: handle)
+            outline.lineWidth = 1
+            outline.stroke()
+        }
     }
 
     private func refreshCursor() {
@@ -324,15 +407,6 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
 private final class TextEditorChrome: NSView {
     override var isFlipped: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        guard bounds.contains(point) else { return nil }
-        if let editor = subviews.compactMap({ $0 as? NSTextView }).first {
-            let editorPoint = convert(point, to: editor)
-            return editor.hitTest(editorPoint) ?? editor
-        }
-        return self
-    }
 }
 
 private final class AnnotationTextView: NSTextView {

@@ -56,6 +56,13 @@ struct ShotApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
+        MenuBarExtra {
+            StatusItemMenuView()
+        } label: {
+            StatusItemLabel()
+        }
+        .menuBarExtraStyle(.menu)
+
         Settings {
             SettingsView()
         }

@@ -2,9 +2,9 @@ import AppKit
 import ShotKit
 
 enum AnnotationRenderer {
-    static func draw(_ elements: [AnnotationElement], baseImage: NSImage, in bounds: CGRect) {
-        for element in elements {
-            draw(element, baseImage: baseImage, bounds: bounds)
+    static func draw(_ elements: [AnnotationObject], baseImage: NSImage, in bounds: CGRect) {
+        for object in elements {
+            draw(object.element, baseImage: baseImage, bounds: bounds)
         }
     }
 
@@ -61,10 +61,28 @@ enum AnnotationRenderer {
 
     private static func strokePolyline(_ points: [CGPoint], style: AnnotationStyle, alpha: CGFloat, widthMultiplier: CGFloat) {
         guard points.count >= 2 else { return }
+        let points = AnnotationGeometry.smoothedPath(points)
         let path = NSBezierPath()
         path.move(to: points[0])
-        for point in points.dropFirst() {
-            path.line(to: point)
+        if points.count == 2 {
+            path.line(to: points[1])
+        } else {
+            for index in 1..<(points.count - 1) {
+                let current = points[index]
+                let next = points[index + 1]
+                let midpoint = CGPoint(
+                    x: (current.x + next.x) / 2,
+                    y: (current.y + next.y) / 2
+                )
+                path.curve(
+                    to: midpoint,
+                    controlPoint1: current,
+                    controlPoint2: current
+                )
+            }
+            let last = points[points.count - 1]
+            let previous = points[points.count - 2]
+            path.curve(to: last, controlPoint1: previous, controlPoint2: last)
         }
         style.color.withAlphaComponent(alpha).setStroke()
         path.lineWidth = max(1, style.lineWidth * widthMultiplier)
@@ -74,7 +92,11 @@ enum AnnotationRenderer {
     }
 
     private static func drawText(_ string: String, at origin: CGPoint, style: AnnotationStyle) {
-        let font = NSFont.systemFont(ofSize: AnnotationMath.fontSize(lineWidth: style.lineWidth), weight: .medium)
+        let scale = min(max(style.textScale, AnnotationStyle.minimumAnnotationScale), AnnotationStyle.maximumAnnotationScale)
+        let font = NSFont.systemFont(
+            ofSize: AnnotationMath.fontSize(lineWidth: style.lineWidth) * scale,
+            weight: .medium
+        )
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: style.color
@@ -83,7 +105,8 @@ enum AnnotationRenderer {
     }
 
     private static func drawCounter(_ value: Int, at center: CGPoint, style: AnnotationStyle) {
-        let radius = max(10, style.lineWidth * 5)
+        let scale = min(max(style.counterScale, AnnotationStyle.minimumAnnotationScale), AnnotationStyle.maximumAnnotationScale)
+        let radius = max(10, style.lineWidth * 5 * scale)
         let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
         let circle = NSBezierPath(ovalIn: rect)
         style.color.setFill()

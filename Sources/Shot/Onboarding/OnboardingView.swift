@@ -80,7 +80,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text(String(localized: "保存位置与快捷键"))
                     .font(.title2)
-                Text(String(localized: "默认保存到「下载」。主快捷键为 ⌘⇧A，可在设置里更改。"))
+                Text(String(localized: "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，可在设置里更改。"))
                     .foregroundStyle(.secondary)
                 HStack {
                     Text(settings.saveDirectoryURL.path)

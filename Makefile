@@ -1,4 +1,4 @@
-.PHONY: generate build test validate-localization app verify run clean icon
+.PHONY: generate build test validate-localization app xcodebuild verify run clean icon
 
 CONFIG ?= debug
 
@@ -22,7 +22,10 @@ icon:
 app: build
 	./scripts/package-app.sh $(CONFIG)
 
-verify: test validate-localization app
+xcodebuild: generate
+	DEVELOPER_DIR="$${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}" xcodebuild -project Shot.xcodeproj -scheme Shot -configuration Debug CODE_SIGNING_ALLOWED=NO build
+
+verify: test validate-localization app xcodebuild
 	./scripts/verify-project.sh $(CONFIG)
 
 run: app

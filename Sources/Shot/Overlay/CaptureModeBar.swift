@@ -2,7 +2,15 @@ import SwiftUI
 
 @MainActor
 final class OverlayModeState: ObservableObject {
-    @Published var mode: CaptureMode = .allInOne
+    @Published private(set) var mode: CaptureMode
+
+    init(mode: CaptureMode = .area) {
+        self.mode = mode.interactiveMode
+    }
+
+    func select(_ mode: CaptureMode) {
+        self.mode = mode.interactiveMode
+    }
 }
 
 struct CaptureModeBar: View {
@@ -19,13 +27,23 @@ struct CaptureModeBar: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            HStack(spacing: 6) {
-                modeButton(.area, systemImage: "rectangle.dashed")
-                modeButton(.window, systemImage: "macwindow")
-                modeButton(.fullscreen, systemImage: "rectangle")
+            Picker(
+                String(localized: "截图模式"),
+                selection: Binding(
+                    get: { mode },
+                    set: { onSelect($0) }
+                )
+            ) {
+                ForEach(CaptureMode.selectableModes) { value in
+                    Label(value.title, systemImage: systemImage(for: value))
+                        .tag(value)
+                        .help(value.title)
+                }
             }
-            .padding(4)
-            .background(groupSelection, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(height: 32)
+            .accessibilityLabel(String(localized: "截图模式"))
 
             if let caption {
                 Text(caption)
@@ -43,42 +61,16 @@ struct CaptureModeBar: View {
         .environment(\.colorScheme, .dark)
     }
 
-    private var groupSelection: Color {
-        mode == .allInOne ? Color.accentColor.opacity(0.22) : Color.clear
-    }
-
-    private func modeButton(_ value: CaptureMode, systemImage: String) -> some View {
-        Button {
-            onSelect(value)
-        } label: {
-            label(value.title, systemImage: systemImage)
+    private func systemImage(for mode: CaptureMode) -> String {
+        switch mode {
+        case .area:
+            return "rectangle.dashed"
+        case .window:
+            return "macwindow"
+        case .fullscreen:
+            return "rectangle"
+        case .allInOne:
+            return "rectangle"
         }
-        .buttonStyle(HUDChrome.IconButtonStyle(isSelected: isSelected(value), cornerRadius: 8))
-        .accessibilityLabel(value.title)
-        .accessibilityValue(isSelected(value)
-            ? String(localized: "已选中")
-            : String(localized: "未选中"))
-        .help(value.title)
-        .accessibilityAddTraits(isSelected(value) ? [.isSelected] : [])
-    }
-
-    private func label(_ title: String, systemImage: String) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: systemImage)
-                .font(.system(size: 16, weight: .medium))
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-        }
-        .foregroundStyle(.primary)
-        .frame(width: 58, height: 44)
-        .contentShape(Rectangle())
-        .help(title)
-    }
-
-    private func isSelected(_ value: CaptureMode) -> Bool {
-        if mode == .allInOne {
-            return false
-        }
-        return mode == value
     }
 }

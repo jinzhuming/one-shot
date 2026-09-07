@@ -19,11 +19,5 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Run Swift tests
-        run: swift test
-
-      - name: Validate localization
-        run: make validate-localization
-
-      - name: Regenerate and validate Xcode project
-        run: make generate
+      - name: Run complete verification
+        run: make verify

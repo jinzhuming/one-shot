@@ -13,7 +13,7 @@ final class EditorPresenter {
     private var saveTask: Task<Void, Never>?
     private var presentationScreen: NSScreen?
 
-    func presentRegion(result: CaptureResult, overlay: OverlayController) {
+    func presentInPlace(result: CaptureResult, overlay: OverlayController) {
         self.overlay = overlay
         overlay.enterDimOnly()
         present(
@@ -21,19 +21,19 @@ final class EditorPresenter {
             preferredImageSize: result.rect.size,
             originForImage: result.rect,
             screen: result.screen,
-            center: false
+            presentationStyle: .inPlace
         )
     }
 
-    func presentFloating(result: CaptureResult, overlay: OverlayController) {
+    func presentCentered(result: CaptureResult, overlay: OverlayController) {
         self.overlay = overlay
-        overlay.presentDimBackdrop()
+        overlay.dismiss()
         present(
             result: result,
             preferredImageSize: result.image.size,
             originForImage: nil,
             screen: result.screen,
-            center: true
+            presentationStyle: .windowed
         )
     }
 
@@ -64,24 +64,56 @@ final class EditorPresenter {
         preferredImageSize: CGSize,
         originForImage: CGRect?,
         screen: NSScreen,
-        center: Bool
+        presentationStyle: EditorPresentationStyle
     ) {
         presentationScreen = screen
         let session = EditSession(image: result.image)
         self.session = session
 
         let vis = screen.visibleFrame
+        let styleMask: NSWindow.StyleMask = presentationStyle == .windowed
+            ? [.titled, .closable, .miniaturizable, .resizable]
+            : [.borderless, .fullSizeContentView]
         let estimatedToolbar = CGSize(
             width: EditorLayout.minContentWidth,
             height: EditorLayout.estimatedToolbarHeight
         )
-        var arrangement = Self.arrangement(
-            preferredImageSize: preferredImageSize,
-            originForImage: originForImage,
-            visibleFrame: vis,
-            toolbarSize: estimatedToolbar,
-            center: center
-        )
+        var arrangement: EditorArrangement
+        var windowedLayout: EditorWindowLayout?
+        var windowFrame: CGRect
+        if presentationStyle == .windowed {
+            let chrome = Self.windowChromeSize(for: styleMask)
+            let maxContentSize = CGSize(
+                width: max(1, vis.width - 16 - chrome.width),
+                height: max(1, vis.height - 16 - chrome.height)
+            )
+            let initialContentSize = EditorLayout.windowedInitialContentSize(
+                imageSize: preferredImageSize,
+                toolbarSize: estimatedToolbar,
+                maxContentSize: maxContentSize
+            )
+            let layout = EditorLayout.windowed(
+                imageSize: preferredImageSize,
+                toolbarSize: estimatedToolbar,
+                contentSize: initialContentSize
+            )
+            windowedLayout = layout
+            arrangement = Self.arrangement(for: layout)
+            windowFrame = Self.centeredWindowFrame(
+                contentSize: layout.contentSize,
+                styleMask: styleMask,
+                visibleFrame: vis
+            )
+        } else {
+            arrangement = Self.arrangement(
+                preferredImageSize: preferredImageSize,
+                originForImage: originForImage,
+                visibleFrame: vis,
+                toolbarSize: estimatedToolbar,
+                center: false
+            )
+            windowFrame = arrangement.windowFrame
+        }
 
         if let existing = panel {
             existing.orderOut(nil)
@@ -93,52 +125,109 @@ final class EditorPresenter {
         let content = EditorChromeView(
             session: session,
             arrangement: arrangement,
+            presentationStyle: presentationStyle,
+            windowedLayout: windowedLayout,
             onCopy: { [weak self] in self?.copyAndFinish() },
             onSave: { [weak self] in self?.saveAndFinish() },
             onClose: { [weak self] in self?.closeFromToolbar() }
         )
-        content.frame = NSRect(origin: .zero, size: arrangement.windowFrame.size)
+        content.frame = NSRect(origin: .zero, size: presentationStyle == .windowed
+            ? (windowedLayout?.contentSize ?? .zero)
+            : arrangement.windowFrame.size)
         content.autoresizingMask = [.width, .height]
 
         let window = EditorWindow(
-            contentRect: NSRect(origin: .zero, size: arrangement.windowFrame.size),
-            styleMask: [.borderless, .fullSizeContentView],
+            contentRect: NSRect(origin: .zero, size: content.frame.size),
+            styleMask: styleMask,
             backing: .buffered,
             defer: false
         )
-        window.isOpaque = false
-        window.backgroundColor = NSColor.clear
+        window.onRequestClose = { [weak self] in self?.closeFromWindow() }
+        window.isOpaque = presentationStyle == .windowed
+        window.backgroundColor = presentationStyle == .windowed
+            ? NSColor.windowBackgroundColor
+            : NSColor.clear
         window.hasShadow = true
         window.acceptsMouseMovedEvents = true
-        window.level = CaptureWindowLevels.editor
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.isMovableByWindowBackground = false
+        window.level = presentationStyle == .windowed ? .normal : CaptureWindowLevels.editor
+        window.collectionBehavior = presentationStyle == .windowed
+            ? [.moveToActiveSpace, .fullScreenAuxiliary]
+            : [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.isMovableByWindowBackground = presentationStyle == .windowed
         window.isReleasedWhenClosed = false
+        window.isRestorable = false
         window.sharingType = .none
+        if presentationStyle == .windowed {
+            window.title = String(localized: "Shot 标注")
+            window.titleVisibility = .visible
+            window.titlebarAppearsTransparent = false
+        }
         window.contentView = content
-        window.setFrame(arrangement.windowFrame, display: false)
+        window.setFrame(windowFrame, display: false)
         content.layoutSubtreeIfNeeded()
 
         let measured = content.toolbarFittingSize
-        if abs(measured.width - estimatedToolbar.width) > 1
-            || abs(measured.height - estimatedToolbar.height) > 1 {
+        if presentationStyle == .windowed {
+            let chrome = Self.windowChromeSize(for: styleMask)
+            let maxContentSize = CGSize(
+                width: max(1, vis.width - 16 - chrome.width),
+                height: max(1, vis.height - 16 - chrome.height)
+            )
+            let contentSize = EditorLayout.windowedInitialContentSize(
+                imageSize: preferredImageSize,
+                toolbarSize: measured,
+                maxContentSize: maxContentSize
+            )
+            let layout = EditorLayout.windowed(
+                imageSize: preferredImageSize,
+                toolbarSize: measured,
+                contentSize: contentSize
+            )
+            windowedLayout = layout
+            arrangement = Self.arrangement(for: layout)
+            content.apply(layout)
+            windowFrame = Self.centeredWindowFrame(
+                contentSize: layout.contentSize,
+                styleMask: styleMask,
+                visibleFrame: vis
+            )
+            window.minSize = Self.windowFrameSize(
+                forContentSize: CGSize(
+                    width: min(maxContentSize.width, max(EditorLayout.minContentWidth, measured.width)),
+                    height: min(
+                        maxContentSize.height,
+                        measured.height
+                            + EditorLayout.windowedToolbarGap
+                            + EditorLayout.windowedMinimumWorkspaceHeight
+                            + EditorLayout.windowedWorkspacePadding * 3
+                    )
+                ),
+                styleMask: styleMask
+            )
+        } else if abs(measured.width - estimatedToolbar.width) > 1
+                    || abs(measured.height - estimatedToolbar.height) > 1 {
             arrangement = Self.arrangement(
                 preferredImageSize: preferredImageSize,
                 originForImage: originForImage,
                 visibleFrame: vis,
                 toolbarSize: measured,
-                center: center
+                center: false
             )
             content.apply(arrangement)
+            windowFrame = arrangement.windowFrame
         }
 
-        if !center, !arrangement.keepsCaptureAligned {
+        if presentationStyle == .inPlace, !arrangement.keepsCaptureAligned {
             overlay?.clearSelectionHole()
         }
 
-        window.setFrame(arrangement.windowFrame, display: true)
-        window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        window.setFrame(windowFrame, display: true)
+        window.makeKeyAndOrderFront(nil)
+        // Activation can race with the app that was just captured. Reassert
+        // the editor's front position after activation so the first editing
+        // gesture cannot land on a window from that app.
+        window.orderFrontRegardless()
         panel = window
         installKeyMonitor()
     }
@@ -164,18 +253,72 @@ final class EditorPresenter {
         )
     }
 
+    private static func arrangement(for layout: EditorWindowLayout) -> EditorArrangement {
+        EditorArrangement(
+            windowFrame: CGRect(origin: .zero, size: layout.contentSize),
+            canvasFrame: layout.canvasFrame,
+            toolbarFrame: layout.toolbarFrame,
+            imageSize: layout.imageSize,
+            toolbarAnchor: .below,
+            keepsCaptureAligned: false
+        )
+    }
+
+    private static func windowChromeSize(for styleMask: NSWindow.StyleMask) -> CGSize {
+        let contentRect = NSRect(x: 0, y: 0, width: 100, height: 100)
+        let frameRect = NSWindow.frameRect(forContentRect: contentRect, styleMask: styleMask)
+        return CGSize(
+            width: max(0, frameRect.width - contentRect.width),
+            height: max(0, frameRect.height - contentRect.height)
+        )
+    }
+
+    private static func windowFrameSize(
+        forContentSize contentSize: CGSize,
+        styleMask: NSWindow.StyleMask
+    ) -> CGSize {
+        let frame = NSWindow.frameRect(
+            forContentRect: NSRect(origin: .zero, size: contentSize),
+            styleMask: styleMask
+        )
+        return frame.size
+    }
+
+    private static func centeredWindowFrame(
+        contentSize: CGSize,
+        styleMask: NSWindow.StyleMask,
+        visibleFrame: CGRect
+    ) -> CGRect {
+        let frameSize = windowFrameSize(forContentSize: contentSize, styleMask: styleMask)
+        let preferred = CGPoint(
+            x: visibleFrame.midX - frameSize.width / 2,
+            y: visibleFrame.midY - frameSize.height / 2
+        )
+        let origin = EditorLayout.clampedOrigin(
+            windowSize: frameSize,
+            preferred: preferred,
+            visibleFrame: visibleFrame,
+            margin: 8
+        )
+        return CGRect(origin: origin, size: frameSize)
+    }
+
     private func installKeyMonitor() {
         if let monitor = keyMonitor {
             NSEvent.removeMonitor(monitor)
         }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
+            let command = event.modifierFlags.contains(.command)
+            if command, event.charactersIgnoringModifiers?.lowercased() == "w" {
+                self.closeFromWindow()
+                return nil
+            }
             if self.session?.isEditingText == true {
                 if event.keyCode == 53 {
                     _ = self.session?.cancelTextEditing()
                     return nil
                 }
-                let command = event.modifierFlags.contains(.command)
                 if command, event.charactersIgnoringModifiers?.lowercased() == "c" {
                     self.copyAndFinish()
                     return nil
@@ -193,9 +336,16 @@ final class EditorPresenter {
                 }
                 return event
             }
-            let command = event.modifierFlags.contains(.command)
             if event.keyCode == 53 {
                 self.dismiss()
+                return nil
+            }
+            if !command, (event.keyCode == 51 || event.keyCode == 117) {
+                self.session?.deleteSelection()
+                return nil
+            }
+            if command, event.charactersIgnoringModifiers?.lowercased() == "d" {
+                self.session?.duplicateSelection()
                 return nil
             }
             if !command, (event.keyCode == 36 || event.keyCode == 76) {
@@ -245,24 +395,40 @@ final class EditorPresenter {
     }
 
     @MainActor
+    private func closeFromWindow() {
+        closeFromToolbar()
+    }
+
+    @MainActor
     private func copyAndFinish() {
         commitPendingText()
         guard let session, session.beginExport() else { return }
         let document = session.document
         saveTask?.cancel()
         saveTask = Task { @MainActor [weak self] in
-            guard let image = await self?.renderedImage(from: document) else {
+            guard let self else {
                 session.endExport()
                 return
             }
-            guard let self, !Task.isCancelled, self.session === session else {
+            guard let image = await self.renderedImage(from: document) else {
+                session.endExport()
+                self.presentErrorPreservingEditor(ImageExporter.ExportError.encodingFailed)
+                return
+            }
+            guard !Task.isCancelled, self.session === session else {
                 session.endExport()
                 return
             }
+            let screen = self.presentationScreen
             session.endExport()
-            ImageExporter.copyToClipboard(image)
+            guard ImageExporter.copyToClipboard(image) else {
+                self.saveTask = nil
+                self.presentErrorPreservingEditor(ImageExporter.ExportError.clipboardFailed)
+                return
+            }
             self.saveTask = nil
             self.dismiss()
+            SaveLocationPresenter.showCopied(on: screen)
         }
     }
 
@@ -279,11 +445,16 @@ final class EditorPresenter {
         let document = session.document
         saveTask?.cancel()
         saveTask = Task { @MainActor [weak self] in
-            guard let image = await self?.renderedImage(from: document) else {
+            guard let self else {
                 session.endExport()
                 return
             }
-            guard let self, !Task.isCancelled, self.session === session else {
+            guard let image = await self.renderedImage(from: document) else {
+                session.endExport()
+                self.presentErrorPreservingEditor(ImageExporter.ExportError.encodingFailed)
+                return
+            }
+            guard !Task.isCancelled, self.session === session else {
                 session.endExport()
                 return
             }
@@ -293,8 +464,12 @@ final class EditorPresenter {
                     session.endExport()
                     return
                 }
-                if copyOnComplete {
-                    ImageExporter.copyToClipboard(image)
+                if copyOnComplete,
+                   !ImageExporter.copyToClipboard(image) {
+                    session.endExport()
+                    self.saveTask = nil
+                    self.presentErrorPreservingEditor(ImageExporter.ExportError.clipboardFailed)
+                    return
                 }
                 session.endExport()
                 self.saveTask = nil
@@ -321,14 +496,25 @@ final class EditorPresenter {
     private func renderedImage(from document: AnnotationDocument) async -> NSImage? {
         let imageSize = document.baseImage.size
         let snapshot = AnnotationRenderSnapshot(document: document)
-        guard let cgImage = await Task.detached(priority: .userInitiated, operation: {
-            snapshot.renderedCGImage()
-        }).value else { return nil }
+        guard !Task.isCancelled, let cgImage = snapshot.renderedCGImage() else { return nil }
         return NSImage(cgImage: cgImage, size: imageSize)
+    }
+
+    private func presentErrorPreservingEditor(_ error: Error) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert(error: error)
+        alert.window.level = NSWindow.Level(rawValue: CaptureWindowLevels.editor.rawValue + 1)
+        alert.runModal()
     }
 }
 
 private final class EditorWindow: NSWindow {
+    var onRequestClose: (() -> Void)?
+
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    override func performClose(_ sender: Any?) {
+        onRequestClose?()
+    }
 }

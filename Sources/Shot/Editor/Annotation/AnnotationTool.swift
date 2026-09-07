@@ -2,7 +2,7 @@ import AppKit
 import ShotKit
 
 enum AnnotationToolID: String, CaseIterable, Identifiable {
-    case arrow, rect, ellipse, line, pen, highlighter, text, counter, mosaic, spotlight
+    case select, arrow, rect, ellipse, line, pen, highlighter, text, counter, mosaic, spotlight
 
     var id: String { rawValue }
 
@@ -15,6 +15,8 @@ enum AnnotationToolID: String, CaseIterable, Identifiable {
 
     private var metadata: Metadata {
         switch self {
+        case .select:
+            return Metadata(title: "选择", helpText: "选择并编辑标注（V）", shortcut: "V", keyCode: 9)
         case .arrow:
             return Metadata(title: "箭头", helpText: "使用箭头标注（1）", shortcut: "1", keyCode: 18)
         case .rect:
@@ -44,6 +46,7 @@ enum AnnotationToolID: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
+        case .select: return "cursorarrow"
         case .arrow: return "arrow.up.right"
         case .rect: return "rectangle"
         case .ellipse: return "oval"
@@ -64,6 +67,7 @@ enum AnnotationToolID: String, CaseIterable, Identifiable {
     /// The toolbar order is kept explicit so every implemented tool, including
     /// mosaic, remains visible even when the enum gains another tool later.
     static let groups: [[AnnotationToolID]] = [
+        [.select],
         [.arrow, .rect, .ellipse, .line],
         [.pen, .highlighter],
         [.text, .counter],
@@ -103,6 +107,7 @@ protocol AnnotationTool {
 enum AnnotationTools {
     static func tool(for id: AnnotationToolID) -> AnnotationTool {
         switch id {
+        case .select: return SelectionTool()
         case .arrow: return ShapeTool(id: .arrow)
         case .rect: return ShapeTool(id: .rect)
         case .ellipse: return ShapeTool(id: .ellipse)
@@ -117,6 +122,14 @@ enum AnnotationTools {
     }
 }
 
+struct SelectionTool: AnnotationTool {
+    let id: AnnotationToolID = .select
+
+    func handle(_ event: CanvasEvent, document: inout AnnotationDocument) {
+        document.handleSelection(event)
+    }
+}
+
 struct ShapeTool: AnnotationTool {
     let id: AnnotationToolID
 
@@ -127,7 +140,9 @@ struct ShapeTool: AnnotationTool {
             document.draft = nil
         case .drag(let point, let shift):
             guard let start = document.gestureStart else { return }
-            document.draft = makeElement(from: start, to: point, style: document.style, shift: shift)
+            if let element = makeElement(from: start, to: point, style: document.style, shift: shift) {
+                document.draft = AnnotationObject(element: element)
+            }
         case .up(let point, let shift):
             guard let start = document.gestureStart else { return }
             if let element = makeElement(from: start, to: point, style: document.style, shift: shift),
@@ -185,10 +200,14 @@ struct PathTool: AnnotationTool {
         switch event {
         case .down(let point, _):
             document.penPoints = [point]
-            document.draft = make(document.penPoints, style: document.style)
+            if let element = make(document.penPoints, style: document.style) {
+                document.draft = AnnotationObject(element: element)
+            }
         case .drag(let point, _):
             document.penPoints.append(point)
-            document.draft = make(document.penPoints, style: document.style)
+            if let element = make(document.penPoints, style: document.style) {
+                document.draft = AnnotationObject(element: element)
+            }
         case .up(let point, _):
             document.penPoints.append(point)
             let points = document.penPoints
