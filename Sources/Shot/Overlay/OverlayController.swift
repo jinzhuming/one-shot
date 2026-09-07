@@ -509,7 +509,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         hint = text
         applyVisuals()
         hintTask?.cancel()
-        hintTask = Task { [weak self] in
+        hintTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             guard let self, !Task.isCancelled else { return }
             self.hint = nil
