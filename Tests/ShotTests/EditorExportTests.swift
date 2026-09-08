@@ -630,6 +630,7 @@ import Testing
     let initialToolbarHeight = content.toolbarFittingSize.height
     #expect(!content.mouseDownCanMoveWindow)
     #expect(abs(initialToolbarHeight - AnnotationChromeMetrics.windowToolbarHeight) < 0.5)
+    #expect(content.toolbarFittingSize.width > EditorLayout.minContentWidth)
     #expect(canvasScrollView.frame.minX >= EditorLayout.windowedWorkspacePadding)
     #expect(canvasScrollView.frame.maxX <= content.bounds.maxX - EditorLayout.windowedWorkspacePadding)
 

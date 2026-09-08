@@ -199,6 +199,16 @@ import Testing
     #expect(abs(layout.toolbarFrame.width - size.width) < 0.001)
 }
 
+@Test func windowedEditorMinimumWidthFollowsToolbarForSmallImage() {
+    let size = EditorLayout.windowedInitialContentSize(
+        imageSize: CGSize(width: 240, height: 140),
+        toolbarSize: CGSize(width: 900, height: 84),
+        maxContentSize: CGSize(width: 1440, height: 900)
+    )
+
+    #expect(size.width == 900)
+}
+
 @Test func inPlaceEditorFlipsToolbarOffTheCapture() {
     let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
     let toolbarSize = CGSize(width: 760, height: 52)

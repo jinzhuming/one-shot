@@ -75,11 +75,6 @@ struct AnnotationToolbar: View {
             windowDetailToolbar
                 .frame(height: AnnotationChromeMetrics.windowDetailRowHeight)
         }
-        .frame(
-            minWidth: EditorLayout.minContentWidth,
-            idealWidth: EditorLayout.minContentWidth,
-            maxWidth: .infinity
-        )
         .background {
             if reduceTransparency {
                 Color(nsColor: .windowBackgroundColor)
