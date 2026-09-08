@@ -1,13 +1,13 @@
 import CoreGraphics
 
 public enum MagnifierLayout {
-    /// Size of the captured content inside the lens. The returned frame also
-    /// includes the surrounding HUD chrome.
+    /// Size of the captured content inside the lens. Hairline chrome is drawn
+    /// on the edge of this frame rather than as a surrounding HUD plate.
     public static let defaultSize = CGSize(width: 124, height: 124)
     /// Distance between the pointer anchor and the nearest lens edge.
     public static let defaultGap: CGFloat = 20
     public static let defaultZoom: CGFloat = 8
-    public static let defaultChromeInset: CGFloat = 4
+    public static let defaultChromeInset: CGFloat = 0
 
     public static func frame(
         cursor: CGPoint,
@@ -116,7 +116,7 @@ public enum MagnifierLayout {
         let selection = selectionRect.standardized
         let candidates = [
             // Keep the lens visually tied to the requested lower-right corner
-            // while placing the entire HUD below the captured area.
+            // while placing the entire lens below the captured area.
             CGRect(
                 x: selection.maxX - outerSize.width,
                 y: selection.minY - gap - outerSize.height,
@@ -151,7 +151,7 @@ public enum MagnifierLayout {
         } ?? .zero
     }
 
-    /// Returns the screenshot window inside the outer HUD frame.
+    /// Returns the screenshot window inside the outer lens frame.
     public static func contentFrame(
         for outerFrame: CGRect,
         chromeInset: CGFloat = defaultChromeInset

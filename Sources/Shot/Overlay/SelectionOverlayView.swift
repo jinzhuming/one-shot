@@ -356,25 +356,22 @@ final class SelectionOverlayView: NSView {
 
         drawMagnifierGuides(at: magnifierCursor)
 
-        // Keep the outer HUD plate, image window, and keylines on distinct
-        // geometry. This prevents the bezel from stealing pixels from the
-        // sampled image and keeps the border aligned at display edges.
-        let bezel = magnifierPath(in: outerFrame.insetBy(dx: 0.5, dy: 0.5))
+        // Sampled pixels fill the lens. Chrome is a hairline plus a soft
+        // shadow so the inspection surface lifts off the desktop without a
+        // filled HUD plate.
+        let lens = magnifierPath(in: contentFrame)
         let shadow = NSShadow()
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            shadow.shadowColor = NSColor.shadowColor.withAlphaComponent(OverlayFocusStyle.magnifierShadowOpacity)
-        }
-        shadow.shadowBlurRadius = 10
-        shadow.shadowOffset = CGSize(width: 0, height: -2)
+        shadow.shadowColor = NSColor.black.withAlphaComponent(OverlayFocusStyle.magnifierShadowOpacity)
+        shadow.shadowBlurRadius = 12
+        shadow.shadowOffset = CGSize(width: 0, height: -1)
         NSGraphicsContext.saveGraphicsState()
         shadow.set()
-        drawMagnifierBezelFill()
-        bezel.fill()
+        NSColor.white.setFill()
+        lens.fill()
         NSGraphicsContext.restoreGraphicsState()
 
-        let clip = magnifierPath(in: contentFrame)
         NSGraphicsContext.saveGraphicsState()
-        clip.addClip()
+        lens.addClip()
         NSGraphicsContext.current?.imageInterpolation = .none
         backgroundImage.draw(
             in: contentFrame,
@@ -386,28 +383,13 @@ final class SelectionOverlayView: NSView {
         )
         NSGraphicsContext.restoreGraphicsState()
 
-        // Contrast keylines make the lens readable over either a bright or a
-        // dark desktop. The inner keyline is the exact boundary of the pixels.
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            let outerBorder = magnifierPath(in: outerFrame.insetBy(dx: 0.5, dy: 0.5))
-            outerBorder.lineWidth = OverlayFocusStyle.magnifierBorderLineWidth
-            NSColor.separatorColor
-                .withAlphaComponent(OverlayFocusStyle.magnifierOuterBorderOpacity)
-                .setStroke()
-            outerBorder.stroke()
-
-            let innerContrast = magnifierPath(in: contentFrame.insetBy(dx: -0.5, dy: -0.5))
-            innerContrast.lineWidth = OverlayFocusStyle.magnifierContrastLineWidth
-            NSColor.shadowColor.withAlphaComponent(0.62).setStroke()
-            innerContrast.stroke()
-
-            let innerBorder = magnifierPath(in: contentFrame.insetBy(dx: 0.5, dy: 0.5))
-            innerBorder.lineWidth = OverlayFocusStyle.magnifierBorderLineWidth
-            NSColor.labelColor
-                .withAlphaComponent(OverlayFocusStyle.magnifierInnerBorderOpacity)
-                .setStroke()
-            innerBorder.stroke()
-        }
+        let rim = magnifierPath(in: contentFrame.insetBy(dx: 0.5, dy: 0.5))
+        rim.lineWidth = OverlayFocusStyle.magnifierContrastLineWidth
+        NSColor.black.withAlphaComponent(OverlayFocusStyle.magnifierOuterBorderOpacity).setStroke()
+        rim.stroke()
+        rim.lineWidth = OverlayFocusStyle.magnifierBorderLineWidth
+        NSColor.white.withAlphaComponent(OverlayFocusStyle.magnifierInnerBorderOpacity).setStroke()
+        rim.stroke()
 
         let cursor = MagnifierLayout.cursorPosition(
             cursor: magnifierCursor,
@@ -481,16 +463,5 @@ final class SelectionOverlayView: NSView {
             xRadius: max(0, radius),
             yRadius: max(0, radius)
         )
-    }
-
-    private func drawMagnifierBezelFill() {
-        let opacity = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
-            ? 0.96
-            : OverlayFocusStyle.magnifierBezelOpacity
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            NSColor.controlBackgroundColor
-                .withAlphaComponent(opacity)
-                .setFill()
-        }
     }
 }

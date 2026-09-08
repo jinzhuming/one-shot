@@ -283,5 +283,9 @@ import Testing
     #expect(OverlayFocusStyle.selectionHandleDiameter < 8)
     #expect(OverlayFocusStyle.selectionBorderOpacity < 0.8)
     #expect(OverlayFocusStyle.magnifierBorderLineWidth == 1)
-    #expect(OverlayFocusStyle.magnifierBezelOpacity > 0.8)
+    #expect(OverlayFocusStyle.magnifierBezelInset == 0)
+    #expect(OverlayFocusStyle.magnifierBezelInset == MagnifierLayout.defaultChromeInset)
+    #expect(OverlayFocusStyle.magnifierInnerBorderOpacity > OverlayFocusStyle.magnifierOuterBorderOpacity)
+    #expect(OverlayFocusStyle.magnifierShadowOpacity > 0)
+    #expect(OverlayFocusStyle.magnifierShadowOpacity < 0.4)
 }

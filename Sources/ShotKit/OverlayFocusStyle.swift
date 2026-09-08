@@ -30,14 +30,13 @@ public enum OverlayFocusStyle {
     public static let windowContrastLineWidth: CGFloat = 2
     public static let windowBorderLineWidth: CGFloat = 1
 
-    /// The lens is a floating theme-adaptive inspection surface. Keep the
-    /// chrome separate from the captured pixels so the content edge remains
-    /// geometrically honest.
-    public static let magnifierBezelInset: CGFloat = 4
-    public static let magnifierBezelOpacity: CGFloat = 0.86
-    public static let magnifierShadowOpacity: CGFloat = 0.34
-    public static let magnifierOuterBorderOpacity: CGFloat = 0.30
-    public static let magnifierInnerBorderOpacity: CGFloat = 0.82
+    /// The lens is a floating inspection surface. Sampled pixels fill the
+    /// rounded rect; chrome is only a hairline and shadow so it does not
+    /// read as a framed HUD plate.
+    public static let magnifierBezelInset: CGFloat = 0
+    public static let magnifierShadowOpacity: CGFloat = 0.28
+    public static let magnifierOuterBorderOpacity: CGFloat = 0.40
+    public static let magnifierInnerBorderOpacity: CGFloat = 0.90
     public static let magnifierBorderLineWidth: CGFloat = 1
     public static let magnifierContrastLineWidth: CGFloat = 2
     public static let magnifierCornerRadius: CGFloat = 12
