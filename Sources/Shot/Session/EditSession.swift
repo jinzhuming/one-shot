@@ -57,6 +57,25 @@ final class EditSession: ObservableObject {
             updatePreferences { $0.mosaicBlockSize = mosaicBlockSize }
         }
     }
+    @Published var mosaicShape: MosaicShapeKind {
+        didSet {
+            guard !isLoadingPreferences else { return }
+            guard selectedTool == .mosaic else { return }
+            updatePreferences { $0.mosaicShape = mosaicShape }
+        }
+    }
+    @Published var mosaicEffect: MosaicEffect {
+        didSet {
+            guard !isLoadingPreferences else { return }
+            if selectedTool == .select, document.selectedObject != nil {
+                document.updateSelected { $0.withMosaicEffect(mosaicEffect) }
+                objectWillChange.send()
+                return
+            }
+            guard selectedTool == .mosaic else { return }
+            updatePreferences { $0.mosaicEffect = mosaicEffect }
+        }
+    }
     @Published var spotlightOpacity: Double {
         didSet {
             guard !isLoadingPreferences else { return }
@@ -192,6 +211,8 @@ final class EditSession: ObservableObject {
         lineWidth = preferences.lineWidth(for: .pen)
         highlighterOpacity = preferences.highlighterOpacity
         mosaicBlockSize = preferences.mosaicBlockSize
+        mosaicShape = preferences.mosaicShape
+        mosaicEffect = preferences.mosaicEffect
         spotlightOpacity = preferences.spotlightOpacity
         arrowHeadStyle = preferences.arrowHeadStyle
         arrowHeadScale = preferences.arrowHeadScale
@@ -209,6 +230,7 @@ final class EditSession: ObservableObject {
     }
 
     func handle(_ event: CanvasEvent) {
+        guard !isExporting else { return }
         applyStyle()
         if selectedTool == .text {
             return
@@ -346,6 +368,8 @@ final class EditSession: ObservableObject {
         document.style.lineWidth = CGFloat(lineWidth)
         document.style.highlighterOpacity = CGFloat(highlighterOpacity)
         document.style.mosaicBlockSize = CGFloat(mosaicBlockSize)
+        document.style.mosaicShape = mosaicShape
+        document.style.mosaicEffect = mosaicEffect
         document.style.spotlightOpacity = CGFloat(spotlightOpacity)
         document.style.arrowHeadStyle = arrowHeadStyle
         document.style.arrowHeadScale = CGFloat(arrowHeadScale)
@@ -366,6 +390,8 @@ final class EditSession: ObservableObject {
             highlighterOpacity = preferences.highlighterOpacity
         case .mosaic:
             mosaicBlockSize = preferences.mosaicBlockSize
+            mosaicShape = preferences.mosaicShape
+            mosaicEffect = preferences.mosaicEffect
         case .spotlight:
             spotlightOpacity = preferences.spotlightOpacity
         case .arrow:
@@ -404,7 +430,9 @@ final class EditSession: ObservableObject {
             shapeFillOpacity = Double(style.shapeFillOpacity)
         }
         switch selected.element {
-        case .mosaic(_, let blockSize): mosaicBlockSize = Double(blockSize)
+        case .mosaic(_, let blockSize, let effect):
+            mosaicBlockSize = Double(blockSize)
+            mosaicEffect = effect
         case .spotlight(_, let opacity): spotlightOpacity = Double(opacity)
         default: break
         }

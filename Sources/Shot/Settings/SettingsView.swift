@@ -22,10 +22,11 @@ struct SettingsView: View {
                 .accessibilityHidden(true)
         }
         .onAppear {
-            permissions.refresh()
+            permissions.startPolling()
             loginItem.refresh()
             NSApp.setActivationPolicy(.regular)
         }
+        .onDisappear { permissions.stopPolling() }
     }
 
     private var generalTab: some View {
@@ -97,11 +98,6 @@ struct SettingsView: View {
     private var screenshotsTab: some View {
         Form {
             Section {
-                Picker(String(localized: "截图后"), selection: $settings.afterCaptureAction) {
-                    ForEach(AfterCaptureAction.allCases) { action in
-                        Text(action.title).tag(action)
-                    }
-                }
                 Picker(String(localized: "标注位置"), selection: $settings.annotationWindowPlacement) {
                     ForEach(AnnotationWindowPlacement.allCases) { placement in
                         Text(placement.title).tag(placement)
@@ -115,7 +111,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Toggle(String(localized: "保存或标注后同时复制到剪贴板"), isOn: $settings.copyOnComplete)
-                if settings.afterCaptureAction != .copy, settings.copyOnComplete {
+                if settings.copyOnComplete {
                     Text(String(localized: "保存截图或完成标注后，会同时把最终图片复制到剪贴板。"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -280,24 +276,3 @@ struct SettingsView: View {
     }
 }
 
-private struct SettingsWindowConfigurator: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async { apply(to: view) }
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        apply(to: nsView)
-    }
-
-    private func apply(to view: NSView) {
-        guard let window = view.window else { return }
-        window.title = String(localized: "设置")
-        window.identifier = NSUserInterfaceItemIdentifier(SettingsWindowIdentity.identifier)
-        window.minSize = NSSize(width: 520, height: 400)
-        window.isRestorable = false
-        window.collectionBehavior.insert(.moveToActiveSpace)
-        window.isReleasedWhenClosed = false
-    }
-}

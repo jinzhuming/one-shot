@@ -20,7 +20,7 @@ final class CaptureHUDView: NSView {
         }
     }
 
-    private let effectView = NSVisualEffectView()
+    private let effectView = HUDMaterialView()
     private let label = NSTextField(labelWithString: "")
 
     override init(frame frameRect: NSRect) {

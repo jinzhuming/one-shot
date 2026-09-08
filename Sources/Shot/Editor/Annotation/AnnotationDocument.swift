@@ -38,11 +38,71 @@ enum AnnotationStrokePattern: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+enum MosaicShapeKind: String, CaseIterable, Codable, Identifiable {
+    case rect
+    case brush
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .rect: return String(localized: "矩形")
+        case .brush: return String(localized: "画笔")
+        }
+    }
+
+    var helpText: String {
+        switch self {
+        case .rect: return String(localized: "拖拽矩形遮挡区域")
+        case .brush: return String(localized: "用画笔涂抹遮挡")
+        }
+    }
+
+    static func brushWidth(blockSize: CGFloat) -> CGFloat {
+        max(12, blockSize * 2.4)
+    }
+}
+
+enum MosaicEffect: String, CaseIterable, Codable, Identifiable {
+    case pixelate
+    case blur
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .pixelate: return String(localized: "像素")
+        case .blur: return String(localized: "模糊")
+        }
+    }
+
+    var helpText: String {
+        switch self {
+        case .pixelate: return String(localized: "使用像素色块遮挡")
+        case .blur: return String(localized: "使用高斯模糊遮挡")
+        }
+    }
+
+    var rasterEffect: MosaicRasterEffect {
+        switch self {
+        case .pixelate: return .pixelate
+        case .blur: return .blur
+        }
+    }
+}
+
+enum MosaicShape {
+    case rect(CGRect)
+    case brush(points: [CGPoint], width: CGFloat)
+}
+
 struct AnnotationStyle {
     var color: NSColor = .systemRed
     var lineWidth: CGFloat = 4
     var highlighterOpacity: CGFloat = 0.4
     var mosaicBlockSize: CGFloat = 10
+    var mosaicShape: MosaicShapeKind = .rect
+    var mosaicEffect: MosaicEffect = .pixelate
     var spotlightOpacity: CGFloat = 0.5
     var textScale: CGFloat = 1
     var counterScale: CGFloat = 1
@@ -107,6 +167,8 @@ struct AnnotationPreferences: Codable, Equatable {
     var textLineWidth: Double = 4
     var counterLineWidth: Double = 4
     var mosaicBlockSize: Double = 10
+    var mosaicShape: MosaicShapeKind = .rect
+    var mosaicEffect: MosaicEffect = .pixelate
     var spotlightOpacity: Double = 0.5
     var arrowHeadStyle: AnnotationArrowHeadStyle = .filled
     var arrowHeadScale: Double = 1
@@ -128,6 +190,8 @@ struct AnnotationPreferences: Codable, Equatable {
         case textLineWidth
         case counterLineWidth
         case mosaicBlockSize
+        case mosaicShape
+        case mosaicEffect
         case spotlightOpacity
         case arrowHeadStyle
         case arrowHeadScale
@@ -151,6 +215,8 @@ struct AnnotationPreferences: Codable, Equatable {
         textLineWidth = try container.decodeIfPresent(Double.self, forKey: .textLineWidth) ?? 4
         counterLineWidth = try container.decodeIfPresent(Double.self, forKey: .counterLineWidth) ?? 4
         mosaicBlockSize = try container.decodeIfPresent(Double.self, forKey: .mosaicBlockSize) ?? 10
+        mosaicShape = (try? container.decode(MosaicShapeKind.self, forKey: .mosaicShape)) ?? .rect
+        mosaicEffect = (try? container.decode(MosaicEffect.self, forKey: .mosaicEffect)) ?? .pixelate
         spotlightOpacity = try container.decodeIfPresent(Double.self, forKey: .spotlightOpacity) ?? 0.5
         arrowHeadStyle = (try? container.decode(AnnotationArrowHeadStyle.self, forKey: .arrowHeadStyle)) ?? .filled
         arrowHeadScale = try container.decodeIfPresent(Double.self, forKey: .arrowHeadScale) ?? 1
@@ -238,7 +304,7 @@ enum AnnotationElement {
     case text(String, origin: CGPoint, style: AnnotationStyle)
     case callout(String, rect: CGRect, style: AnnotationStyle)
     case counter(Int, center: CGPoint, style: AnnotationStyle)
-    case mosaic(CGRect, blockSize: CGFloat)
+    case mosaic(MosaicShape, blockSize: CGFloat, effect: MosaicEffect)
     case spotlight(CGRect, opacity: CGFloat)
 
     var counterValue: Int? {
@@ -268,7 +334,8 @@ enum AnnotationElement {
         case .text(let string, let origin, _): return .text(string, origin: origin, style: newStyle)
         case .callout(let string, let rect, _): return .callout(string, rect: rect, style: newStyle)
         case .counter(let value, let center, _): return .counter(value, center: center, style: newStyle)
-        case .mosaic(let rect, let blockSize): return .mosaic(rect, blockSize: blockSize)
+        case .mosaic(let shape, let blockSize, let effect):
+            return .mosaic(shape, blockSize: blockSize, effect: effect)
         case .spotlight(let rect, let opacity): return .spotlight(rect, opacity: opacity)
         }
     }
@@ -319,7 +386,14 @@ struct AnnotationObject: Identifiable {
             let scale = min(max(style.counterScale, AnnotationStyle.minimumAnnotationScale), AnnotationStyle.maximumAnnotationScale)
             let radius = max(10, style.lineWidth * 5 * scale)
             raw = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
-        case .mosaic(let rect, _), .spotlight(let rect, _):
+        case .mosaic(let shape, _, _):
+            switch shape {
+            case .rect(let rect):
+                raw = rect
+            case .brush(let points, let width):
+                raw = pointBounds(points).insetBy(dx: -width / 2, dy: -width / 2)
+            }
+        case .spotlight(let rect, _):
             raw = rect
         }
         return raw.standardized
@@ -350,7 +424,18 @@ struct AnnotationObject: Identifiable {
             )
         case .pen(let points, let style), .highlighter(let points, let style):
             return AnnotationGeometry.hitTest(point: point, shape: .polyline(points), tolerance: tolerance + style.lineWidth)
-        case .text, .callout, .mosaic, .spotlight:
+        case .mosaic(let shape, _, _):
+            switch shape {
+            case .rect:
+                return AnnotationGeometry.hitTest(point: point, shape: .filledRect(bounds), tolerance: tolerance)
+            case .brush(let points, let width):
+                return AnnotationGeometry.hitTest(
+                    point: point,
+                    shape: .polyline(points),
+                    tolerance: tolerance + width / 2
+                )
+            }
+        case .text, .callout, .spotlight:
             return AnnotationGeometry.hitTest(point: point, shape: .filledRect(bounds), tolerance: tolerance)
         case .counter:
             return AnnotationGeometry.hitTest(point: point, shape: .filledEllipse(bounds), tolerance: tolerance)
@@ -454,8 +539,13 @@ struct AnnotationObject: Identifiable {
     }
 
     func withMosaicBlockSize(_ size: CGFloat) -> AnnotationObject {
-        guard case .mosaic(let rect, _) = element else { return self }
-        return AnnotationObject(id: id, element: .mosaic(rect, blockSize: size))
+        guard case .mosaic(let shape, _, let effect) = element else { return self }
+        return AnnotationObject(id: id, element: .mosaic(shape, blockSize: size, effect: effect))
+    }
+
+    func withMosaicEffect(_ effect: MosaicEffect) -> AnnotationObject {
+        guard case .mosaic(let shape, let blockSize, _) = element else { return self }
+        return AnnotationObject(id: id, element: .mosaic(shape, blockSize: blockSize, effect: effect))
     }
 
     func withSpotlightOpacity(_ opacity: CGFloat) -> AnnotationObject {
@@ -521,8 +611,18 @@ struct AnnotationObject: Identifiable {
                 AnnotationStyle.maximumAnnotationScale
             )
             next = .counter(value, center: center.applying(transform), style: style)
-        case .mosaic(let rect, let blockSize):
-            next = .mosaic(rect.applying(transform).standardized, blockSize: blockSize)
+        case .mosaic(let shape, let blockSize, let effect):
+            switch shape {
+            case .rect(let rect):
+                next = .mosaic(.rect(rect.applying(transform).standardized), blockSize: blockSize, effect: effect)
+            case .brush(let points, let width):
+                let scale = max(AnnotationStyle.minimumAnnotationScale, (abs(transform.a) + abs(transform.d)) / 2)
+                next = .mosaic(
+                    .brush(points: points.map { $0.applying(transform) }, width: max(4, width * scale)),
+                    blockSize: blockSize,
+                    effect: effect
+                )
+            }
         case .spotlight(let rect, let opacity):
             next = .spotlight(rect.applying(transform).standardized, opacity: opacity)
         }
@@ -735,19 +835,17 @@ struct AnnotationDocument {
     }
 
     func flattenedCGImage(includeDraft: Bool = false) -> CGImage? {
-        Self.renderedCGImage(
-            baseImage: baseImage,
-            elements: includeDraft ? visibleElements : elements
-        )
+        AnnotationRenderSnapshot(document: self, includeDraft: includeDraft)?.renderedCGImage()
     }
 
     fileprivate static func renderedCGImage(
-        baseImage: NSImage,
+        baseCG: CGImage,
+        size: CGSize,
         elements: [AnnotationObject]
     ) -> CGImage? {
-        let size = baseImage.size
-        var proposed = CGRect(origin: .zero, size: size)
-        guard let baseCG = baseImage.cgImage(forProposedRect: &proposed, context: nil, hints: nil) else { return nil }
+        // AppKit drawing objects are created on this worker, never shared
+        // with the live editor. The source pixels are an immutable CGImage.
+        let baseImage = NSImage(cgImage: baseCG, size: size)
         let width = baseCG.width
         let height = baseCG.height
         let colorSpace = baseCG.colorSpace ?? CGColorSpaceCreateDeviceRGB()
@@ -845,16 +943,27 @@ struct AnnotationDocument {
     }
 }
 
+/// CGImage and fixed RGB NSColors are immutable. No live NSImage, dynamic
+/// appearance color, view or document storage crosses the worker boundary.
 struct AnnotationRenderSnapshot: @unchecked Sendable {
-    let baseImage: NSImage
+    let baseImage: CGImage
+    let size: CGSize
     let elements: [AnnotationObject]
 
-    init(document: AnnotationDocument) {
-        self.baseImage = document.baseImage
-        self.elements = document.visibleElements
+    init?(document: AnnotationDocument, includeDraft: Bool = true) {
+        var proposed = CGRect(origin: .zero, size: document.baseImage.size)
+        guard let image = document.baseImage.cgImage(forProposedRect: &proposed, context: nil, hints: nil) else {
+            return nil
+        }
+        self.baseImage = image
+        self.size = document.baseImage.size
+        self.elements = (includeDraft ? document.visibleElements : document.elements).map { object in
+            guard let style = object.style, let color = AnnotationStoredColor(style.color) else { return object }
+            return object.withColor(color.nsColor)
+        }
     }
 
     func renderedCGImage() -> CGImage? {
-        AnnotationDocument.renderedCGImage(baseImage: baseImage, elements: elements)
+        AnnotationDocument.renderedCGImage(baseCG: baseImage, size: size, elements: elements)
     }
 }

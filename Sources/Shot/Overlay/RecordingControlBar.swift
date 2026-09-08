@@ -153,7 +153,7 @@ final class RecordingControlBarWindow: NSPanel {
 }
 
 final class RecordingControlBarView: NSView {
-    private let effectView = NSVisualEffectView()
+    private let effectView = HUDMaterialView()
     private let statusLabel = NSTextField(labelWithString: "")
     private let elapsedLabel = NSTextField(labelWithString: "")
     private let pauseButton = NSButton(title: "", target: nil, action: nil)

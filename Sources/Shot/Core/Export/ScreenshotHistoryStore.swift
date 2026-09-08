@@ -4,122 +4,110 @@ import ShotKit
 
 @MainActor
 enum ScreenshotHistoryStore {
-    private static var pendingFilenames = Set<String>()
-
     static var directory: URL {
         let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
         return root.appendingPathComponent("Shot/History", isDirectory: true)
     }
 
+    static let repository = ScreenshotHistoryRepository(settings: .shared, directory: directory)
     static func add(_ image: NSImage) {
-        let directory = directory
-        guard let cgImage = ImageExporter.cgImage(from: image) else { return }
-        let preferred = ExportNaming.filename(fileExtension: "png")
-        let filename = ExportNaming.uniqueFilename(preferred: preferred) { candidate in
-            pendingFilenames.contains(candidate)
-                || FileManager.default.fileExists(atPath: directory.appendingPathComponent(candidate).path)
-        }
-        pendingFilenames.insert(filename)
-        let url = directory.appendingPathComponent(filename)
-        let previous = normalized(AppSettings.shared.screenshotHistory)
-        let next = ScreenshotHistory.inserting(
-            ScreenshotHistoryItem(filename: filename),
-            into: previous
-        )
-        let evicted = ScreenshotHistory.evictedFilenames(previous: previous, next: next)
-        AppSettings.shared.screenshotHistory = next
+        guard let image = ImageExporter.cgImage(from: image) else { return }
+        repository.add(image)
+    }
+    static func items() -> [ScreenshotHistoryItem] { repository.items }
+    static func url(for item: ScreenshotHistoryItem) -> URL { directory.appendingPathComponent(item.filename) }
+    static func image(for item: ScreenshotHistoryItem) -> NSImage? { NSImage(contentsOf: url(for: item)) }
+}
 
-        // Encoding and disk I/O are deliberately off the main actor. Keep the
-        // filename reserved until the write completes so rapid captures in the
-        // same second cannot overwrite one another.
-        Task { @MainActor in
-            let written = await Task.detached(priority: .utility) {
-                guard let data = encodeScreenshotHistoryPNG(cgImage) else { return false }
+/// A bounded FIFO. At most one encoder and five pending images are retained.
+/// The menu sees only committed files; reading the menu never mutates settings
+/// or performs filesystem I/O.
+@MainActor
+final class ScreenshotHistoryRepository {
+    typealias Writer = (CGImage, URL) async throws -> URL
+    private let settings: AppSettings
+    private let directory: URL
+    private let writer: Writer
+    private var pending: [CGImage] = []
+    private var worker: Task<Void, Never>?
+    private(set) var items: [ScreenshotHistoryItem]
+    var pendingCount: Int { pending.count }
+
+    init(settings: AppSettings, directory: URL, writer: @escaping Writer = { image, directory in
+        try await BackgroundWork.run(priority: .utility) {
+            guard let data = encodeScreenshotHistoryPNG(image) else { throw ImageExporter.ExportError.encodingFailed }
+            return try AtomicFileWriter.write(data, to: .automatic(
+                directory: directory, filename: ExportNaming.filename(fileExtension: "png")
+            ))
+        }
+    }) {
+        self.settings = settings
+        self.directory = directory
+        self.writer = writer
+        self.items = Self.normalized(settings.screenshotHistory)
+    }
+
+    func add(_ image: CGImage) {
+        pending.append(image)
+        if pending.count > ScreenshotHistory.limit { pending.removeFirst() }
+        guard worker == nil else { return }
+        worker = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.worker = nil }
+            while !self.pending.isEmpty, !Task.isCancelled {
+                let image = self.pending.removeFirst()
                 do {
-                    try FileManager.default.createDirectory(
-                        at: directory,
-                        withIntermediateDirectories: true
-                    )
-                    try data.write(to: url, options: .atomic)
-                    for name in evicted {
-                        try? FileManager.default.removeItem(at: directory.appendingPathComponent(name))
+                    let url = try await self.writer(image, self.directory)
+                    let previous = self.items
+                    let next = ScreenshotHistory.inserting(ScreenshotHistoryItem(filename: url.lastPathComponent), into: previous)
+                    self.items = next
+                    self.settings.screenshotHistory = next
+                    StatusItemMenu.reload()
+                    let evicted = ScreenshotHistory.evictedFilenames(previous: previous, next: next)
+                    let directory = self.directory
+                    _ = try? await BackgroundWork.run(priority: .utility) {
+                        for name in evicted { try? FileManager.default.removeItem(at: directory.appendingPathComponent(name)) }
                     }
-                    return true
+                } catch is CancellationError {
+                    return
                 } catch {
-                    return false
+                    Diagnostics.exports.error("History write failed")
                 }
-            }.value
-
-            pendingFilenames.remove(filename)
-            if written {
-                // A newer capture may have evicted this item while its write
-                // was still running. Do not leave an unreferenced PNG behind.
-                if !AppSettings.shared.screenshotHistory.contains(where: { $0.filename == filename }) {
-                    try? FileManager.default.removeItem(at: url)
-                }
-            } else {
-                AppSettings.shared.screenshotHistory.removeAll { $0.filename == filename }
             }
-            StatusItemMenu.reload()
         }
     }
 
-    static func items() -> [ScreenshotHistoryItem] {
+    func waitUntilIdle() async { await worker?.value }
+
+    func releasePendingImages() { pending.removeAll() }
+
+    func reconcile() async {
+        let previous = items
         let directory = directory
-        let cleaned = ScreenshotHistory.removingMissingFiles(
-            from: AppSettings.shared.screenshotHistory,
-            directory: directory
-        ) { url in
-            pendingFilenames.contains(url.lastPathComponent)
-                || FileManager.default.fileExists(atPath: url.path)
-        }
-        let normalizedItems = normalized(cleaned)
-        if normalizedItems != AppSettings.shared.screenshotHistory {
-            // Menu content can be evaluated while SwiftUI is rendering. Defer
-            // the published cleanup to avoid publishing during view updates.
-            Task { @MainActor in
-                let current = AppSettings.shared.screenshotHistory
-                let currentCleaned = ScreenshotHistory.removingMissingFiles(
-                    from: current,
-                    directory: directory
-                ) { url in
-                    pendingFilenames.contains(url.lastPathComponent)
-                        || FileManager.default.fileExists(atPath: url.path)
-                }
-                let currentNormalized = self.normalized(currentCleaned)
-                if currentNormalized != current {
-                    AppSettings.shared.screenshotHistory = currentNormalized
-                }
-            }
-        }
-        return normalizedItems
-    }
-
-    static func url(for item: ScreenshotHistoryItem) -> URL {
-        directory.appendingPathComponent(item.filename)
-    }
-
-    static func image(for item: ScreenshotHistoryItem) -> NSImage? {
-        NSImage(contentsOf: url(for: item))
+        let present = (try? await BackgroundWork.run(priority: .utility) {
+            Set(previous.filter { FileManager.default.fileExists(atPath: directory.appendingPathComponent($0.filename).path) }.map(\.filename))
+        }) ?? Set(previous.map(\.filename))
+        // Preserve any new writes that completed while the filesystem was read.
+        let checked = Set(previous.map(\.filename))
+        items.removeAll { checked.contains($0.filename) && !present.contains($0.filename) }
+        settings.screenshotHistory = items
+        StatusItemMenu.reload()
     }
 
     private static func normalized(_ items: [ScreenshotHistoryItem]) -> [ScreenshotHistoryItem] {
         var seen = Set<String>()
-        return items.filter { item in
-            guard !item.filename.isEmpty,
-                  item.filename == URL(fileURLWithPath: item.filename).lastPathComponent,
-                  !item.filename.contains("/") else { return false }
-            return seen.insert(item.filename).inserted
-        }.prefix(ScreenshotHistory.limit).map { $0 }
+        return Array(items.filter { item in
+            !item.filename.isEmpty && item.filename != "." && item.filename != ".."
+                && item.filename == URL(fileURLWithPath: item.filename).lastPathComponent
+                && !item.filename.contains("/") && seen.insert(item.filename).inserted
+        }.prefix(ScreenshotHistory.limit))
     }
 }
 
 private func encodeScreenshotHistoryPNG(_ image: CGImage) -> Data? {
     let data = NSMutableData()
-    guard let destination = CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil) else {
-        return nil
-    }
+    guard let destination = CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil) else { return nil }
     CGImageDestinationAddImage(destination, image, nil)
     guard CGImageDestinationFinalize(destination) else { return nil }
     return data as Data

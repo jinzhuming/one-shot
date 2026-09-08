@@ -47,11 +47,13 @@ enum VideoExporter {
     }
 
     static func finalizeRecording(sourceURL: URL, in directory: URL) async throws -> URL {
-        try await Task.detached(priority: .utility) {
-            let destinationURL = try recordingURL(in: directory)
-            try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
-            return destinationURL
-        }.value
+        try await BackgroundWork.run(priority: .utility) {
+            let destination = try AtomicFileWriter.copy(sourceURL, to: .automatic(
+                directory: directory, filename: ExportNaming.filename(fileExtension: fileExtension)
+            ))
+            try? FileManager.default.removeItem(at: sourceURL)
+            return destination
+        }
     }
 
     /// Combines the temporary files created around a pause/resume cycle into
@@ -166,17 +168,9 @@ enum VideoExporter {
     }
 
     static func copy(_ sourceURL: URL, to destinationURL: URL) async throws {
-        try await Task.detached(priority: .utility) {
-            let fileManager = FileManager.default
-            try fileManager.createDirectory(
-                at: destinationURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            guard !fileManager.fileExists(atPath: destinationURL.path) else {
-                throw ExportError.destinationExists
-            }
-            try fileManager.copyItem(at: sourceURL, to: destinationURL)
-        }.value
+        _ = try await BackgroundWork.run(priority: .utility) {
+            try AtomicFileWriter.copy(sourceURL, to: .chosen(destinationURL))
+        }
     }
 
     enum ExportError: LocalizedError {

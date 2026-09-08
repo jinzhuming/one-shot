@@ -54,7 +54,7 @@ final class CapturePreparationHUD {
 
 @MainActor
 private final class CapturePreparationView: NSView {
-    private let effectView = NSVisualEffectView()
+    private let effectView = HUDMaterialView()
     private let spinner = NSProgressIndicator()
     private let label = NSTextField(labelWithString: String(localized: "正在准备截图…"))
 

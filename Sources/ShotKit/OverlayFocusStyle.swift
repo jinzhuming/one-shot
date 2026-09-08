@@ -42,7 +42,6 @@ public enum OverlayFocusStyle {
     public static let magnifierCornerRadius: CGFloat = 12
     public static let magnifierGuideOpacity: CGFloat = 0.54
     public static let magnifierGuideContrastOpacity: CGFloat = 0.34
-    public static let magnifierTargetDiameter: CGFloat = 14
 
     public static func maskOpacity(
         dimOnly: Bool,

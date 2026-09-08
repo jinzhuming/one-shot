@@ -8,7 +8,7 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
     private var onboardingWindow: NSWindow?
     private var openSettingsAction: OpenSettingsAction?
     private var settingsPresentation: Task<Void, Never>?
-    private var settingsPresentationGeneration = 0
+    private weak var settingsWindow: NSWindow?
     private var isPresentingSettings = false
     private var captureStartTask: Task<Void, Never>?
     private var resignDebounceTask: Task<Void, Never>?
@@ -16,14 +16,13 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
     private var applicationResignObserver: NSObjectProtocol?
 
     func start() {
-        clearRestoredPlaceholderFrames()
-        hideHelperWindow()
         NSApp.setActivationPolicy(.accessory)
         observeWindowCloses()
         observeApplicationDeactivation()
-        dismissLaunchSettingsPlaceholder()
         HotkeyCenter.shared.register()
         PermissionService.shared.refresh()
+        AppLifecycle.shared.start()
+        Task { await ScreenshotHistoryStore.repository.reconcile() }
         if PermissionService.shared.hasScreenRecording {
             WindowCatalog.prewarm()
         }
@@ -60,13 +59,21 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
         isPresentingSettings = false
         PermissionService.shared.stopPolling()
         onboardingWindow?.orderOut(nil)
-        Self.settingsWindows().forEach { $0.orderOut(nil) }
-        hideHelperWindow()
+        settingsWindow?.orderOut(nil)
         restoreAccessoryPolicyIfIdle()
     }
 
     func installOpenSettingsAction(_ action: OpenSettingsAction) {
         openSettingsAction = action
+        if isPresentingSettings { showSettings() }
+    }
+
+    func settingsWindowDidAttach(_ window: NSWindow) {
+        settingsWindow = window
+        if isPresentingSettings {
+            isPresentingSettings = false
+            revealSettings(window)
+        }
     }
 
     func showSettings(using action: OpenSettingsAction? = nil) {
@@ -80,49 +87,32 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
         if let action {
             openSettingsAction = action
         }
-        guard let openSettingsAction else { return }
-
-        settingsPresentation?.cancel()
-        settingsPresentationGeneration += 1
-        let generation = settingsPresentationGeneration
         isPresentingSettings = true
-        becomeRegularApp()
-
-        settingsPresentation = Task { @MainActor in
-            defer {
-                if settingsPresentationGeneration == generation {
-                    isPresentingSettings = false
-                }
-            }
-            // Status item menus finish tracking on the next turn; accessory
-            // apps also need a Dock icon before macOS will key a window.
-            try? await Task.sleep(for: .milliseconds(150))
-            guard !Task.isCancelled else { return }
-
-            becomeRegularApp()
-            let knownWindows = Set(NSApp.windows.map { ObjectIdentifier($0) })
+        guard let openSettingsAction else { return }
+        settingsPresentation?.cancel()
+        settingsPresentation = Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self, !Task.isCancelled else { return }
+            self.becomeRegularApp()
             openSettingsAction()
-
-            // SwiftUI creates the Settings scene lazily. Retry until that
-            // window exists, then pin our identifier and bring it forward.
-            for attempt in 0..<24 {
-                try? await Task.sleep(for: .milliseconds(50))
-                guard !Task.isCancelled else { return }
-                if let window = Self.findSettingsWindow() ?? createdSettingsWindow(excluding: knownWindows) {
-                    Self.configure(window)
-                    Self.reveal(window)
-                    hideHelperWindow()
-                    return
-                }
-                if attempt < 23 {
-                    if attempt == 3 {
-                        SettingsPresenter.shared.requestOpen()
-                    }
-                    openSettingsAction()
-                }
+            if let window = self.settingsWindow {
+                self.revealSettings(window)
             }
-            restoreAccessoryPolicyIfIdle()
+            self.isPresentingSettings = false
+            self.settingsPresentation = nil
         }
+    }
+
+    private func revealSettings(_ window: NSWindow) {
+        if let screen = CoordinateSpace.screen(containing: NSEvent.mouseLocation) {
+            let frame = screen.visibleFrame
+            window.setFrameOrigin(CGPoint(
+                x: frame.midX - window.frame.width / 2,
+                y: frame.midY - window.frame.height / 2
+            ))
+        }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func showAbout() {
@@ -145,8 +135,7 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
                     window.makeKeyAndOrderFront(nil)
                     window.orderFrontRegardless()
                 }
-            hideHelperWindow()
-        }
+            }
     }
 
     func showOnboarding() {
@@ -167,7 +156,6 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
         onboardingWindow?.center()
         onboardingWindow?.makeKeyAndOrderFront(nil)
         onboardingWindow?.orderFrontRegardless()
-        hideHelperWindow()
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
@@ -198,7 +186,6 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
         if isPresentingSettings { return }
         let hasTitledWindow = NSApp.windows.contains { window in
             window.isVisible
-                && !SettingsWindowIdentity.isHelper(identifier: window.identifier?.rawValue)
                 && window.level <= .floating
                 && window.canBecomeKey
                 && window.styleMask.contains(.titled)
@@ -293,101 +280,18 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
         }
     }
 
-    private func dismissLaunchSettingsPlaceholder() {
-        Self.settingsWindows().forEach { $0.orderOut(nil) }
-        hideHelperWindow()
-    }
-
-    private func clearRestoredPlaceholderFrames() {
-        UserDefaults.standard.removeObject(forKey: "NSWindow Frame \(SettingsWindowIdentity.swiftUIIdentifier)")
-        UserDefaults.standard.removeObject(forKey: "NSWindow Frame \(SettingsWindowIdentity.helperIdentifier)")
-    }
-
     private func becomeRegularApp() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func hideHelperWindow() {
-        NSApp.windows
-            .filter { SettingsWindowIdentity.isHelper(identifier: $0.identifier?.rawValue) }
-            .forEach { window in
-                window.alphaValue = 0
-                window.ignoresMouseEvents = true
-                window.setFrame(NSRect(x: -10_000, y: -10_000, width: 1, height: 1), display: false)
-            }
-    }
-
-    private func createdSettingsWindow(excluding knownWindows: Set<ObjectIdentifier>) -> NSWindow? {
-        NSApp.windows.first { window in
-            !knownWindows.contains(ObjectIdentifier(window))
-                && window !== onboardingWindow
-                && !SettingsWindowIdentity.isHelper(identifier: window.identifier?.rawValue)
-                && !Self.isAboutWindow(window)
-                && window.styleMask.contains(.titled)
-                && window.canBecomeKey
-                && window.frame.width > 50
-        }
-    }
-
-    private static func settingsWindows() -> [NSWindow] {
-        NSApp.windows.filter(isSettingsWindow)
-    }
-
-    private static func findSettingsWindow() -> NSWindow? {
-        settingsWindows().first
-    }
-
     private static func isSettingsWindow(_ window: NSWindow) -> Bool {
-        SettingsWindowIdentity.matches(
-            identifier: window.identifier?.rawValue,
-            autosaveName: window.frameAutosaveName
-        )
+        window.identifier?.rawValue == SettingsWindowIdentity.identifier
     }
 
     private static func isAboutWindow(_ window: NSWindow) -> Bool {
         window.className.contains("About")
             || (window.title == "Shot" && window.styleMask.contains(.titled) && window.frame.width > 50)
-    }
-
-    private static func configure(_ window: NSWindow) {
-        window.title = String(localized: "设置")
-        window.identifier = NSUserInterfaceItemIdentifier(SettingsWindowIdentity.identifier)
-        window.minSize = NSSize(width: 520, height: 400)
-        window.isRestorable = false
-        window.collectionBehavior.insert(.moveToActiveSpace)
-        window.isReleasedWhenClosed = false
-    }
-
-    private static func reveal(_ window: NSWindow) {
-        window.collectionBehavior.insert(.moveToActiveSpace)
-        if let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main {
-            let visible = screen.visibleFrame
-            let size = NSSize(
-                width: max(window.frame.width, 520),
-                height: max(window.frame.height, 420)
-            )
-            window.setFrame(
-                NSRect(
-                    x: visible.midX - size.width / 2,
-                    y: visible.midY - size.height / 2,
-                    width: size.width,
-                    height: size.height
-                ),
-                display: true
-            )
-        }
-        window.makeKeyAndOrderFront(nil)
-        window.orderFrontRegardless()
-        NSApp.activate(ignoringOtherApps: true)
-
-        // Accessory apps sometimes still lose the ordering race; float briefly.
-        window.level = .floating
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(150))
-            guard window.isVisible else { return }
-            window.level = .normal
-        }
     }
 
 }

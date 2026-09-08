@@ -14,6 +14,7 @@ enum AsyncTimeout {
         onTimeout: @escaping () -> Void = {},
         operation: @escaping () async throws -> Value
     ) async throws -> Value {
+        try Task.checkCancellation()
         let gate = CompletionGate<Value>()
         let operationTask = Task { @MainActor in
             do {
@@ -29,9 +30,9 @@ enum AsyncTimeout {
                 return
             }
             guard !Task.isCancelled else { return }
+            guard gate.resume(throwing: timeoutError) else { return }
             onTimeout()
             operationTask.cancel()
-            gate.resume(throwing: timeoutError)
         }
 
         do {
@@ -71,24 +72,27 @@ private final class CompletionGate<Value>: @unchecked Sendable {
         }
     }
 
-    func resume(returning value: Value) {
+    @discardableResult
+    func resume(returning value: Value) -> Bool {
         resume(with: .success(value))
     }
 
-    func resume(throwing error: Error) {
+    @discardableResult
+    func resume(throwing error: Error) -> Bool {
         resume(with: .failure(error))
     }
 
-    private func resume(with result: Result<Value, Error>) {
+    private func resume(with result: Result<Value, Error>) -> Bool {
         lock.lock()
         guard self.result == nil else {
             lock.unlock()
-            return
+            return false
         }
         self.result = result
         let continuation = self.continuation
         self.continuation = nil
         lock.unlock()
         continuation?.resume(with: result)
+        return true
     }
 }

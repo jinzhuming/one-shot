@@ -437,20 +437,6 @@ final class SelectionOverlayView: NSView {
             .withAlphaComponent(OverlayFocusStyle.magnifierGuideOpacity)
             .setStroke()
         guides.stroke()
-
-        let diameter = OverlayFocusStyle.magnifierTargetDiameter
-        let target = NSBezierPath(ovalIn: CGRect(
-            x: cursor.x - diameter / 2,
-            y: cursor.y - diameter / 2,
-            width: diameter,
-            height: diameter
-        ))
-        target.lineWidth = 2
-        NSColor.black.withAlphaComponent(0.56).setStroke()
-        target.stroke()
-        target.lineWidth = 1
-        NSColor.white.withAlphaComponent(0.82).setStroke()
-        target.stroke()
     }
 
     private func magnifierPath(in frame: CGRect) -> NSBezierPath {

@@ -416,7 +416,7 @@ final class RecordingTargetOverlayView: NSView {
 }
 
 final class RecordingStatusHUDView: NSView {
-    private let effectView = NSVisualEffectView()
+    private let effectView = HUDMaterialView()
     private let dotView = NSView()
     private let statusLabel = NSTextField(labelWithString: "")
     private let elapsedLabel = NSTextField(labelWithString: "")

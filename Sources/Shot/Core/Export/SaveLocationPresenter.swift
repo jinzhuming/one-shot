@@ -5,6 +5,14 @@ enum SaveLocationPresenter {
     private static var panel: SaveConfirmationPanel?
     private static var dismissTask: Task<Void, Never>?
 
+    static func dismiss() {
+        dismissTask?.cancel()
+        dismissTask = nil
+        panel?.orderOut(nil)
+        panel?.close()
+        panel = nil
+    }
+
     static func showSaved(at url: URL, on screen: NSScreen? = nil) {
         dismissTask?.cancel()
 
@@ -146,7 +154,7 @@ private final class SaveConfirmationView: NSView {
     private static let savedSize = NSSize(width: 404, height: 82)
     private static let copiedSize = NSSize(width: 276, height: 66)
 
-    private let effectView = NSVisualEffectView()
+    private let effectView = HUDMaterialView()
     private let statusImageView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: String(localized: "截图已保存"))
     private let fileLabel = NSTextField(labelWithString: "")

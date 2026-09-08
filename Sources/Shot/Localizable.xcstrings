@@ -1,24 +1,871 @@
 {
   "sourceLanguage": "zh-Hans",
   "strings": {
-    "录屏片段合并失败。": {
+    "%.1f×": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "录屏片段合并失败。"
+            "value": "%.1f×"
           }
         }
       }
     },
-    "录屏片段合并超时，已自动取消。": {
+    "%@快捷键": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "录屏片段合并超时，已自动取消。"
+            "value": "%1$@快捷键"
+          }
+        }
+      }
+    },
+    "10 秒": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 秒"
+          }
+        }
+      }
+    },
+    "3 秒": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 秒"
+          }
+        }
+      }
+    },
+    "5 秒": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 秒"
+          }
+        }
+      }
+    },
+    "Shot 标注": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shot 标注"
+          }
+        }
+      }
+    },
+    "上一步": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上一步"
+          }
+        }
+      }
+    },
+    "不添加背景": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不添加背景"
+          }
+        }
+      }
+    },
+    "不透明度": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不透明度"
+          }
+        }
+      }
+    },
+    "中": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中"
+          }
+        }
+      }
+    },
+    "从菜单栏或快捷键开始截图、滚动截图或录屏。悬停点选窗口，拖拽框选区域；截取后可以直接标注、复制或保存。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从菜单栏或快捷键开始截图、滚动截图或录屏。悬停点选窗口，拖拽框选区域；截取后可以直接标注、复制或保存。"
+          }
+        }
+      }
+    },
+    "使用中等线宽（4 pt）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用中等线宽（4 pt）"
+          }
+        }
+      }
+    },
+    "使用像素色块遮挡": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用像素色块遮挡"
+          }
+        }
+      }
+    },
+    "使用半透明宽线标记（6）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用半透明宽线标记（6）"
+          }
+        }
+      }
+    },
+    "使用实心尖头": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用实心尖头"
+          }
+        }
+      }
+    },
+    "使用橙色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用橙色"
+          }
+        }
+      }
+    },
+    "使用白色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用白色"
+          }
+        }
+      }
+    },
+    "使用箭头标注（1）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用箭头标注（1）"
+          }
+        }
+      }
+    },
+    "使用粗线（8 pt）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用粗线（8 pt）"
+          }
+        }
+      }
+    },
+    "使用红色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用红色"
+          }
+        }
+      }
+    },
+    "使用线框尖头": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用线框尖头"
+          }
+        }
+      }
+    },
+    "使用细线（2 pt）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用细线（2 pt）"
+          }
+        }
+      }
+    },
+    "使用绿色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用绿色"
+          }
+        }
+      }
+    },
+    "使用蓝色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用蓝色"
+          }
+        }
+      }
+    },
+    "使用轻量透明提示": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用轻量透明提示"
+          }
+        }
+      }
+    },
+    "使用高斯模糊遮挡": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用高斯模糊遮挡"
+          }
+        }
+      }
+    },
+    "使用黄色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用黄色"
+          }
+        }
+      }
+    },
+    "使用黑色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用黑色"
+          }
+        }
+      }
+    },
+    "使用默认操作（Return）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用默认操作（Return）"
+          }
+        }
+      }
+    },
+    "保存": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存"
+          }
+        }
+      }
+    },
+    "保存…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存…"
+          }
+        }
+      }
+    },
+    "保存位置": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存位置"
+          }
+        }
+      }
+    },
+    "保存位置与快捷键": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存位置与快捷键"
+          }
+        }
+      }
+    },
+    "保存到文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存到文件"
+          }
+        }
+      }
+    },
+    "保存到文件（Return 或 ⌘S）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存到文件（Return 或 ⌘S）"
+          }
+        }
+      }
+    },
+    "保存到文件（⌘S）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存到文件（⌘S）"
+          }
+        }
+      }
+    },
+    "保存或标注后同时复制到剪贴板": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存或标注后同时复制到剪贴板"
+          }
+        }
+      }
+    },
+    "保存截图或完成标注后，会同时把最终图片复制到剪贴板。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存截图或完成标注后，会同时把最终图片复制到剪贴板。"
+          }
+        }
+      }
+    },
+    "保存最终图片": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存最终图片"
+          }
+        }
+      }
+    },
+    "保存（⌘S）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存（⌘S）"
+          }
+        }
+      }
+    },
+    "倒计时 %@ 秒": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "倒计时 %1$@ 秒"
+          }
+        }
+      }
+    },
+    "倒计时不会写入成片。点击高亮会显示在录制画面中，便于演示。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "倒计时不会写入成片。点击高亮会显示在录制画面中，便于演示。"
+          }
+        }
+      }
+    },
+    "停止": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止"
+          }
+        }
+      }
+    },
+    "停止并保存录屏": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止并保存录屏"
+          }
+        }
+      }
+    },
+    "停止录制": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止录制"
+          }
+        }
+      }
+    },
+    "像素": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "像素"
+          }
+        }
+      }
+    },
+    "全屏": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全屏"
+          }
+        }
+      }
+    },
+    "关": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关"
+          }
+        }
+      }
+    },
+    "关于 Shot": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关于 Shot"
+          }
+        }
+      }
+    },
+    "关闭": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭"
+          }
+        }
+      }
+    },
+    "关闭后未复制或保存的标注会丢失。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭后未复制或保存的标注会丢失。"
+          }
+        }
+      }
+    },
+    "关闭编辑器（Esc）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭编辑器（Esc）"
+          }
+        }
+      }
+    },
+    "关闭视频预览": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭视频预览"
+          }
+        }
+      }
+    },
+    "关闭钉图（Esc）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭钉图（Esc）"
+          }
+        }
+      }
+    },
+    "关闭（Esc）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭（Esc）"
+          }
+        }
+      }
+    },
+    "删除选中标注": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除选中标注"
+          }
+        }
+      }
+    },
+    "删除选中标注（Delete）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除选中标注（Delete）"
+          }
+        }
+      }
+    },
+    "区域": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "区域"
+          }
+        }
+      }
+    },
+    "区域与窗口切换": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "区域与窗口切换"
+          }
+        }
+      }
+    },
+    "区域与窗口切换快捷键": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "区域与窗口切换快捷键"
+          }
+        }
+      }
+    },
+    "原位置": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原位置"
+          }
+        }
+      }
+    },
+    "原位置空间不足时，会自动缩放并移入当前显示器的可见区域。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原位置空间不足时，会自动缩放并移入当前显示器的可见区域。"
+          }
+        }
+      }
+    },
+    "原位置空间不足时，会自动缩放并移入当前显示器的可见区域；独立窗口可拖拽缩放。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原位置空间不足时，会自动缩放并移入当前显示器的可见区域；独立窗口可拖拽缩放。"
+          }
+        }
+      }
+    },
+    "取消": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消"
+          }
+        }
+      }
+    },
+    "取消录屏并删除当前文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消录屏并删除当前文件"
+          }
+        }
+      }
+    },
+    "在访达中显示": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在访达中显示"
+          }
+        }
+      }
+    },
+    "在访达中显示截图文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在访达中显示截图文件"
+          }
+        }
+      }
+    },
+    "填充": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填充"
+          }
+        }
+      }
+    },
+    "复制": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制"
+          }
+        }
+      }
+    },
+    "复制到剪贴板": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制到剪贴板"
+          }
+        }
+      }
+    },
+    "复制到剪贴板（Return 或 ⌘C）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制到剪贴板（Return 或 ⌘C）"
+          }
+        }
+      }
+    },
+    "复制到剪贴板（⌘C）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制到剪贴板（⌘C）"
+          }
+        }
+      }
+    },
+    "复制最终图片": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制最终图片"
+          }
+        }
+      }
+    },
+    "复制视频文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制视频文件"
+          }
+        }
+      }
+    },
+    "复制选中标注": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制选中标注"
+          }
+        }
+      }
+    },
+    "复制选中标注（⌘D）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制选中标注（⌘D）"
+          }
+        }
+      }
+    },
+    "复制（⌘C，Return）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制（⌘C，Return）"
+          }
+        }
+      }
+    },
+    "外观": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "外观"
+          }
+        }
+      }
+    },
+    "好": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "好"
           }
         }
       }
@@ -45,6 +892,281 @@
         }
       }
     },
+    "实心箭头": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "实心箭头"
+          }
+        }
+      }
+    },
+    "实线": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "实线"
+          }
+        }
+      }
+    },
+    "将图片保存到文件（⌘S）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将图片保存到文件（⌘S）"
+          }
+        }
+      }
+    },
+    "将图片复制到剪贴板（⌘C）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将图片复制到剪贴板（⌘C）"
+          }
+        }
+      }
+    },
+    "将截图钉在桌面上": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将截图钉在桌面上"
+          }
+        }
+      }
+    },
+    "将最终图片保存到文件（⌘S）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将最终图片保存到文件（⌘S）"
+          }
+        }
+      }
+    },
+    "将最终图片复制到剪贴板（⌘C 或 Return）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将最终图片复制到剪贴板（⌘C 或 Return）"
+          }
+        }
+      }
+    },
+    "将视频另存到其他位置": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将视频另存到其他位置"
+          }
+        }
+      }
+    },
+    "尚未授权": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未授权"
+          }
+        }
+      }
+    },
+    "屏幕居中": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "屏幕居中"
+          }
+        }
+      }
+    },
+    "屏幕录制已授权": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "屏幕录制已授权"
+          }
+        }
+      }
+    },
+    "屏幕录制未授权": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "屏幕录制未授权"
+          }
+        }
+      }
+    },
+    "屏幕录制权限": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "屏幕录制权限"
+          }
+        }
+      }
+    },
+    "工具详细设置": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工具详细设置"
+          }
+        }
+      }
+    },
+    "已复制识别文字": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已复制识别文字"
+          }
+        }
+      }
+    },
+    "已复制颜色 %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已复制颜色 %1$@"
+          }
+        }
+      }
+    },
+    "已授权": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已授权"
+          }
+        }
+      }
+    },
+    "已授权，退出并重新打开 Shot 后生效": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已授权，退出并重新打开 Shot 后生效"
+          }
+        }
+      }
+    },
+    "已暂停": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已暂停"
+          }
+        }
+      }
+    },
+    "已经在录屏。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已经在录屏。"
+          }
+        }
+      }
+    },
+    "已达到内存上限，请完成当前截图。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已达到内存上限，请完成当前截图。"
+          }
+        }
+      }
+    },
+    "已达到长度上限，请完成当前截图。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已达到长度上限，请完成当前截图。"
+          }
+        }
+      }
+    },
+    "已选中": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选中"
+          }
+        }
+      }
+    },
+    "已选择": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选择"
+          }
+        }
+      }
+    },
+    "已选择标注，可移动或缩放": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选择标注，可移动或缩放"
+          }
+        }
+      }
+    },
     "已采集 %@ 像素 · 完成后按 Return": {
       "extractionState": "manual",
       "localizations": {
@@ -56,6 +1178,709 @@
         }
       }
     },
+    "已采集 %d 屏 · 完成后按 Return": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已采集 %d 屏 · 完成后按 Return"
+          }
+        }
+      }
+    },
+    "已采集半屏 · 完成后按 Return": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已采集半屏 · 完成后按 Return"
+          }
+        }
+      }
+    },
+    "已采集约 %.1f 屏 · 完成后按 Return": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已采集约 %.1f 屏 · 完成后按 Return"
+          }
+        }
+      }
+    },
+    "平滑度": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "平滑度"
+          }
+        }
+      }
+    },
+    "序号": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "序号"
+          }
+        }
+      }
+    },
+    "序号大小": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "序号大小"
+          }
+        }
+      }
+    },
+    "底部切换模式": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "底部切换模式"
+          }
+        }
+      }
+    },
+    "开启": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开启"
+          }
+        }
+      }
+    },
+    "开启后，截图模式条使用更透明的原生 HUD 外观。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开启后，截图模式条使用更透明的原生 HUD 外观。"
+          }
+        }
+      }
+    },
+    "开始": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开始"
+          }
+        }
+      }
+    },
+    "开始使用": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开始使用"
+          }
+        }
+      }
+    },
+    "开始前倒计时": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开始前倒计时"
+          }
+        }
+      }
+    },
+    "开始（Return）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开始（Return）"
+          }
+        }
+      }
+    },
+    "当前没有正在进行的录屏。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前没有正在进行的录屏。"
+          }
+        }
+      }
+    },
+    "当前系统不支持 H.264 MP4 录屏。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前系统不支持 H.264 MP4 录屏。"
+          }
+        }
+      }
+    },
+    "录制目标": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录制目标"
+          }
+        }
+      }
+    },
+    "录制系统声音": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录制系统声音"
+          }
+        }
+      }
+    },
+    "录制视频预览": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录制视频预览"
+          }
+        }
+      }
+    },
+    "录制麦克风": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录制麦克风"
+          }
+        }
+      }
+    },
+    "录屏": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏"
+          }
+        }
+      }
+    },
+    "录屏停止超时。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏停止超时。"
+          }
+        }
+      }
+    },
+    "录屏启动超时。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏启动超时。"
+          }
+        }
+      }
+    },
+    "录屏失败。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏失败。"
+          }
+        }
+      }
+    },
+    "录屏控制": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏控制"
+          }
+        }
+      }
+    },
+    "录屏文件写入超时。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏文件写入超时。"
+          }
+        }
+      }
+    },
+    "录屏时长": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏时长"
+          }
+        }
+      }
+    },
+    "录屏片段合并失败。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏片段合并失败。"
+          }
+        }
+      }
+    },
+    "录屏片段合并超时，已自动取消。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏片段合并超时，已自动取消。"
+          }
+        }
+      }
+    },
+    "录屏状态": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏状态"
+          }
+        }
+      }
+    },
+    "形状": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "形状"
+          }
+        }
+      }
+    },
+    "快捷键": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快捷键"
+          }
+        }
+      }
+    },
+    "恢复到非钉图的标注编辑状态": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复到非钉图的标注编辑状态"
+          }
+        }
+      }
+    },
+    "恢复原大小": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复原大小"
+          }
+        }
+      }
+    },
+    "恢复标注": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复标注"
+          }
+        }
+      }
+    },
+    "恢复钉图原来的大小": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复钉图原来的大小"
+          }
+        }
+      }
+    },
+    "截取上次区域": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截取上次区域"
+          }
+        }
+      }
+    },
+    "截取与上次相同的区域": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截取与上次相同的区域"
+          }
+        }
+      }
+    },
+    "截取全屏": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截取全屏"
+          }
+        }
+      }
+    },
+    "截取其他窗口内容需要系统「屏幕录制」权限。请在系统设置中允许 Shot 访问屏幕内容。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截取其他窗口内容需要系统「屏幕录制」权限。请在系统设置中允许 Shot 访问屏幕内容。"
+          }
+        }
+      }
+    },
+    "截取区域": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截取区域"
+          }
+        }
+      }
+    },
+    "截取窗口": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截取窗口"
+          }
+        }
+      }
+    },
+    "截图": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图"
+          }
+        }
+      }
+    },
+    "截图区域必须位于同一个显示器内。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图区域必须位于同一个显示器内。"
+          }
+        }
+      }
+    },
+    "截图后": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图后"
+          }
+        }
+      }
+    },
+    "截图处理超时，已自动取消。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图处理超时，已自动取消。"
+          }
+        }
+      }
+    },
+    "截图失败。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图失败。"
+          }
+        }
+      }
+    },
+    "截图已保存": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图已保存"
+          }
+        }
+      }
+    },
+    "截图已保存，但无法复制到剪贴板。": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图已保存，但无法复制到剪贴板。"
+          }
+        }
+      }
+    },
+    "截图已复制到剪贴板": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图已复制到剪贴板"
+          }
+        }
+      }
+    },
+    "截图时": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图时"
+          }
+        }
+      }
+    },
+    "截图时在区域和窗口之间切换": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图时在区域和窗口之间切换"
+          }
+        }
+      }
+    },
+    "截图模式": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图模式"
+          }
+        }
+      }
+    },
+    "截图选区": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图选区"
+          }
+        }
+      }
+    },
+    "打开文件夹": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开文件夹"
+          }
+        }
+      }
+    },
+    "打开标注": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开标注"
+          }
+        }
+      }
+    },
+    "打开标注（Return）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开标注（Return）"
+          }
+        }
+      }
+    },
+    "打开系统设置": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开系统设置"
+          }
+        }
+      }
+    },
+    "找不到可用的显示器。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到可用的显示器。"
+          }
+        }
+      }
+    },
+    "找不到要录制的窗口。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到要录制的窗口。"
+          }
+        }
+      }
+    },
+    "找不到要截取的窗口。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到要截取的窗口。"
+          }
+        }
+      }
+    },
+    "找不到选区所在的显示器。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到选区所在的显示器。"
+          }
+        }
+      }
+    },
+    "拖拽框选 · Shift 等比例 · 空格移动 · Esc 取消 · %@ 切换窗口": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖拽框选 · Shift 等比例 · 空格移动 · Esc 取消 · %1$@ 切换窗口"
+          }
+        }
+      }
+    },
+    "拖拽框选区域，Shift 保持等比例，空格移动选区。%@ 在区域和窗口之间切换。Tab 切换重叠窗口。按 Esc 取消。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖拽框选区域，Shift 保持等比例，空格移动选区。%1$@ 在区域和窗口之间切换。Tab 切换重叠窗口。按 Esc 取消。"
+          }
+        }
+      }
+    },
+    "拖拽矩形遮挡区域": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖拽矩形遮挡区域"
+          }
+        }
+      }
+    },
     "拖拽选择滚动区域 · Esc 取消": {
       "extractionState": "manual",
       "localizations": {
@@ -63,6 +1888,651 @@
           "stringUnit": {
             "state": "translated",
             "value": "拖拽选择滚动区域 · Esc 取消"
+          }
+        }
+      }
+    },
+    "拖拽选择滚动区域，松手后可调整 · Esc 取消": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖拽选择滚动区域，松手后可调整 · Esc 取消"
+          }
+        }
+      }
+    },
+    "拖拽选择要保留的区域": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖拽选择要保留的区域"
+          }
+        }
+      }
+    },
+    "按下快捷键…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按下快捷键…"
+          }
+        }
+      }
+    },
+    "控制气泡文字是否自动换行": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "控制气泡文字是否自动换行"
+          }
+        }
+      }
+    },
+    "提交未完成的文字标注后保存": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提交未完成的文字标注后保存"
+          }
+        }
+      }
+    },
+    "提交未完成的文字标注后复制": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提交未完成的文字标注后复制"
+          }
+        }
+      }
+    },
+    "撤销": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撤销"
+          }
+        }
+      }
+    },
+    "撤销（⌘Z）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撤销（⌘Z）"
+          }
+        }
+      }
+    },
+    "放大查看": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放大查看"
+          }
+        }
+      }
+    },
+    "放大钉图以便查看": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放大钉图以便查看"
+          }
+        }
+      }
+    },
+    "放弃": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放弃"
+          }
+        }
+      }
+    },
+    "放弃标注？": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放弃标注？"
+          }
+        }
+      }
+    },
+    "效果": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "效果"
+          }
+        }
+      }
+    },
+    "文字": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字"
+          }
+        }
+      }
+    },
+    "文字大小（pt）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字大小（pt）"
+          }
+        }
+      }
+    },
+    "文字识别失败，请重试。": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字识别失败，请重试。"
+          }
+        }
+      }
+    },
+    "无法复制截图到剪贴板。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法复制截图到剪贴板。"
+          }
+        }
+      }
+    },
+    "无法复制视频文件到剪贴板。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法复制视频文件到剪贴板。"
+          }
+        }
+      }
+    },
+    "无法编码截图。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法编码截图。"
+          }
+        }
+      }
+    },
+    "无法读取用于识别文字的截图。": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取用于识别文字的截图。"
+          }
+        }
+      }
+    },
+    "暂停": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂停"
+          }
+        }
+      }
+    },
+    "暂停录屏": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂停录屏"
+          }
+        }
+      }
+    },
+    "更多操作": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更多操作"
+          }
+        }
+      }
+    },
+    "最近截图": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近截图"
+          }
+        }
+      }
+    },
+    "未命中窗口，请点击窗口。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未命中窗口，请点击窗口。"
+          }
+        }
+      }
+    },
+    "未命中窗口，请点窗口或拖拽区域。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未命中窗口，请点窗口或拖拽区域。"
+          }
+        }
+      }
+    },
+    "未授权麦克风，已继续录屏且不收录人声": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未授权麦克风，已继续录屏且不收录人声"
+          }
+        }
+      }
+    },
+    "未授权麦克风，已继续录屏且不收录人声。可在系统设置中开启。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未授权麦克风，已继续录屏且不收录人声。可在系统设置中开启。"
+          }
+        }
+      }
+    },
+    "未框选时按该快捷键或点击，可在区域和窗口之间切换。拖拽选区时仍按空格移动选区。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未框选时按该快捷键或点击，可在区域和窗口之间切换。拖拽选区时仍按空格移动选区。"
+          }
+        }
+      }
+    },
+    "未生效": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未生效"
+          }
+        }
+      }
+    },
+    "未设置": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未设置"
+          }
+        }
+      }
+    },
+    "未识别到文字": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未识别到文字"
+          }
+        }
+      }
+    },
+    "未选中": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未选中"
+          }
+        }
+      }
+    },
+    "未选择图片": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未选择图片"
+          }
+        }
+      }
+    },
+    "未选择标注": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未选择标注"
+          }
+        }
+      }
+    },
+    "权限": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "权限"
+          }
+        }
+      }
+    },
+    "标注": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标注"
+          }
+        }
+      }
+    },
+    "标注位置": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标注位置"
+          }
+        }
+      }
+    },
+    "标注工具": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标注工具"
+          }
+        }
+      }
+    },
+    "标注画布": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标注画布"
+          }
+        }
+      }
+    },
+    "标注：V 选择，C 裁剪，1–4 形状，5 画笔，6 荧光笔，7 文字，K 气泡，8 序号，9 马赛克，0 聚光。⌘D 复制标注，Delete 删除。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标注：V 选择，C 裁剪，1–4 形状，5 画笔，6 荧光笔，7 文字，K 气泡，8 序号，9 马赛克，0 聚光。⌘D 复制标注，Delete 删除。"
+          }
+        }
+      }
+    },
+    "格式": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "格式"
+          }
+        }
+      }
+    },
+    "框选区域": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "框选区域"
+          }
+        }
+      }
+    },
+    "桌面壁纸": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "桌面壁纸"
+          }
+        }
+      }
+    },
+    "椭圆": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "椭圆"
+          }
+        }
+      }
+    },
+    "模式条更通透": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模式条更通透"
+          }
+        }
+      }
+    },
+    "模糊": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模糊"
+          }
+        }
+      }
+    },
+    "模糊半径（pt）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模糊半径（pt）"
+          }
+        }
+      }
+    },
+    "橙色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "橙色"
+          }
+        }
+      }
+    },
+    "欢迎使用 Shot": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "欢迎使用 Shot"
+          }
+        }
+      }
+    },
+    "正在保存": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在保存"
+          }
+        }
+      }
+    },
+    "正在保存录屏…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在保存录屏…"
+          }
+        }
+      }
+    },
+    "正在准备录屏…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在准备录屏…"
+          }
+        }
+      }
+    },
+    "正在准备截图": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在准备截图"
+          }
+        }
+      }
+    },
+    "正在准备截图…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在准备截图…"
+          }
+        }
+      }
+    },
+    "正在导出": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在导出"
+          }
+        }
+      }
+    },
+    "正在录制": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在录制"
+          }
+        }
+      }
+    },
+    "正在录屏": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在录屏"
+          }
+        }
+      }
+    },
+    "正在暂停…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在暂停…"
           }
         }
       }
@@ -85,6 +2555,94 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在采集滚动截图…"
+          }
+        }
+      }
+    },
+    "每次询问保存位置": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每次询问保存位置"
+          }
+        }
+      }
+    },
+    "气泡填充": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "气泡填充"
+          }
+        }
+      }
+    },
+    "气泡文字": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "气泡文字"
+          }
+        }
+      }
+    },
+    "添加序号标记（8）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加序号标记（8）"
+          }
+        }
+      }
+    },
+    "添加文字（7）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加文字（7）"
+          }
+        }
+      }
+    },
+    "添加气泡文字标注（K）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加气泡文字标注（K）"
+          }
+        }
+      }
+    },
+    "清除": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除"
+          }
+        }
+      }
+    },
+    "清除%@快捷键": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除%1$@快捷键"
           }
         }
       }
@@ -144,28 +2702,6 @@
         }
       }
     },
-    "已达到长度上限，请完成当前截图。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已达到长度上限，请完成当前截图。"
-          }
-        }
-      }
-    },
-    "已达到内存上限，请完成当前截图。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已达到内存上限，请完成当前截图。"
-          }
-        }
-      }
-    },
     "滚动截图采集": {
       "extractionState": "manual",
       "localizations": {
@@ -199,409 +2735,35 @@
         }
       }
     },
-    "结束采集并拼接当前内容": {
+    "点击屏幕或按 Return 截取 · Esc 取消": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "结束采集并拼接当前内容"
+            "value": "点击屏幕或按 Return 截取 · Esc 取消"
           }
         }
       }
     },
-    "%@快捷键": {
+    "点击录制新的快捷键": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@快捷键"
+            "value": "点击录制新的快捷键"
           }
         }
       }
     },
-    "按下快捷键…": {
+    "点击标注以选择": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "按下快捷键…"
-          }
-        }
-      }
-    },
-    "白色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "白色"
-          }
-        }
-      }
-    },
-    "保存": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存"
-          }
-        }
-      }
-    },
-    "保存…": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存…"
-          }
-        }
-      }
-    },
-    "保存（⌘S）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存（⌘S）"
-          }
-        }
-      }
-    },
-    "保存到文件": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存到文件"
-          }
-        }
-      }
-    },
-    "保存或标注后同时复制到剪贴板": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存或标注后同时复制到剪贴板"
-          }
-        }
-      }
-    },
-    "保存截图或完成标注后，会同时把最终图片复制到剪贴板。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存截图或完成标注后，会同时把最终图片复制到剪贴板。"
-          }
-        }
-      }
-    },
-    "保存位置": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存位置"
-          }
-        }
-      }
-    },
-    "保存位置与快捷键": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存位置与快捷键"
-          }
-        }
-      }
-    },
-    "保存最终图片": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存最终图片"
-          }
-        }
-      }
-    },
-    "截图已保存": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图已保存"
-          }
-        }
-      }
-    },
-    "截图已复制到剪贴板": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图已复制到剪贴板"
-          }
-        }
-      }
-    },
-    "标注工具": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "标注工具"
-          }
-        }
-      }
-    },
-    "标注画布": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "标注画布"
-          }
-        }
-      }
-    },
-    "标注位置": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "标注位置"
-          }
-        }
-      }
-    },
-    "原位置": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "原位置"
-          }
-        }
-      }
-    },
-    "原位置空间不足时，会自动缩放并移入当前显示器的可见区域。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "原位置空间不足时，会自动缩放并移入当前显示器的可见区域。"
-          }
-        }
-      }
-    },
-    "原位置空间不足时，会自动缩放并移入当前显示器的可见区域；独立窗口可拖拽缩放。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "原位置空间不足时，会自动缩放并移入当前显示器的可见区域；独立窗口可拖拽缩放。"
-          }
-        }
-      }
-    },
-    "独立窗口（居中）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "独立窗口（居中）"
-          }
-        }
-      }
-    },
-    "菜单栏截图工具": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "菜单栏截图工具"
-          }
-        }
-      }
-    },
-    "撤销": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "撤销"
-          }
-        }
-      }
-    },
-    "橙色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "橙色"
-          }
-        }
-      }
-    },
-    "窗口": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "窗口"
-          }
-        }
-      }
-    },
-    "窗口截图包含阴影": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "窗口截图包含阴影"
-          }
-        }
-      }
-    },
-    "使用轻量透明提示": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用轻量透明提示"
-          }
-        }
-      }
-    },
-    "开启后，截图模式条使用更透明的原生 HUD 外观。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开启后，截图模式条使用更透明的原生 HUD 外观。"
-          }
-        }
-      }
-    },
-    "粗": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "粗"
-          }
-        }
-      }
-    },
-    "打开标注": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打开标注"
-          }
-        }
-      }
-    },
-    "打开系统设置": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打开系统设置"
-          }
-        }
-      }
-    },
-    "打开文件夹": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打开文件夹"
-          }
-        }
-      }
-    },
-    "在访达中显示截图文件": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在访达中显示截图文件"
-          }
-        }
-      }
-    },
-    "当前没有正在进行的录屏。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "当前没有正在进行的录屏。"
-          }
-        }
-      }
-    },
-    "当前系统不支持 H.264 MP4 录屏。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "当前系统不支持 H.264 MP4 录屏。"
-          }
-        }
-      }
-    },
-    "登录时打开": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "登录时打开"
+            "value": "点击标注以选择"
           }
         }
       }
@@ -628,156 +2790,57 @@
         }
       }
     },
-    "点击录制新的快捷键": {
+    "点线": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "点击录制新的快捷键"
+            "value": "点线"
           }
         }
       }
     },
-    "复制": {
+    "点选窗口": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "复制"
+            "value": "点选窗口"
           }
         }
       }
     },
-    "复制（⌘C，Return）": {
+    "独立窗口（居中）": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "复制（⌘C，Return）"
+            "value": "独立窗口（居中）"
           }
         }
       }
     },
-    "复制到剪贴板": {
+    "用画笔涂抹遮挡": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "复制到剪贴板"
+            "value": "用画笔涂抹遮挡"
           }
         }
       }
     },
-    "复制视频文件": {
+    "用矩形或画笔遮挡（9）": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "复制视频文件"
-          }
-        }
-      }
-    },
-    "复制最终图片": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "复制最终图片"
-          }
-        }
-      }
-    },
-    "高亮": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "高亮"
-          }
-        }
-      }
-    },
-    "格式": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "格式"
-          }
-        }
-      }
-    },
-    "关闭": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "关闭"
-          }
-        }
-      }
-    },
-    "关闭（Esc）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "关闭（Esc）"
-          }
-        }
-      }
-    },
-    "关闭视频预览": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "关闭视频预览"
-          }
-        }
-      }
-    },
-    "关于 Shot": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "关于 Shot"
-          }
-        }
-      }
-    },
-    "黑色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "黑色"
-          }
-        }
-      }
-    },
-    "红色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "红色"
+            "value": "用矩形或画笔遮挡（9）"
           }
         }
       }
@@ -793,552 +2856,35 @@
         }
       }
     },
-    "欢迎使用 Shot": {
+    "画笔粗细（pt）": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "欢迎使用 Shot"
+            "value": "画笔粗细（pt）"
           }
         }
       }
     },
-    "黄色": {
+    "登录时打开": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "黄色"
+            "value": "登录时打开"
           }
         }
       }
     },
-    "继续": {
+    "白色": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "继续"
-          }
-        }
-      }
-    },
-    "箭头": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "箭头"
-          }
-        }
-      }
-    },
-    "将视频另存到其他位置": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将视频另存到其他位置"
-          }
-        }
-      }
-    },
-    "截取窗口": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截取窗口"
-          }
-        }
-      }
-    },
-    "截取其他窗口内容需要系统「屏幕录制」权限。请在系统设置中允许 Shot 访问屏幕内容。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截取其他窗口内容需要系统「屏幕录制」权限。请在系统设置中允许 Shot 访问屏幕内容。"
-          }
-        }
-      }
-    },
-    "截取区域": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截取区域"
-          }
-        }
-      }
-    },
-    "截取全屏": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截取全屏"
-          }
-        }
-      }
-    },
-    "截取上次区域": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截取上次区域"
-          }
-        }
-      }
-    },
-    "截图": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图"
-          }
-        }
-      }
-    },
-    "截图后": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图后"
-          }
-        }
-      }
-    },
-    "截图模式": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图模式"
-          }
-        }
-      }
-    },
-    "截图区域必须位于同一个显示器内。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图区域必须位于同一个显示器内。"
-          }
-        }
-      }
-    },
-    "截图失败。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图失败。"
-          }
-        }
-      }
-    },
-    "截图处理超时，已自动取消。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图处理超时，已自动取消。"
-          }
-        }
-      }
-    },
-    "截图时": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图时"
-          }
-        }
-      }
-    },
-    "截图时在区域和窗口之间切换": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图时在区域和窗口之间切换"
-          }
-        }
-      }
-    },
-    "截图选区": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图选区"
-          }
-        }
-      }
-    },
-    "矩形": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "矩形"
-          }
-        }
-      }
-    },
-    "聚光": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "聚光"
-          }
-        }
-      }
-    },
-    "开始使用": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开始使用"
-          }
-        }
-      }
-    },
-    "空格": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "空格"
-          }
-        }
-      }
-    },
-    "快捷键": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "快捷键"
-          }
-        }
-      }
-    },
-    "蓝色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "蓝色"
-          }
-        }
-      }
-    },
-    "已暂停": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已暂停"
-          }
-        }
-      }
-    },
-    "继续录屏": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "继续录屏"
-          }
-        }
-      }
-    },
-    "录屏": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "录屏"
-          }
-        }
-      }
-    },
-    "录屏失败。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "录屏失败。"
-          }
-        }
-      }
-    },
-    "录屏停止超时。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "录屏停止超时。"
-          }
-        }
-      }
-    },
-    "录屏启动超时。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "录屏启动超时。"
-          }
-        }
-      }
-    },
-    "录屏文件写入超时。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "录屏文件写入超时。"
-          }
-        }
-      }
-    },
-    "录屏时长": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "录屏时长"
-          }
-        }
-      }
-    },
-    "录屏状态": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "录屏状态"
-          }
-        }
-      }
-    },
-    "录屏控制": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "录屏控制"
-          }
-        }
-      }
-    },
-    "录制目标": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "录制目标"
-          }
-        }
-      }
-    },
-    "取消录屏并删除当前文件": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "取消录屏并删除当前文件"
-          }
-        }
-      }
-    },
-    "暂停": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暂停"
-          }
-        }
-      }
-    },
-    "暂停录屏": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暂停录屏"
-          }
-        }
-      }
-    },
-    "停止": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "停止"
-          }
-        }
-      }
-    },
-    "停止并保存录屏": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "停止并保存录屏"
-          }
-        }
-      }
-    },
-    "正在录制": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在录制"
-          }
-        }
-      }
-    },
-    "正在保存录屏…": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在保存录屏…"
-          }
-        }
-      }
-    },
-    "正在准备录屏…": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在准备录屏…"
-          }
-        }
-      }
-    },
-    "正在暂停…": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在暂停…"
-          }
-        }
-      }
-    },
-    "取消": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "取消"
-          }
-        }
-      }
-    },
-    "录制视频预览": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "录制视频预览"
-          }
-        }
-      }
-    },
-    "绿色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "绿色"
-          }
-        }
-      }
-    },
-    "马赛克": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "马赛克"
-          }
-        }
-      }
-    },
-    "每次询问保存位置": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "每次询问保存位置"
+            "value": "白色"
           }
         }
       }
@@ -1354,167 +2900,24 @@
         }
       }
     },
-    "屏幕录制权限": {
+    "直线": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "屏幕录制权限"
+            "value": "直线"
           }
         }
       }
     },
-    "屏幕录制未授权": {
+    "矩形": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "屏幕录制未授权"
-          }
-        }
-      }
-    },
-    "屏幕录制已授权": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "屏幕录制已授权"
-          }
-        }
-      }
-    },
-    "屏幕居中": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "屏幕居中"
-          }
-        }
-      }
-    },
-    "Shot 标注": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shot 标注"
-          }
-        }
-      }
-    },
-    "清除": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "清除"
-          }
-        }
-      }
-    },
-    "清除%@快捷键": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "清除%1$@快捷键"
-          }
-        }
-      }
-    },
-    "请求权限": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请求权限"
-          }
-        }
-      }
-    },
-    "区域": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "区域"
-          }
-        }
-      }
-    },
-    "区域与窗口切换": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "区域与窗口切换"
-          }
-        }
-      }
-    },
-    "区域与窗口切换快捷键": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "区域与窗口切换快捷键"
-          }
-        }
-      }
-    },
-    "全屏": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "全屏"
-          }
-        }
-      }
-    },
-    "权限": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "权限"
-          }
-        }
-      }
-    },
-    "上一步": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上一步"
-          }
-        }
-      }
-    },
-    "尚未授权": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "尚未授权"
+            "value": "矩形"
           }
         }
       }
@@ -1526,6 +2929,424 @@
           "stringUnit": {
             "state": "translated",
             "value": "稍后设置"
+          }
+        }
+      }
+    },
+    "空格": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "空格"
+          }
+        }
+      }
+    },
+    "突出指定区域（0）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "突出指定区域（0）"
+          }
+        }
+      }
+    },
+    "窗口": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "窗口"
+          }
+        }
+      }
+    },
+    "窗口截图会自动留出边距，并使用截图所在显示器的桌面壁纸或自定义图片。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "窗口截图会自动留出边距，并使用截图所在显示器的桌面壁纸或自定义图片。"
+          }
+        }
+      }
+    },
+    "窗口截图包含阴影": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "窗口截图包含阴影"
+          }
+        }
+      }
+    },
+    "窗口截图背景": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "窗口截图背景"
+          }
+        }
+      }
+    },
+    "箭头": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "箭头"
+          }
+        }
+      }
+    },
+    "箭头大小": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "箭头大小"
+          }
+        }
+      }
+    },
+    "箭头尖端": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "箭头尖端"
+          }
+        }
+      }
+    },
+    "粗": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粗"
+          }
+        }
+      }
+    },
+    "红色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "红色"
+          }
+        }
+      }
+    },
+    "线型": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "线型"
+          }
+        }
+      }
+    },
+    "线宽（pt）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "线宽（pt）"
+          }
+        }
+      }
+    },
+    "线框箭头": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "线框箭头"
+          }
+        }
+      }
+    },
+    "细": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "细"
+          }
+        }
+      }
+    },
+    "结束采集并拼接当前内容": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "结束采集并拼接当前内容"
+          }
+        }
+      }
+    },
+    "绘制椭圆框（3）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "绘制椭圆框（3）"
+          }
+        }
+      }
+    },
+    "绘制模式": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "绘制模式"
+          }
+        }
+      }
+    },
+    "绘制直线（4）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "绘制直线（4）"
+          }
+        }
+      }
+    },
+    "绘制矩形框（2）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "绘制矩形框（2）"
+          }
+        }
+      }
+    },
+    "继续": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "继续"
+          }
+        }
+      }
+    },
+    "继续录屏": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "继续录屏"
+          }
+        }
+      }
+    },
+    "绿色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "绿色"
+          }
+        }
+      }
+    },
+    "编辑器": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑器"
+          }
+        }
+      }
+    },
+    "聚光": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "聚光"
+          }
+        }
+      }
+    },
+    "背景": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "背景"
+          }
+        }
+      }
+    },
+    "自动换行": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动换行"
+          }
+        }
+      }
+    },
+    "自定义图片": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自定义图片"
+          }
+        }
+      }
+    },
+    "自由绘制（5）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自由绘制（5）"
+          }
+        }
+      }
+    },
+    "若快捷键被系统或其他 App 占用，此处会显示「未生效」。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "若快捷键被系统或其他 App 占用，此处会显示「未生效」。"
+          }
+        }
+      }
+    },
+    "若快捷键被系统或其他 App 占用，此处会显示「未生效」。录屏保存为 MP4，当前不包含系统音频或麦克风。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "若快捷键被系统或其他 App 占用，此处会显示「未生效」。录屏保存为 MP4，当前不包含系统音频或麦克风。"
+          }
+        }
+      }
+    },
+    "荧光笔": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "荧光笔"
+          }
+        }
+      }
+    },
+    "荧光笔粗细（pt）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "荧光笔粗细（pt）"
+          }
+        }
+      }
+    },
+    "菜单栏截图工具": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "菜单栏截图工具"
+          }
+        }
+      }
+    },
+    "蓝色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "蓝色"
+          }
+        }
+      }
+    },
+    "虚线": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "虚线"
+          }
+        }
+      }
+    },
+    "视频已复制到剪贴板": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "视频已复制到剪贴板"
+          }
+        }
+      }
+    },
+    "触控板按住 ⌘ 时缩放画布": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "触控板按住 ⌘ 时缩放画布"
           }
         }
       }
@@ -1548,1909 +3369,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "设置…"
-          }
-        }
-      }
-    },
-    "输入文字": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "输入文字"
-          }
-        }
-      }
-    },
-    "提交未完成的文字标注后保存": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "提交未完成的文字标注后保存"
-          }
-        }
-      }
-    },
-    "提交未完成的文字标注后复制": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "提交未完成的文字标注后复制"
-          }
-        }
-      }
-    },
-    "跳过": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "跳过"
-          }
-        }
-      }
-    },
-    "停止录制": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "停止录制"
-          }
-        }
-      }
-    },
-    "通用": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通用"
-          }
-        }
-      }
-    },
-    "退出 Shot": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "退出 Shot"
-          }
-        }
-      }
-    },
-    "退出并重新打开 Shot": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "退出并重新打开 Shot"
-          }
-        }
-      }
-    },
-    "拖拽框选 · Shift 等比例 · 空格移动 · Esc 取消 · %@ 切换窗口": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "拖拽框选 · Shift 等比例 · 空格移动 · Esc 取消 · %1$@ 切换窗口"
-          }
-        }
-      }
-    },
-    "拖拽框选区域，Shift 保持等比例，空格移动选区。%@ 在区域和窗口之间切换。Tab 切换重叠窗口。按 Esc 取消。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "拖拽框选区域，Shift 保持等比例，空格移动选区。%1$@ 在区域和窗口之间切换。Tab 切换重叠窗口。按 Esc 取消。"
-          }
-        }
-      }
-    },
-    "椭圆": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "椭圆"
-          }
-        }
-      }
-    },
-    "未框选时按该快捷键或点击，可在区域和窗口之间切换。拖拽选区时仍按空格移动选区。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未框选时按该快捷键或点击，可在区域和窗口之间切换。拖拽选区时仍按空格移动选区。"
-          }
-        }
-      }
-    },
-    "未命中窗口，请点窗口或拖拽区域。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未命中窗口，请点窗口或拖拽区域。"
-          }
-        }
-      }
-    },
-    "未命中窗口，请点击窗口。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未命中窗口，请点击窗口。"
-          }
-        }
-      }
-    },
-    "未设置": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未设置"
-          }
-        }
-      }
-    },
-    "未生效": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未生效"
-          }
-        }
-      }
-    },
-    "未选中": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未选中"
-          }
-        }
-      }
-    },
-    "文字": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文字"
-          }
-        }
-      }
-    },
-    "无法编码截图。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法编码截图。"
-          }
-        }
-      }
-    },
-    "无法复制截图到剪贴板。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法复制截图到剪贴板。"
-          }
-        }
-      }
-    },
-    "无法复制视频文件到剪贴板。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法复制视频文件到剪贴板。"
-          }
-        }
-      }
-    },
-    "细": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "细"
-          }
-        }
-      }
-    },
-    "序号": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "序号"
-          }
-        }
-      }
-    },
-    "选区尺寸 %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选区尺寸 %1$@"
-          }
-        }
-      }
-    },
-    "选择": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择"
-          }
-        }
-      }
-    },
-    "选择并编辑标注（V）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择并编辑标注（V）"
-          }
-        }
-      }
-    },
-    "已选择": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已选择"
-          }
-        }
-      }
-    },
-    "绘制模式": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "绘制模式"
-          }
-        }
-      }
-    },
-    "未选择标注": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未选择标注"
-          }
-        }
-      }
-    },
-    "已选择标注，可移动或缩放": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已选择标注，可移动或缩放"
-          }
-        }
-      }
-    },
-    "点击标注以选择": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "点击标注以选择"
-          }
-        }
-      }
-    },
-    "复制选中标注（⌘D）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "复制选中标注（⌘D）"
-          }
-        }
-      }
-    },
-    "复制选中标注": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "复制选中标注"
-          }
-        }
-      }
-    },
-    "删除选中标注（Delete）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "删除选中标注（Delete）"
-          }
-        }
-      }
-    },
-    "删除选中标注": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "删除选中标注"
-          }
-        }
-      }
-    },
-    "选择…": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择…"
-          }
-        }
-      }
-    },
-    "已经在录屏。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已经在录屏。"
-          }
-        }
-      }
-    },
-    "已授权": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已授权"
-          }
-        }
-      }
-    },
-    "已授权，退出并重新打开 Shot 后生效": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已授权，退出并重新打开 Shot 后生效"
-          }
-        }
-      }
-    },
-    "已选中": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已选中"
-          }
-        }
-      }
-    },
-    "找不到可用的显示器。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "找不到可用的显示器。"
-          }
-        }
-      }
-    },
-    "找不到选区所在的显示器。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "找不到选区所在的显示器。"
-          }
-        }
-      }
-    },
-    "找不到要截取的窗口。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "找不到要截取的窗口。"
-          }
-        }
-      }
-    },
-    "找不到要录制的窗口。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "找不到要录制的窗口。"
-          }
-        }
-      }
-    },
-    "直线": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "直线"
-          }
-        }
-      }
-    },
-    "中": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中"
-          }
-        }
-      }
-    },
-    "重置": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重置"
-          }
-        }
-      }
-    },
-    "重置区域与窗口切换快捷键": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重置区域与窗口切换快捷键"
-          }
-        }
-      }
-    },
-    "重做": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重做"
-          }
-        }
-      }
-    },
-    "荧光笔": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "荧光笔"
-          }
-        }
-      }
-    },
-    "使用箭头标注（1）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用箭头标注（1）"
-          }
-        }
-      }
-    },
-    "绘制矩形框（2）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "绘制矩形框（2）"
-          }
-        }
-      }
-    },
-    "绘制椭圆框（3）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "绘制椭圆框（3）"
-          }
-        }
-      }
-    },
-    "绘制直线（4）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "绘制直线（4）"
-          }
-        }
-      }
-    },
-    "自由绘制（5）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自由绘制（5）"
-          }
-        }
-      }
-    },
-    "使用半透明宽线标记（6）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用半透明宽线标记（6）"
-          }
-        }
-      }
-    },
-    "添加文字（7）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "添加文字（7）"
-          }
-        }
-      }
-    },
-    "添加序号标记（8）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "添加序号标记（8）"
-          }
-        }
-      }
-    },
-    "遮挡指定区域（9）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "遮挡指定区域（9）"
-          }
-        }
-      }
-    },
-    "突出指定区域（0）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "突出指定区域（0）"
-          }
-        }
-      }
-    },
-    "使用红色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用红色"
-          }
-        }
-      }
-    },
-    "使用橙色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用橙色"
-          }
-        }
-      }
-    },
-    "使用黄色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用黄色"
-          }
-        }
-      }
-    },
-    "使用绿色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用绿色"
-          }
-        }
-      }
-    },
-    "使用蓝色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用蓝色"
-          }
-        }
-      }
-    },
-    "使用白色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用白色"
-          }
-        }
-      }
-    },
-    "使用黑色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用黑色"
-          }
-        }
-      }
-    },
-    "使用细线（2 pt）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用细线（2 pt）"
-          }
-        }
-      }
-    },
-    "使用中等线宽（4 pt）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用中等线宽（4 pt）"
-          }
-        }
-      }
-    },
-    "使用粗线（8 pt）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用粗线（8 pt）"
-          }
-        }
-      }
-    },
-    "撤销（⌘Z）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "撤销（⌘Z）"
-          }
-        }
-      }
-    },
-    "重做（⇧⌘Z）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重做（⇧⌘Z）"
-          }
-        }
-      }
-    },
-    "将最终图片复制到剪贴板（⌘C 或 Return）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将最终图片复制到剪贴板（⌘C 或 Return）"
-          }
-        }
-      }
-    },
-    "将最终图片保存到文件（⌘S）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将最终图片保存到文件（⌘S）"
-          }
-        }
-      }
-    },
-    "好": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "好"
-          }
-        }
-      }
-    },
-    "工具详细设置": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "工具详细设置"
-          }
-        }
-      }
-    },
-    "线宽（pt）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "线宽（pt）"
-          }
-        }
-      }
-    },
-    "画笔粗细（pt）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "画笔粗细（pt）"
-          }
-        }
-      }
-    },
-    "荧光笔粗细（pt）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "荧光笔粗细（pt）"
-          }
-        }
-      }
-    },
-    "透明度": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "透明度"
-          }
-        }
-      }
-    },
-    "文字大小（pt）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文字大小（pt）"
-          }
-        }
-      }
-    },
-    "序号大小": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "序号大小"
-          }
-        }
-      }
-    },
-    "颗粒大小（pt）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "颗粒大小（pt）"
-          }
-        }
-      }
-    },
-    "遮罩不透明度": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "遮罩不透明度"
-          }
-        }
-      }
-    },
-    "关闭编辑器（Esc）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "关闭编辑器（Esc）"
-          }
-        }
-      }
-    },
-    "正在准备截图": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在准备截图"
-          }
-        }
-      }
-    },
-    "正在准备截图…": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在准备截图…"
-          }
-        }
-      }
-    },
-    "%.1f×": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%.1f×"
-          }
-        }
-      }
-    },
-    "实心箭头": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "实心箭头"
-          }
-        }
-      }
-    },
-    "线框箭头": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "线框箭头"
-          }
-        }
-      }
-    },
-    "使用实心尖头": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用实心尖头"
-          }
-        }
-      }
-    },
-    "使用线框尖头": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用线框尖头"
-          }
-        }
-      }
-    },
-    "箭头尖端": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "箭头尖端"
-          }
-        }
-      }
-    },
-    "选择箭头尖端样式": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择箭头尖端样式"
-          }
-        }
-      }
-    },
-    "箭头大小": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "箭头大小"
-          }
-        }
-      }
-    },
-    "实线": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "实线"
-          }
-        }
-      }
-    },
-    "虚线": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "虚线"
-          }
-        }
-      }
-    },
-    "点线": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "点线"
-          }
-        }
-      }
-    },
-    "线型": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "线型"
-          }
-        }
-      }
-    },
-    "选择直线样式": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择直线样式"
-          }
-        }
-      }
-    },
-    "平滑度": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "平滑度"
-          }
-        }
-      }
-    },
-    "气泡文字": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "气泡文字"
-          }
-        }
-      }
-    },
-    "添加气泡文字标注（K）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "添加气泡文字标注（K）"
-          }
-        }
-      }
-    },
-    "气泡填充": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "气泡填充"
-          }
-        }
-      }
-    },
-    "自动换行": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自动换行"
-          }
-        }
-      }
-    },
-    "控制气泡文字是否自动换行": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "控制气泡文字是否自动换行"
-          }
-        }
-      }
-    },
-    "开启": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开启"
-          }
-        }
-      }
-    },
-    "不透明度": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "不透明度"
-          }
-        }
-      }
-    },
-    "窗口截图背景": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "窗口截图背景"
-          }
-        }
-      }
-    },
-    "背景": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "背景"
-          }
-        }
-      }
-    },
-    "桌面壁纸": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "桌面壁纸"
-          }
-        }
-      }
-    },
-    "自定义图片": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自定义图片"
-          }
-        }
-      }
-    },
-    "不添加背景": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "不添加背景"
-          }
-        }
-      }
-    },
-    "未选择图片": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未选择图片"
-          }
-        }
-      }
-    },
-    "选择图片…": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择图片…"
-          }
-        }
-      }
-    },
-    "选择用于窗口截图背景的图片。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择用于窗口截图背景的图片。"
-          }
-        }
-      }
-    },
-    "请选择一张背景图片；未选择时不会添加背景。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请选择一张背景图片；未选择时不会添加背景。"
-          }
-        }
-      }
-    },
-    "窗口截图会自动留出边距，并使用截图所在显示器的桌面壁纸或自定义图片。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "窗口截图会自动留出边距，并使用截图所在显示器的桌面壁纸或自定义图片。"
-          }
-        }
-      }
-    },
-    "触控板按住 ⌘ 时缩放画布": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "触控板按住 ⌘ 时缩放画布"
-          }
-        }
-      }
-    },
-    "鼠标滚轮默认缩放，触控板滚动手势默认平移。开启后，触控板也可按住 ⌘ 用滚轮缩放。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "鼠标滚轮默认缩放，触控板滚动手势默认平移。开启后，触控板也可按住 ⌘ 用滚轮缩放。"
-          }
-        }
-      }
-    },
-    "从菜单栏或快捷键开始截图、滚动截图或录屏。悬停点选窗口，拖拽框选区域；截取后可以直接标注、复制或保存。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "从菜单栏或快捷键开始截图、滚动截图或录屏。悬停点选窗口，拖拽框选区域；截取后可以直接标注、复制或保存。"
-          }
-        }
-      }
-    },
-    "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，录屏为 ⌘⇧6，可在设置里更改。录屏当前不包含声音。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，录屏为 ⌘⇧6，可在设置里更改。录屏当前不包含声音。"
-          }
-        }
-      }
-    },
-    "若快捷键被系统或其他 App 占用，此处会显示「未生效」。录屏保存为 MP4，当前不包含系统音频或麦克风。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "若快捷键被系统或其他 App 占用，此处会显示「未生效」。录屏保存为 MP4，当前不包含系统音频或麦克风。"
-          }
-        }
-      }
-    },
-    "截取与上次相同的区域": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截取与上次相同的区域"
-          }
-        }
-      }
-    },
-    "正在导出": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在导出"
-          }
-        }
-      }
-    },
-    "点击屏幕或按 Return 截取 · Esc 取消": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "点击屏幕或按 Return 截取 · Esc 取消"
-          }
-        }
-      }
-    },
-    "视频已复制到剪贴板": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "视频已复制到剪贴板"
-          }
-        }
-      }
-    },
-    "还没有可重复截取的区域": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "还没有可重复截取的区域"
-          }
-        }
-      }
-    },
-    "选择自定义颜色": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择自定义颜色"
-          }
-        }
-      }
-    },
-    "填充": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "填充"
-          }
-        }
-      }
-    },
-    "外观": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "外观"
-          }
-        }
-      }
-    },
-    "已采集半屏 · 完成后按 Return": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已采集半屏 · 完成后按 Return"
-          }
-        }
-      }
-    },
-    "已采集 %d 屏 · 完成后按 Return": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已采集 %d 屏 · 完成后按 Return"
-          }
-        }
-      }
-    },
-    "已采集约 %.1f 屏 · 完成后按 Return": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已采集约 %.1f 屏 · 完成后按 Return"
-          }
-        }
-      }
-    },
-    "10 秒": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "10 秒"
-          }
-        }
-      }
-    },
-    "3 秒": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3 秒"
-          }
-        }
-      }
-    },
-    "5 秒": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "5 秒"
-          }
-        }
-      }
-    },
-    "使用默认操作（Return）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用默认操作（Return）"
-          }
-        }
-      }
-    },
-    "保存到文件（⌘S）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存到文件（⌘S）"
-          }
-        }
-      }
-    },
-    "倒计时 %@ 秒": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "倒计时 %1$@ 秒"
-          }
-        }
-      }
-    },
-    "倒计时不会写入成片。点击高亮会显示在录制画面中，便于演示。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "倒计时不会写入成片。点击高亮会显示在录制画面中，便于演示。"
-          }
-        }
-      }
-    },
-    "关": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "关"
-          }
-        }
-      }
-    },
-    "关闭后未复制或保存的标注会丢失。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "关闭后未复制或保存的标注会丢失。"
-          }
-        }
-      }
-    },
-    "在访达中显示": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在访达中显示"
-          }
-        }
-      }
-    },
-    "复制到剪贴板（⌘C）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "复制到剪贴板（⌘C）"
-          }
-        }
-      }
-    },
-    "将截图钉在桌面上": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将截图钉在桌面上"
-          }
-        }
-      }
-    },
-    "已复制识别文字": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已复制识别文字"
-          }
-        }
-      }
-    },
-    "已复制颜色 %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已复制颜色 %1$@"
-          }
-        }
-      }
-    },
-    "底部切换模式": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "底部切换模式"
-          }
-        }
-      }
-    },
-    "开始": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开始"
-          }
-        }
-      }
-    },
-    "开始前倒计时": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开始前倒计时"
-          }
-        }
-      }
-    },
-    "开始（Return）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开始（Return）"
-          }
-        }
-      }
-    },
-    "录制系统声音": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "录制系统声音"
-          }
-        }
-      }
-    },
-    "录制麦克风": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "录制麦克风"
-          }
-        }
-      }
-    },
-    "打开标注（Return）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打开标注（Return）"
-          }
-        }
-      }
-    },
-    "复制到剪贴板（Return 或 ⌘C）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "复制到剪贴板（Return 或 ⌘C）"
-          }
-        }
-      }
-    },
-    "保存到文件（Return 或 ⌘S）": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存到文件（Return 或 ⌘S）"
-          }
-        }
-      }
-    },
-    "拖拽选择滚动区域，松手后可调整 · Esc 取消": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "拖拽选择滚动区域，松手后可调整 · Esc 取消"
-          }
-        }
-      }
-    },
-    "拖拽选择要保留的区域": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "拖拽选择要保留的区域"
-          }
-        }
-      }
-    },
-    "放弃": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "放弃"
-          }
-        }
-      }
-    },
-    "放弃标注？": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "放弃标注？"
-          }
-        }
-      }
-    },
-    "最近截图": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最近截图"
-          }
-        }
-      }
-    },
-    "未授权麦克风，已继续录屏且不收录人声": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未授权麦克风，已继续录屏且不收录人声"
-          }
-        }
-      }
-    },
-    "未授权麦克风，已继续录屏且不收录人声。可在系统设置中开启。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未授权麦克风，已继续录屏且不收录人声。可在系统设置中开启。"
-          }
-        }
-      }
-    },
-    "未识别到文字": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未识别到文字"
-          }
-        }
-      }
-    },
-    "标注": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "标注"
-          }
-        }
-      }
-    },
-    "标注：V 选择，C 裁剪，1–4 形状，5 画笔，6 荧光笔，7 文字，K 气泡，8 序号，9 马赛克，0 聚光。⌘D 复制标注，Delete 删除。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "标注：V 选择，C 裁剪，1–4 形状，5 画笔，6 荧光笔，7 文字，K 气泡，8 序号，9 马赛克，0 聚光。⌘D 复制标注，Delete 删除。"
-          }
-        }
-      }
-    },
-    "框选区域": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "框选区域"
-          }
-        }
-      }
-    },
-    "模式条更通透": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "模式条更通透"
-          }
-        }
-      }
-    },
-    "正在录屏": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在录屏"
-          }
-        }
-      }
-    },
-    "点选窗口": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "点选窗口"
-          }
-        }
-      }
-    },
-    "编辑器": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "编辑器"
-          }
-        }
-      }
-    },
-    "若快捷键被系统或其他 App 占用，此处会显示「未生效」。": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "若快捷键被系统或其他 App 占用，此处会显示「未生效」。"
           }
         }
       }
@@ -3488,6 +3406,94 @@
         }
       }
     },
+    "请求权限": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请求权限"
+          }
+        }
+      }
+    },
+    "请选择一张背景图片；未选择时不会添加背景。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择一张背景图片；未选择时不会添加背景。"
+          }
+        }
+      }
+    },
+    "跳过": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跳过"
+          }
+        }
+      }
+    },
+    "输入文字": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入文字"
+          }
+        }
+      }
+    },
+    "还没有可重复截取的区域": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有可重复截取的区域"
+          }
+        }
+      }
+    },
+    "退出 Shot": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退出 Shot"
+          }
+        }
+      }
+    },
+    "退出并重新打开 Shot": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退出并重新打开 Shot"
+          }
+        }
+      }
+    },
+    "选区尺寸 %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选区尺寸 %1$@"
+          }
+        }
+      }
+    },
     "选区操作": {
       "extractionState": "manual",
       "localizations": {
@@ -3499,6 +3505,192 @@
         }
       }
     },
+    "选择": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择"
+          }
+        }
+      }
+    },
+    "选择…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择…"
+          }
+        }
+      }
+    },
+    "选择图片…": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择图片…"
+          }
+        }
+      }
+    },
+    "选择并编辑标注（V）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择并编辑标注（V）"
+          }
+        }
+      }
+    },
+    "选择标注工具": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择标注工具"
+          }
+        }
+      }
+    },
+    "选择用于窗口截图背景的图片。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择用于窗口截图背景的图片。"
+          }
+        }
+      }
+    },
+    "选择直线样式": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择直线样式"
+          }
+        }
+      }
+    },
+    "选择箭头尖端样式": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择箭头尖端样式"
+          }
+        }
+      }
+    },
+    "选择自定义颜色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择自定义颜色"
+          }
+        }
+      }
+    },
+    "透明度": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "透明度"
+          }
+        }
+      }
+    },
+    "通用": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通用"
+          }
+        }
+      }
+    },
+    "遮挡指定区域（9）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "遮挡指定区域（9）"
+          }
+        }
+      }
+    },
+    "遮罩不透明度": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "遮罩不透明度"
+          }
+        }
+      }
+    },
+    "重做": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重做"
+          }
+        }
+      }
+    },
+    "重做（⇧⌘Z）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重做（⇧⌘Z）"
+          }
+        }
+      }
+    },
+    "重置": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重置"
+          }
+        }
+      }
+    },
+    "重置区域与窗口切换快捷键": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重置区域与窗口切换快捷键"
+          }
+        }
+      }
+    },
     "钉图": {
       "extractionState": "manual",
       "localizations": {
@@ -3506,6 +3698,72 @@
           "stringUnit": {
             "state": "translated",
             "value": "钉图"
+          }
+        }
+      }
+    },
+    "钉图操作": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "钉图操作"
+          }
+        }
+      }
+    },
+    "颗粒大小（pt）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "颗粒大小（pt）"
+          }
+        }
+      }
+    },
+    "马赛克": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "马赛克"
+          }
+        }
+      }
+    },
+    "马赛克形状": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "马赛克形状"
+          }
+        }
+      }
+    },
+    "马赛克效果": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "马赛克效果"
+          }
+        }
+      }
+    },
+    "高亮": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高亮"
           }
         }
       }
@@ -3554,6 +3812,39 @@
         }
       }
     },
+    "黄色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "黄色"
+          }
+        }
+      }
+    },
+    "黑色": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "黑色"
+          }
+        }
+      }
+    },
+    "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，录屏为 ⌘⇧6，可在设置里更改。录屏当前不包含声音。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，录屏为 ⌘⇧6，可在设置里更改。录屏当前不包含声音。"
+          }
+        }
+      }
+    },
     "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，截取上次区域为 ⌃⌘L，录屏为 ⌘⇧6，可在设置里更改。": {
       "extractionState": "manual",
       "localizations": {
@@ -3561,6 +3852,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，截取上次区域为 ⌃⌘L，录屏为 ⌘⇧6，可在设置里更改。"
+          }
+        }
+      }
+    },
+    "鼠标滚轮默认缩放，触控板滚动手势默认平移。开启后，触控板也可按住 ⌘ 用滚轮缩放。": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鼠标滚轮默认缩放，触控板滚动手势默认平移。开启后，触控板也可按住 ⌘ 用滚轮缩放。"
           }
         }
       }

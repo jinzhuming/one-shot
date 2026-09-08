@@ -11,7 +11,12 @@ final class EditorPresenter {
     private var keyMonitor: Any?
     private var overlay: OverlayController?
     private var saveTask: Task<Void, Never>?
+    private var outputLifetime = OperationLifetime()
+    private let output: EditorOutputService
+
+    init(output: EditorOutputService? = nil) { self.output = output ?? EditorOutputService() }
     private var presentationScreen: NSScreen?
+    private var chromeSuspended = false
 
     func presentInPlace(result: CaptureResult, overlay: OverlayController) {
         self.overlay = overlay
@@ -37,8 +42,21 @@ final class EditorPresenter {
         )
     }
 
+    func restoreAnnotation(_ session: EditSession, on screen: NSScreen) {
+        overlay = nil
+        present(
+            session: session,
+            preferredImageSize: session.document.baseImage.size,
+            originForImage: nil,
+            screen: screen,
+            presentationStyle: .windowed
+        )
+    }
+
     func dismiss() {
+        chromeSuspended = false
         AnnotationColorPickerController.dismiss()
+        outputLifetime.invalidate()
         saveTask?.cancel()
         saveTask = nil
         session?.endExport()
@@ -67,8 +85,23 @@ final class EditorPresenter {
         screen: NSScreen,
         presentationStyle: EditorPresentationStyle
     ) {
+        present(
+            session: EditSession(image: result.image),
+            preferredImageSize: preferredImageSize,
+            originForImage: originForImage,
+            screen: screen,
+            presentationStyle: presentationStyle
+        )
+    }
+
+    private func present(
+        session: EditSession,
+        preferredImageSize: CGSize,
+        originForImage: CGRect?,
+        screen: NSScreen,
+        presentationStyle: EditorPresentationStyle
+    ) {
         presentationScreen = screen
-        let session = EditSession(image: result.image)
         session.onCanvasSizeChange = { [weak self] in
             self?.relayoutForCurrentImage()
         }
@@ -316,7 +349,8 @@ final class EditorPresenter {
             NSEvent.removeMonitor(monitor)
         }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
-            guard let self else { return event }
+            guard let self, let panel = self.panel,
+                  event.window === panel || NSApp.keyWindow === panel else { return event }
             if event.keyCode == 49 {
                 (self.panel?.contentView as? EditorChromeView)?.setSpaceHeld(event.type == .keyDown)
                 return event
@@ -436,157 +470,117 @@ final class EditorPresenter {
         dismiss()
     }
 
-    @MainActor
-    private func copyAndFinish() {
-        commitPendingText()
-        guard let session, session.beginExport() else { return }
-        let document = session.document
-        saveTask?.cancel()
-        saveTask = Task { @MainActor [weak self] in
-            guard let self else {
-                session.endExport()
-                return
-            }
-            guard let image = await self.renderedImage(from: document) else {
-                session.endExport()
-                self.presentErrorPreservingEditor(ImageExporter.ExportError.encodingFailed)
-                return
-            }
-            guard !Task.isCancelled, self.session === session else {
-                session.endExport()
-                return
-            }
-            let screen = self.presentationScreen
-            session.endExport()
-            guard ImageExporter.copyToClipboard(image) else {
-                self.saveTask = nil
-                self.presentErrorPreservingEditor(ImageExporter.ExportError.clipboardFailed)
-                return
-            }
-            self.saveTask = nil
-            self.dismiss()
-            ScreenshotHistoryStore.add(image)
-            SaveLocationPresenter.showCopied(on: screen)
-        }
-    }
+    private func copyAndFinish() { performOutput(.copy) }
+    private func saveAndFinish() { performOutput(.save) }
+    private func pinAndFinish() { performOutput(.pin) }
+    private func ocrFromEditor() { performOutput(.ocr) }
 
-    private func saveAndFinish() {
+    private func performOutput(_ action: EditorOutputAction) {
         commitPendingText()
         guard let session, session.beginExport() else { return }
         let settings = AppSettings.shared
-        guard let url = ImageExporter.destinationURL(settings: settings) else {
-            session.endExport()
-            return
-        }
         let format = settings.saveFormat
         let copyOnComplete = settings.copyOnComplete
-        let document = session.document
+        let destination: ImageExportDestination?
+        if action == .save {
+            guard let selected = ImageExporter.destination(settings: settings) else {
+                session.endExport()
+                return
+            }
+            destination = selected
+        } else {
+            destination = nil
+        }
+        guard let snapshot = AnnotationRenderSnapshot(document: session.document) else {
+            session.endExport()
+            presentErrorPreservingEditor(ImageExporter.ExportError.encodingFailed)
+            return
+        }
+        let screen = presentationScreen
+        let token = outputLifetime.begin()
         saveTask?.cancel()
         saveTask = Task { @MainActor [weak self] in
-            guard let self else {
-                session.endExport()
-                return
-            }
-            guard let image = await self.renderedImage(from: document) else {
-                session.endExport()
-                self.presentErrorPreservingEditor(ImageExporter.ExportError.encodingFailed)
-                return
-            }
-            guard !Task.isCancelled, self.session === session else {
-                session.endExport()
-                return
-            }
-            do {
-                try await ImageExporter.save(image, format: format, to: url)
-                guard !Task.isCancelled else {
-                    session.endExport()
-                    return
-                }
-                // The file is complete even if the optional clipboard copy
-                // below fails, so keep the finished image in history.
-                ScreenshotHistoryStore.add(image)
-                if copyOnComplete,
-                   !ImageExporter.copyToClipboard(image) {
+            guard let self else { session.endExport(); return }
+            defer {
+                if self.outputLifetime.finish(token) {
                     session.endExport()
                     self.saveTask = nil
-                    self.presentErrorPreservingEditor(ImageExporter.ExportError.clipboardFailed)
-                    return
                 }
-                session.endExport()
-                self.saveTask = nil
-                let screen = self.presentationScreen
-                self.dismiss()
-                SaveLocationPresenter.showSaved(at: url, on: screen)
+            }
+            do {
+                let result = try await self.output.perform(
+                    action, snapshot: snapshot, format: format, destination: destination
+                )
+                guard !Task.isCancelled, self.outputLifetime.contains(token), self.session === session else { return }
+                let image = result.image
+                switch action {
+                case .copy:
+                    guard ImageExporter.copyToClipboard(image) else { throw ImageExporter.ExportError.clipboardFailed }
+                    ScreenshotHistoryStore.add(image)
+                    self.dismiss()
+                    SaveLocationPresenter.showCopied(on: screen)
+                case .save:
+                    guard let url = result.url else { return }
+                    ScreenshotHistoryStore.add(image)
+                    if copyOnComplete, !ImageExporter.copyToClipboard(image) {
+                        throw ImageExporter.ExportError.savedButClipboardFailed
+                    }
+                    self.dismiss()
+                    SaveLocationPresenter.showSaved(at: url, on: screen)
+                case .pin:
+                    self.dismiss()
+                    PinController.shared.present(image, on: screen) { [session] in
+                        guard let screen = Self.availableScreen(preferred: screen) else { return }
+                        CaptureSession.shared.restoreEditorSession(session, on: screen)
+                    }
+                case .ocr:
+                    let text = result.text ?? ""
+                    if !text.isEmpty {
+                        NSPasteboard.general.clearContents()
+                        guard NSPasteboard.general.setString(text, forType: .string) else {
+                            throw ImageExporter.ExportError.clipboardFailed
+                        }
+                    }
+                    ScreenshotHistoryStore.add(image)
+                    SaveLocationPresenter.showCopied(
+                        message: text.isEmpty ? String(localized: "未识别到文字") : String(localized: "已复制识别文字"),
+                        on: screen
+                    )
+                }
             } catch is CancellationError {
-                session.endExport()
                 return
             } catch {
-                guard !Task.isCancelled else {
-                    session.endExport()
-                    return
-                }
-                session.endExport()
-                self.saveTask = nil
-                let alert = NSAlert(error: error)
-                alert.window.level = NSWindow.Level(rawValue: CaptureWindowLevels.editor.rawValue + 1)
-                alert.runModal()
+                guard !Task.isCancelled, self.outputLifetime.contains(token), self.session === session else { return }
+                Diagnostics.exports.error("Editor output failed")
+                self.presentErrorPreservingEditor(error)
             }
         }
     }
 
-    private func pinAndFinish() {
-        commitPendingText()
-        guard let session, session.beginExport() else { return }
-        let document = session.document
-        saveTask?.cancel()
-        saveTask = Task { @MainActor [weak self] in
-            guard let self else {
-                session.endExport()
-                return
-            }
-            guard let image = await self.renderedImage(from: document) else {
-                session.endExport()
-                self.presentErrorPreservingEditor(ImageExporter.ExportError.encodingFailed)
-                return
-            }
-            guard !Task.isCancelled, self.session === session else {
-                session.endExport()
-                return
-            }
-            let screen = self.presentationScreen
-            session.endExport()
-            self.saveTask = nil
-            self.dismiss()
-            PinController.shared.present(image, on: screen)
+    private static func availableScreen(preferred: NSScreen?) -> NSScreen? {
+        if let preferred, let screen = NSScreen.screens.first(where: { $0.displayID == preferred.displayID }) {
+            return screen
         }
+        return CoordinateSpace.screen(containing: NSEvent.mouseLocation) ?? NSScreen.screens.first
     }
 
-    private func ocrFromEditor() {
-        commitPendingText()
-        guard let session, session.beginExport() else { return }
-        let document = session.document
+    func suspendChrome() {
+        chromeSuspended = true
+        outputLifetime.invalidate()
         saveTask?.cancel()
-        saveTask = Task { @MainActor [weak self] in
-            guard let self else {
-                session.endExport()
-                return
-            }
-            guard let image = await self.renderedImage(from: document) else {
-                session.endExport()
-                self.presentErrorPreservingEditor(ImageExporter.ExportError.encodingFailed)
-                return
-            }
-            let text = await OCRService.recognizeText(in: image)
-            session.endExport()
-            self.saveTask = nil
-            ScreenshotHistoryStore.add(image)
-            if text.isEmpty {
-                SaveLocationPresenter.showCopied(message: String(localized: "未识别到文字"), on: self.presentationScreen)
-            } else {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
-                SaveLocationPresenter.showCopied(message: String(localized: "已复制识别文字"), on: self.presentationScreen)
-            }
+        saveTask = nil
+        session?.endExport()
+        overlay?.dismiss()
+        panel?.orderOut(nil)
+    }
+
+    func relayoutForCurrentScreens() {
+        guard panel != nil, let screen = Self.availableScreen(preferred: presentationScreen) else { return }
+        presentationScreen = screen
+        relayoutForCurrentImage()
+        if chromeSuspended {
+            chromeSuspended = false
+            panel?.orderFrontRegardless()
         }
     }
 
@@ -633,16 +627,6 @@ final class EditorPresenter {
             content?.apply(arrangement)
             panel.setFrame(arrangement.windowFrame, display: true)
         }
-    }
-
-    private func renderedImage(from document: AnnotationDocument) async -> NSImage? {
-        let imageSize = document.baseImage.size
-        let snapshot = AnnotationRenderSnapshot(document: document)
-        let cgImage = await Task.detached(priority: .userInitiated) {
-            snapshot.renderedCGImage()
-        }.value
-        guard !Task.isCancelled, let cgImage else { return nil }
-        return NSImage(cgImage: cgImage, size: imageSize)
     }
 
     private func presentErrorPreservingEditor(_ error: Error) {

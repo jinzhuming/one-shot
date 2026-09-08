@@ -18,4 +18,11 @@ enum CaptureWindowLevels {
         // path fails and still leaves system UI and privacy indicators alone.
         NSWindow.Level(rawValue: modeBar.rawValue + 1)
     }
+
+    static var pin: NSWindow.Level {
+        // A pinned image is persistent user content, so it must remain above
+        // normal and application floating windows after Shot deactivates.
+        // Keep it below the screen-saver range and the system privacy UI.
+        NSWindow.Level(rawValue: editor.rawValue + 1)
+    }
 }

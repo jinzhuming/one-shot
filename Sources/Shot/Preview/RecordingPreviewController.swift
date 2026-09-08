@@ -9,6 +9,8 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
     private static let previewSize = CGSize(width: 380, height: 284)
     private var windows: [UUID: RecordingPreviewWindow] = [:]
     private var order: [UUID] = []
+    private var saveTasks: [UUID: Task<Void, Never>] = [:]
+    var activeWindowCount: Int { windows.count }
     private var screenParametersObserver: NSObjectProtocol?
 
     override init() {
@@ -44,7 +46,7 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
                     on: result.screen
                 )
             },
-            onSave: { [weak self] in self?.save(result.url) },
+            onSave: { [weak self] in self?.save(result.url, id: id) },
             onReveal: {
                 NSWorkspace.shared.activateFileViewerSelecting([result.url])
             },
@@ -82,12 +84,15 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? RecordingPreviewWindow,
               let id = window.recordingID else { return }
+        saveTasks.removeValue(forKey: id)?.cancel()
         (window.contentView as? RecordingPreviewView)?.stopPlayback()
         window.contentView = nil
         windows.removeValue(forKey: id)
         order.removeAll { $0 == id }
         relayout()
     }
+
+    func closeAll() { for id in Array(windows.keys) { close(id: id) } }
 
     private func close(id: UUID) {
         windows[id]?.close()
@@ -124,17 +129,28 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
         NSAlert(error: error).runModal()
     }
 
-    private func save(_ sourceURL: URL) {
-        guard let destinationURL = VideoExporter.promptSaveURL(sourceURL: sourceURL) else { return }
-        Task { @MainActor in
+    private func save(_ sourceURL: URL, id: UUID) {
+        guard saveTasks[id] == nil, let window = windows[id],
+              let destinationURL = VideoExporter.promptSaveURL(sourceURL: sourceURL) else { return }
+        (window.contentView as? RecordingPreviewView)?.setExporting(true)
+        saveTasks[id] = Task { @MainActor [weak self, weak window] in
+            defer {
+                self?.saveTasks[id] = nil
+                (window?.contentView as? RecordingPreviewView)?.setExporting(false)
+            }
             do {
                 try await VideoExporter.copy(sourceURL, to: destinationURL)
+                guard !Task.isCancelled, self?.windows[id] != nil else { return }
+                SaveLocationPresenter.showSaved(at: destinationURL, on: window?.screen)
+            } catch is CancellationError {
+                return
             } catch {
-                let alert = NSAlert(error: error)
-                alert.runModal()
+                guard !Task.isCancelled, self?.windows[id] != nil else { return }
+                NSAlert(error: error).runModal()
             }
         }
     }
+
 }
 
 final class RecordingPreviewWindow: NSWindow {
@@ -151,7 +167,7 @@ final class RecordingPreviewWindow: NSWindow {
 }
 
 final class RecordingPreviewView: NSView {
-    private let effectView = NSVisualEffectView()
+    private let effectView = HUDMaterialView()
     private let playerView = AVPlayerView()
     private let actionGroup = NSStackView()
     private let copyButton = NSButton(title: "", target: nil, action: nil)
@@ -192,6 +208,7 @@ final class RecordingPreviewView: NSView {
     func stopPlayback() {
         player.pause()
         player.replaceCurrentItem(with: nil)
+        playerView.player = nil
     }
 
     deinit {
@@ -200,11 +217,11 @@ final class RecordingPreviewView: NSView {
 
     private func setup() {
         wantsLayer = true
-        layer?.cornerRadius = 10
+        layer?.cornerRadius = InterfaceMetrics.panelRadius
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
         appearance = NSAppearance(named: .vibrantDark)
-        setAccessibilityElement(true)
+        setAccessibilityElement(false)
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "录制视频预览"))
 
@@ -224,6 +241,9 @@ final class RecordingPreviewView: NSView {
         configure(saveButton, title: String(localized: "保存"), action: #selector(saveVideo))
         configure(revealButton, title: String(localized: "在访达中显示"), action: #selector(revealVideo))
         configure(closeButton, title: String(localized: "关闭"), action: #selector(closePreview))
+        copyButton.bezelColor = .controlAccentColor
+        copyButton.keyEquivalent = "\r"
+        closeButton.keyEquivalent = "\u{1b}"
 
         actionGroup.orientation = .horizontal
         actionGroup.alignment = .centerY
@@ -257,8 +277,15 @@ final class RecordingPreviewView: NSView {
         button.controlSize = .small
         button.target = self
         button.action = action
+        button.toolTip = title
         button.setAccessibilityLabel(title)
         button.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    func setExporting(_ exporting: Bool) {
+        saveButton.isEnabled = !exporting
+        saveButton.title = exporting ? String(localized: "正在保存") : String(localized: "保存")
+        saveButton.setAccessibilityValue(saveButton.title)
     }
 
     @objc private func copyVideo() {

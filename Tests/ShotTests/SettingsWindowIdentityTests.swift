@@ -1,20 +1,15 @@
+import AppKit
 import Testing
 @testable import Shot
 
-@Test func settingsWindowIdentityMatchesSwiftUIAndShotIdentifiers() {
-    #expect(SettingsWindowIdentity.identifier == "shot.settings")
-    #expect(SettingsWindowIdentity.helperIdentifier == "shot.settings-helper")
-    #expect(SettingsWindowIdentity.matches(identifier: "shot.settings"))
-    #expect(SettingsWindowIdentity.matches(identifier: "com_apple_SwiftUI_Settings_window"))
-    #expect(SettingsWindowIdentity.matches(identifier: "com_apple_SwiftUI_Settings_window_1"))
-    #expect(SettingsWindowIdentity.matches(identifier: "SwiftUI.Settings.Window"))
-    #expect(SettingsWindowIdentity.matches(
-        identifier: nil,
-        autosaveName: "com_apple_SwiftUI_Settings_window"
-    ))
-    #expect(!SettingsWindowIdentity.matches(identifier: nil))
+@Test @MainActor func settingsSceneConfiguresItsOwnWindowWithoutAHelper() {
+    let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 520, height: 540), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    defer { window.contentView = nil; window.close() }
+    window.contentView = SettingsIdentityView()
+    #expect(SettingsWindowIdentity.matches(identifier: window.identifier?.rawValue))
+    #expect(window.title == String(localized: "设置"))
+    #expect(!window.isRestorable)
     #expect(!SettingsWindowIdentity.matches(identifier: "shot.settings-helper"))
-    #expect(SettingsWindowIdentity.isHelper(identifier: "shot.settings-helper"))
-    #expect(!SettingsWindowIdentity.isHelper(identifier: "shot.settings"))
     #expect(!SettingsWindowIdentity.matches(identifier: "NSStatusItemWindow"))
 }

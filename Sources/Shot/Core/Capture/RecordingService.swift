@@ -147,6 +147,7 @@ private final class RecordingOutputStartGate: @unchecked Sendable {
 
 @MainActor
 final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDelegate {
+    private var generation: UInt64 = 0
     private var stream: SCStream?
     private var recordingOutput: SCRecordingOutput?
     private var outputURL: URL?
@@ -192,6 +193,8 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         exceptingWindowIDs: [CGWindowID] = []
     ) async throws -> NSScreen {
         guard state == .idle else { throw RecordingError.alreadyRecording }
+        generation &+= 1
+        let operation = generation
         state = .starting
         do {
             let resolved = try await resolve(
@@ -200,6 +203,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
                 options: options,
                 exceptingWindowIDs: exceptingWindowIDs
             )
+            try validate(operation)
             let (output, url) = try makeRecordingOutput()
             let newStream = SCStream(
                 filter: resolved.filter,
@@ -221,6 +225,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
             try newStream.addRecordingOutput(output)
 
             try await startCapture(newStream)
+            try validate(operation)
             if let startFailure {
                 throw startFailure
             }
@@ -233,7 +238,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
             startedAt = Date()
             return resolved.screen
         } catch {
-            await cleanupAfterFailure()
+            if generation == operation { await cleanupAfterFailure() }
             throw error
         }
     }
@@ -266,17 +271,21 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
             throw RecordingError.notRecording
         }
 
+        let operation = generation
         stopRequested = true
         state = .stopping
         do {
             if let output = recordingOutput {
                 let segment = try await finishCurrentOutput(output, from: stream)
+                try validate(operation)
                 segments.append(segment)
             }
             try await stopCapture(stream)
+            try validate(operation)
 
             let sourceURLs = segments.map(\.url)
             let mergedURL = try await VideoExporter.mergeRecordingSegments(sourceURLs)
+            try validate(operation)
             let finalURL: URL
             do {
                 finalURL = try await VideoExporter.finalizeRecording(
@@ -290,6 +299,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
                 // different location without losing the recording.
                 finalURL = mergedURL
             }
+            try validate(operation)
             for sourceURL in sourceURLs where sourceURL != finalURL {
                 try? FileManager.default.removeItem(at: sourceURL)
             }
@@ -302,7 +312,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
             clearState()
             return result
         } catch {
-            await cleanupAfterFailure()
+            if generation == operation { await cleanupAfterFailure() }
             throw error
         }
     }
@@ -311,16 +321,18 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         guard state == .recording,
               let stream,
               let output = recordingOutput else { throw RecordingError.notRecording }
+        let operation = generation
         state = .pausing
         do {
             let segment = try await finishCurrentOutput(output, from: stream)
+            try validate(operation)
             segments.append(segment)
             recordingOutput = nil
             outputURL = nil
             pausedAt = Date()
             state = .paused
         } catch {
-            if state == .pausing {
+            if generation == operation, state == .pausing {
                 state = .recording
             }
             throw error
@@ -329,6 +341,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
 
     private func resume() async throws {
         guard state == .paused, let stream else { throw RecordingError.notRecording }
+        let operation = generation
         state = .resuming
         do {
             let (output, url) = try makeRecordingOutput()
@@ -338,6 +351,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
             try stream.addRecordingOutput(output)
             defer { outputStartGates.removeValue(forKey: ObjectIdentifier(output)) }
             try await outputStartGate.wait(timeout: .seconds(15))
+            try validate(operation)
             guard state == .resuming, self.stream === stream else {
                 throw CancellationError()
             }
@@ -347,6 +361,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
             self.pausedAt = nil
             state = .recording
         } catch {
+            guard generation == operation else { throw CancellationError() }
             if let outputURL {
                 try? FileManager.default.removeItem(at: outputURL)
                 self.outputURL = nil
@@ -724,27 +739,49 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         }
         state = .failed
         resumeFinish(with: error)
+        let failedGeneration = generation
         await cleanupAfterFailure()
-        onFailure?(error)
+        if generation == failedGeneration &+ 1, state == .idle { onFailure?(error) }
     }
 
-    private func cleanupAfterFailure() async {
-        if let stream, let output = recordingOutput {
-            try? stream.removeRecordingOutput(output)
-        }
-        if let stream {
-            try? await stopCapture(stream, timeout: .seconds(2))
-        }
-        if let outputURL {
-            try? FileManager.default.removeItem(at: outputURL)
-        }
-        for segment in segments {
-            try? FileManager.default.removeItem(at: segment.url)
-        }
+    func abandon() {
+        let resources = detachResources()
+        Task { await discard(resources) }
+    }
+
+    private struct RetiredRecording {
+        let stream: SCStream?
+        let output: SCRecordingOutput?
+        let urls: [URL]
+    }
+
+    private func detachResources() -> RetiredRecording {
+        let resources = RetiredRecording(stream: stream, output: recordingOutput,
+                                         urls: segments.map(\.url) + [outputURL].compactMap { $0 })
         clearState()
+        return resources
+    }
+
+    private func cleanupAfterFailure() async { await discard(detachResources()) }
+
+    private func discard(_ resources: RetiredRecording) async {
+        if let stream = resources.stream, let output = resources.output { try? stream.removeRecordingOutput(output) }
+        if let stream = resources.stream { try? await stopCapture(stream, timeout: .seconds(2)) }
+        // Cleanup must outlive cancellation of the operation it is retiring.
+        await Task.detached(priority: .utility) {
+            for url in resources.urls { try? FileManager.default.removeItem(at: url) }
+        }.value
+    }
+
+    private func validate(_ operation: UInt64) throws {
+        try Task.checkCancellation()
+        guard operation == generation else { throw CancellationError() }
     }
 
     private func clearState() {
+        generation &+= 1
+        outputStartGates.values.forEach { $0.resume(throwing: CancellationError()) }
+        resumeFinish(with: CancellationError())
         finishTimeoutTask?.cancel()
         finishTimeoutTask = nil
         finishGate = nil

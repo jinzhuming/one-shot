@@ -55,7 +55,7 @@ final class ScrollCaptureHUD {
 
 @MainActor
 private final class ScrollCaptureHUDView: NSView {
-    private let effectView = NSVisualEffectView()
+    private let effectView = HUDMaterialView()
     private let titleLabel = NSTextField(labelWithString: String(localized: "正在采集滚动截图…"))
     private let detailLabel = NSTextField(labelWithString: String(localized: "滚动内容，完成后按 Return"))
     private let finishButton = NSButton(title: String(localized: "完成"), target: nil, action: nil)

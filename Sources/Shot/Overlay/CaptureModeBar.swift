@@ -50,14 +50,13 @@ struct CaptureModeBar: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color.primary.opacity(0.72))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.85)
             }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background {
             HUDChrome.PanelBackground(
-                cornerRadius: 14,
+                cornerRadius: InterfaceMetrics.panelRadius,
                 treatment: settings.useLightweightCaptureHUD ? .lightweight : .standard
             )
         }

@@ -385,7 +385,7 @@ struct ScrollCaptureOptions: Sendable {
 final class ScrollCaptureCoordinator {
     typealias ProgressHandler = @MainActor (ScrollCaptureProgress) -> Void
 
-    private let captureService: CaptureService
+    private let captureService: any ScreenCapturing
     private let catalog: WindowCatalog
     private let options: ScrollCaptureOptions
     private let expectedWindow: ScrollCaptureTarget?
@@ -393,7 +393,7 @@ final class ScrollCaptureCoordinator {
     private var finishRequested = false
 
     init(
-        captureService: CaptureService,
+        captureService: any ScreenCapturing,
         catalog: WindowCatalog,
         options: ScrollCaptureOptions = ScrollCaptureOptions(),
         expectedWindow: CapturableWindow? = nil,

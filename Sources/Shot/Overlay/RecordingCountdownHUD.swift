@@ -47,7 +47,7 @@ final class RecordingCountdownHUD {
 
 private final class RecordingCountdownView: NSView {
     let label = NSTextField(labelWithString: "")
-    private let effectView = NSVisualEffectView()
+    private let effectView = HUDMaterialView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)

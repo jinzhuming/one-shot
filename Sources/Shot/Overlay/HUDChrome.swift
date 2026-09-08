@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 
+@MainActor
 enum HUDChrome {
     enum PanelTreatment: Equatable {
         case standard
@@ -8,14 +9,14 @@ enum HUDChrome {
     }
 
     static var reduceTransparency: Bool {
-        NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        InterfacePreferences.shared.reduceTransparency
     }
 
-    static var solidFill: Color { Color(white: 0.18).opacity(0.97) }
+    static var solidFill: Color { Color(nsColor: .windowBackgroundColor) }
 
     static var liftFill: Color { Color.white.opacity(0.10) }
 
-    static var hairline: Color { Color.white.opacity(0.26) }
+    static var hairline: Color { Color.white.opacity(InterfacePreferences.shared.increaseContrast ? 0.65 : 0.26) }
 
     static var hoverFill: Color { Color.white.opacity(0.14) }
 
@@ -24,13 +25,14 @@ enum HUDChrome {
     static var selectedFill: Color { Color.accentColor.opacity(0.82) }
 
     struct PanelBackground: View {
+        @ObservedObject private var preferences = InterfacePreferences.shared
         var cornerRadius: CGFloat
         var treatment: PanelTreatment = .standard
 
         var body: some View {
             let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             ZStack {
-                if HUDChrome.reduceTransparency {
+                if preferences.reduceTransparency {
                     shape.fill(HUDChrome.solidFill)
                 } else {
                     VisualEffect(
@@ -44,7 +46,7 @@ enum HUDChrome {
             .clipShape(shape)
             .overlay {
                 shape.strokeBorder(
-                    treatment == .lightweight
+                    treatment == .lightweight && !preferences.increaseContrast
                         ? Color.white.opacity(0.16)
                         : HUDChrome.hairline,
                     lineWidth: 1
@@ -75,6 +77,7 @@ private struct IconButtonBody: View {
     var cornerRadius: CGFloat
     var tintsLabel: Bool
     @State private var isHovered = false
+    @ObservedObject private var preferences = InterfacePreferences.shared
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
@@ -85,9 +88,9 @@ private struct IconButtonBody: View {
             .onHover { hovering in
                 isHovered = isEnabled && hovering
             }
-            .animation(.easeOut(duration: 0.12), value: isHovered)
-            .animation(.easeOut(duration: 0.12), value: isSelected)
-            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+            .animation(preferences.animation(0.12), value: isHovered)
+            .animation(preferences.animation(0.12), value: isSelected)
+            .animation(preferences.animation(0.08), value: configuration.isPressed)
     }
 
     @ViewBuilder
@@ -124,7 +127,7 @@ private struct VisualEffect: NSViewRepresentable {
     var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
 
     func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
+        let view = HUDMaterialView()
         view.blendingMode = blendingMode
         view.state = .active
         view.alphaValue = opacity

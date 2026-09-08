@@ -87,7 +87,11 @@ final class WindowCatalog {
     private var refreshEpoch = 0
     private(set) var shareableWindowIDs: Set<CGWindowID>?
 
-    private init() {}
+    private let loadContent: () async throws -> SCShareableContent
+
+    init(loadContent: @escaping () async throws -> SCShareableContent = {
+        try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
+    }) { self.loadContent = loadContent }
 
     /// Hover uses CoreGraphics; ScreenCaptureKit is only required for the actual capture.
     static func prewarm() {
@@ -206,7 +210,9 @@ final class WindowCatalog {
     }
 
     private func performRefresh() async throws {
-        let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
+        let content = try await AsyncTimeout.run(timeout: .seconds(15), timeoutError: CaptureError.timedOut) {
+            try await self.loadContent()
+        }
         try Task.checkCancellation()
         self.content = content
         self.displays = content.displays

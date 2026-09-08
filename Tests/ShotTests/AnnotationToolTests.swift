@@ -1,4 +1,5 @@
 import AppKit
+import ShotKit
 import SwiftUI
 import Testing
 @testable import Shot
@@ -101,12 +102,231 @@ import Testing
     tool.handle(.up(CGPoint(x: 124, y: 78), shift: false), document: &document)
 
     #expect(document.elements.count == 1)
-    guard case .mosaic(let rect, let blockSize) = document.elements[0].element else {
+    guard case .mosaic(.rect(let rect), let blockSize, let effect) = document.elements[0].element else {
         Issue.record("The mosaic tool must commit a mosaic element")
         return
     }
     #expect(rect == CGRect(x: 24, y: 18, width: 100, height: 60))
     #expect(blockSize == 10)
+    #expect(effect == .pixelate)
+}
+
+@Test @MainActor func mosaicExportKeepsSourceColorsInPlaceAndPixelatesBlocks() {
+    let width = 200
+    let height = 200
+    let context = CGContext(
+        data: nil,
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: width * 4,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: 200, height: 200))
+    context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+    context.fill(CGRect(x: 0, y: 150, width: 200, height: 50))
+    context.setFillColor(CGColor(red: 0, green: 1, blue: 0, alpha: 1))
+    context.fill(CGRect(x: 0, y: 100, width: 200, height: 50))
+    context.setFillColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: 200, height: 100))
+    let image = NSImage(cgImage: context.makeImage()!, size: CGSize(width: width, height: height))
+
+    var document = AnnotationDocument(baseImage: image)
+    document.commit(.mosaic(.rect(CGRect(x: 20, y: 20, width: 80, height: 80)), blockSize: 10, effect: .pixelate))
+    guard let output = document.flattenedCGImage() else {
+        Issue.record("Mosaic export must produce a snapshot")
+        return
+    }
+
+    func sample(annotationX x: Int, annotationY y: Int) -> (UInt8, UInt8, UInt8) {
+        let color = PixelSampling.samplePixel(output, x: x, y: output.height - 1 - y)!
+        return (color.red, color.green, color.blue)
+    }
+
+    let mosaickedRed = sample(annotationX: 50, annotationY: 30)
+    let mosaickedGreen = sample(annotationX: 50, annotationY: 80)
+    let untouchedBlue = sample(annotationX: 50, annotationY: 150)
+    let untouchedOutside = sample(annotationX: 120, annotationY: 30)
+
+    #expect(mosaickedRed.0 > 180 && mosaickedRed.1 < 50 && mosaickedRed.2 < 50)
+    #expect(mosaickedGreen.1 > 180 && mosaickedGreen.0 < 50)
+    #expect(untouchedBlue.2 > 180 && untouchedBlue.0 < 50)
+    #expect(untouchedOutside.0 > 180 && untouchedOutside.1 < 50)
+
+    let a = sample(annotationX: 22, annotationY: 22)
+    let b = sample(annotationX: 28, annotationY: 22)
+    #expect(a == b)
+}
+
+@Test @MainActor func mosaicExportAlignsOnRetinaImagesAndImageEdges() {
+    let pixelWidth = 400
+    let pixelHeight = 200
+    let context = CGContext(
+        data: nil,
+        width: pixelWidth,
+        height: pixelHeight,
+        bitsPerComponent: 8,
+        bytesPerRow: pixelWidth * 4,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+    context.fill(CGRect(x: 0, y: 100, width: 200, height: 100))
+    context.setFillColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: 200, height: 100))
+    context.setFillColor(CGColor(red: 0, green: 1, blue: 0, alpha: 1))
+    context.fill(CGRect(x: 200, y: 0, width: 200, height: 200))
+    let image = NSImage(cgImage: context.makeImage()!, size: CGSize(width: 200, height: 100))
+
+    var document = AnnotationDocument(baseImage: image)
+    document.commit(.mosaic(.rect(CGRect(x: 10, y: 10, width: 40, height: 30)), blockSize: 8, effect: .pixelate))
+    document.commit(.mosaic(.rect(CGRect(x: 150, y: 60, width: 50, height: 40)), blockSize: 8, effect: .pixelate))
+    guard let output = document.flattenedCGImage() else {
+        Issue.record("Retina mosaic export must produce a snapshot")
+        return
+    }
+    #expect(output.width == pixelWidth)
+    #expect(output.height == pixelHeight)
+
+    func sample(pointX x: CGFloat, pointY y: CGFloat) -> (red: UInt8, green: UInt8, blue: UInt8) {
+        let pixelX = min(output.width - 1, max(0, Int((x / 200 * CGFloat(output.width)).rounded(.down))))
+        let yFromTop = Int((y / 100 * CGFloat(output.height)).rounded(.down))
+        return PixelSampling.samplePixel(output, x: pixelX, y: output.height - 1 - yFromTop)!
+    }
+
+    let topLeftMosaic = sample(pointX: 20, pointY: 20)
+    let bottomRightMosaic = sample(pointX: 175, pointY: 80)
+    let untouchedBlue = sample(pointX: 20, pointY: 80)
+    #expect(topLeftMosaic.red > 180 && topLeftMosaic.blue < 50)
+    #expect(bottomRightMosaic.green > 180 && bottomRightMosaic.red < 50)
+    #expect(untouchedBlue.blue > 180 && untouchedBlue.red < 50)
+}
+
+@Test @MainActor func mosaicBrushToolCommitsAStroke() {
+    var document = AnnotationDocument(baseImage: NSImage(size: CGSize(width: 320, height: 180)))
+    document.style.mosaicShape = .brush
+    document.style.mosaicEffect = .blur
+    document.style.mosaicBlockSize = 12
+    let tool = MosaicTool()
+    tool.handle(.down(CGPoint(x: 20, y: 40), shift: false), document: &document)
+    tool.handle(.drag(CGPoint(x: 80, y: 44), shift: false), document: &document)
+    tool.handle(.up(CGPoint(x: 120, y: 42), shift: false), document: &document)
+
+    #expect(document.elements.count == 1)
+    guard case .mosaic(.brush(let points, let width), let blockSize, let effect) = document.elements[0].element else {
+        Issue.record("The mosaic brush must commit a stroke")
+        return
+    }
+    #expect(points.count >= 2)
+    #expect(blockSize == 12)
+    #expect(effect == .blur)
+    #expect(abs(width - MosaicShapeKind.brushWidth(blockSize: 12)) < 0.01)
+}
+
+@Test @MainActor func mosaicExportLocksTheGridToTheImageOrigin() {
+    let width = 40
+    let height = 20
+    let context = CGContext(
+        data: nil,
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: width * 4,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: 10, height: height))
+    context.setFillColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1))
+    context.fill(CGRect(x: 10, y: 0, width: 30, height: height))
+    let image = NSImage(cgImage: context.makeImage()!, size: CGSize(width: width, height: height))
+
+    var document = AnnotationDocument(baseImage: image)
+    document.commit(.mosaic(.rect(CGRect(x: 5, y: 0, width: 20, height: 20)), blockSize: 10, effect: .pixelate))
+    guard let output = document.flattenedCGImage() else {
+        Issue.record("Grid-aligned mosaic export must produce a snapshot")
+        return
+    }
+
+    func sample(_ x: Int) -> (UInt8, UInt8, UInt8) {
+        let color = PixelSampling.samplePixel(output, x: x, y: output.height / 2)!
+        return (color.red, color.green, color.blue)
+    }
+
+    let insideFirstCell = sample(7)
+    let insideSecondCell = sample(18)
+    #expect(insideFirstCell.0 > 180 && insideFirstCell.2 < 50)
+    #expect(insideSecondCell.2 > 180 && insideSecondCell.0 < 50)
+}
+
+@Test @MainActor func mosaicBlurExportSoftensInsteadOfPixelating() {
+    let width = 80
+    let height = 40
+    let context = CGContext(
+        data: nil,
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: width * 4,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: 40, height: height))
+    context.setFillColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1))
+    context.fill(CGRect(x: 40, y: 0, width: 40, height: height))
+    let image = NSImage(cgImage: context.makeImage()!, size: CGSize(width: width, height: height))
+
+    var document = AnnotationDocument(baseImage: image)
+    document.commit(.mosaic(.rect(CGRect(x: 0, y: 0, width: 80, height: 40)), blockSize: 10, effect: .blur))
+    guard let output = document.flattenedCGImage() else {
+        Issue.record("Blur mosaic export must produce a snapshot")
+        return
+    }
+    let edge = PixelSampling.samplePixel(output, x: 40, y: output.height / 2)!
+    #expect(edge.red > 20 && edge.blue > 20)
+}
+
+@Test @MainActor func mosaicBrushExportCoversTheStrokeOnly() {
+    let width = 80
+    let height = 80
+    let context = CGContext(
+        data: nil,
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: width * 4,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: 80, height: 80))
+    context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: 40, height: 80))
+    let image = NSImage(cgImage: context.makeImage()!, size: CGSize(width: width, height: height))
+
+    var document = AnnotationDocument(baseImage: image)
+    document.commit(.mosaic(
+        .brush(points: [CGPoint(x: 10, y: 40), CGPoint(x: 30, y: 40)], width: 16),
+        blockSize: 10,
+        effect: .pixelate
+    ))
+    guard let output = document.flattenedCGImage() else {
+        Issue.record("Brush mosaic export must produce a snapshot")
+        return
+    }
+
+    func sample(annotationX x: Int, annotationY y: Int) -> (UInt8, UInt8, UInt8) {
+        let color = PixelSampling.samplePixel(output, x: x, y: output.height - 1 - y)!
+        return (color.red, color.green, color.blue)
+    }
+
+    let onStroke = sample(annotationX: 20, annotationY: 40)
+    let offStroke = sample(annotationX: 60, annotationY: 40)
+    #expect(onStroke.0 > 180 && onStroke.1 < 50)
+    #expect(offStroke.0 > 180 && offStroke.1 > 180 && offStroke.2 > 180)
 }
 
 @Test @MainActor func annotationPreferencesPersistPerToolAndAreUsedByNewElements() {
@@ -119,21 +339,27 @@ import Testing
     preferences.penLineWidth = 11
     preferences.highlighterOpacity = 0.25
     preferences.mosaicBlockSize = 20
+    preferences.mosaicShape = .brush
+    preferences.mosaicEffect = .blur
     settings.annotationPreferences = preferences
 
     let reloaded = AppSettings(defaults: defaults)
     #expect(reloaded.annotationPreferences.penLineWidth == 11)
     #expect(reloaded.annotationPreferences.highlighterOpacity == 0.25)
     #expect(reloaded.annotationPreferences.mosaicBlockSize == 20)
+    #expect(reloaded.annotationPreferences.mosaicShape == .brush)
+    #expect(reloaded.annotationPreferences.mosaicEffect == .blur)
 
     let image = NSImage(size: CGSize(width: 320, height: 180))
     let session = EditSession(image: image, settings: reloaded)
     session.selectedTool = .mosaic
     #expect(session.mosaicBlockSize == 20)
+    #expect(session.mosaicShape == .brush)
+    #expect(session.mosaicEffect == .blur)
     session.handle(.down(CGPoint(x: 20, y: 20), shift: false))
     session.handle(.up(CGPoint(x: 80, y: 60), shift: false))
 
-    guard case .mosaic(_, let blockSize) = session.document.elements[0].element else {
+    guard case .mosaic(_, let blockSize, _) = session.document.elements[0].element else {
         Issue.record("The mosaic element must retain the configured block size")
         return
     }
@@ -285,15 +511,17 @@ import Testing
     }
     #expect(highlighterStyle.highlighterOpacity == 0.25)
 
-    session.document.commit(.mosaic(CGRect(x: 20, y: 20, width: 80, height: 50), blockSize: 10))
+    session.document.commit(.mosaic(.rect(CGRect(x: 20, y: 20, width: 80, height: 50)), blockSize: 10, effect: .pixelate))
     let mosaicID = session.document.elements[1].id
     session.document.select(mosaicID)
     session.mosaicBlockSize = 24
-    guard case .mosaic(_, let blockSize) = session.document.elements[1].element else {
+    session.mosaicEffect = .blur
+    guard case .mosaic(_, let blockSize, let effect) = session.document.elements[1].element else {
         Issue.record("The selected mosaic must remain editable")
         return
     }
     #expect(blockSize == 24)
+    #expect(effect == .blur)
 
     session.document.commit(.spotlight(CGRect(x: 30, y: 30, width: 60, height: 40), opacity: 0.5))
     let spotlightID = session.document.elements[2].id
@@ -496,6 +724,8 @@ import Testing
     #expect(preferences.calloutFillOpacity == 0.14)
     #expect(preferences.calloutWrapText)
     #expect(preferences.shapeFillOpacity == 0)
+    #expect(preferences.mosaicShape == .rect)
+    #expect(preferences.mosaicEffect == .pixelate)
     #expect(preferences.customColor == nil)
 }
 

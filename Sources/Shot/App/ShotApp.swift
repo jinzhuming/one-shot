@@ -59,6 +59,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        AppLifecycle.shared.stop()
+        PinController.shared.closeAll()
+        RecordingPreviewController.shared.closeAll()
+        SaveLocationPresenter.dismiss()
         terminationFinishTask?.cancel()
         terminationWatchdogTask?.cancel()
         CaptureSession.shared.forceTeardownForTermination()
@@ -77,7 +81,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows _: Bool) -> Bool {
         let hasUtilityWindow = sender.windows.contains { window in
             window.isVisible
-                && !SettingsWindowIdentity.isHelper(identifier: window.identifier?.rawValue)
                 && window.styleMask.contains(.titled)
                 && window.frame.width > 50
         }
@@ -99,15 +102,6 @@ struct ShotApp: App {
             StatusItemLabel()
         }
         .menuBarExtraStyle(.menu)
-
-        // Must be declared before Settings so `@Environment(\.openSettings)` is wired.
-        // The 1×1 window is ordered out immediately; it is not a second settings UI.
-        Window("", id: SettingsWindowIdentity.helperIdentifier) {
-            SettingsOpenProbe()
-        }
-        .windowResizability(.contentSize)
-        .defaultSize(width: 1, height: 1)
-        .windowStyle(.hiddenTitleBar)
 
         Settings {
             SettingsView()

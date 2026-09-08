@@ -20,30 +20,28 @@ enum ImageExporter {
         return pasteboard.writeObjects([image])
     }
 
-    static func save(_ image: NSImage, format: SaveFormat, to url: URL) async throws {
-        guard let cgImage = cgImage(from: image) else {
-            throw ExportError.encodingFailed
-        }
+    @discardableResult
+    static func save(_ image: NSImage, format: SaveFormat, to url: URL) async throws -> URL {
+        try await save(image, format: format, destination: .chosen(url))
+    }
 
-        let typeIdentifier = format.utTypeIdentifier
+    static func save(
+        _ image: NSImage,
+        format: SaveFormat,
+        destination: ImageExportDestination
+    ) async throws -> URL {
+        guard let cgImage = cgImage(from: image) else { throw ExportError.encodingFailed }
+        let identifier = format.utTypeIdentifier
         let quality = format == .jpeg ? 0.9 : 1.0
-        guard let data = await Task.detached(priority: .userInitiated, operation: {
-            encodedImageData(
-                cgImage,
-                typeIdentifier: typeIdentifier,
-                quality: quality
-            )
-        }).value else {
-            throw ExportError.encodingFailed
+        let interval = Diagnostics.performance.beginInterval("Image export")
+        defer { Diagnostics.performance.endInterval("Image export", interval) }
+        return try await BackgroundWork.run {
+            guard let data = encodedImageData(cgImage, typeIdentifier: identifier, quality: quality) else {
+                throw ExportError.encodingFailed
+            }
+            try Task.checkCancellation()
+            return try AtomicFileWriter.write(data, to: destination)
         }
-
-        try await Task.detached(priority: .utility, operation: {
-            try FileManager.default.createDirectory(
-                at: url.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            try data.write(to: url, options: .atomic)
-        }).value
     }
 
     static func promptSaveURL(format: SaveFormat, directory: URL) -> URL? {
@@ -56,18 +54,16 @@ enum ImageExporter {
         return panel.runModal() == .OK ? panel.url : nil
     }
 
-    static func destinationURL(settings: AppSettings) -> URL? {
+    static func destination(settings: AppSettings) -> ImageExportDestination? {
         if settings.askWhereToSave {
-            return promptSaveURL(format: settings.saveFormat, directory: settings.saveDirectoryURL)
+            return promptSaveURL(format: settings.saveFormat, directory: settings.saveDirectoryURL).map {
+                .chosen($0)
+            }
         }
-        let directory = settings.saveDirectoryURL
-        let preferred = defaultFilename(format: settings.saveFormat)
-        let filename = ExportNaming.uniqueFilename(preferred: preferred) { candidate in
-            FileManager.default.fileExists(
-                atPath: directory.appendingPathComponent(candidate).path
-            )
-        }
-        return directory.appendingPathComponent(filename)
+        return .automatic(
+            directory: settings.saveDirectoryURL,
+            filename: defaultFilename(format: settings.saveFormat)
+        )
     }
 
     static func cgImage(from image: NSImage) -> CGImage? {
@@ -85,11 +81,14 @@ enum ImageExporter {
     enum ExportError: LocalizedError {
         case encodingFailed
         case clipboardFailed
+        case savedButClipboardFailed
 
         var errorDescription: String? {
             switch self {
             case .encodingFailed:
                 return String(localized: "无法编码截图。")
+            case .savedButClipboardFailed:
+                return String(localized: "截图已保存，但无法复制到剪贴板。")
             case .clipboardFailed:
                 return String(localized: "无法复制截图到剪贴板。")
             }

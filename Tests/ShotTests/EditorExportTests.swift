@@ -3,6 +3,7 @@ import AVFoundation
 import CoreGraphics
 import Foundation
 import ShotKit
+import SwiftUI
 import Testing
 @testable import Shot
 
@@ -315,6 +316,86 @@ import Testing
     #expect(window.canBecomeKey)
     #expect(!window.canBecomeMain)
     #expect(window.sharingType == .none)
+}
+
+@Test @MainActor func recordingStartBarUsesASeparateChromeHost() {
+    let hosting = CaptureChromeHostingView(
+        rootView: OverlayActionBar(
+            onAction: { _ in }
+        )
+    )
+    let window = CaptureModeBarWindow(
+        contentRect: CGRect(origin: .zero, size: CGSize(width: 520, height: 52)),
+        styleMask: [.borderless, .nonactivatingPanel],
+        backing: .buffered,
+        defer: false
+    )
+    defer { window.close() }
+    window.contentView = hosting
+    hosting.frame = window.contentView!.bounds
+    hosting.layoutSubtreeIfNeeded()
+    #expect(hosting.fittingSize.width > 0)
+    #expect(hosting.fittingSize.height > 0)
+}
+
+@Test @MainActor func pinControllerPresentsInteractiveWindowAndFitsTallImagesOnScreen() {
+    let visibleFrame = CGRect(x: 0, y: 0, width: 800, height: 600)
+    let size = PinLayout.windowSize(
+        for: CGSize(width: 240, height: 2_000),
+        visibleFrame: visibleFrame
+    )
+    let compactSize = PinLayout.windowSize(
+        for: CGSize(width: 1_200, height: 800),
+        visibleFrame: visibleFrame
+    )
+    let zoomedSize = PinLayout.zoomedWindowSize(
+        for: CGSize(width: 1_200, height: 800),
+        visibleFrame: visibleFrame
+    )
+    let safeFrame = visibleFrame.insetBy(dx: 12, dy: 12)
+    let origin = PinLayout.origin(size: size, visibleFrame: visibleFrame, index: 0)
+    let zoomedOrigin = PinLayout.origin(
+        size: zoomedSize,
+        visibleFrame: visibleFrame,
+        around: CGPoint(x: visibleFrame.midX, y: visibleFrame.midY)
+    )
+    #expect(size.height <= safeFrame.height)
+    #expect(safeFrame.contains(CGPoint(x: origin.x, y: origin.y)))
+    #expect(safeFrame.contains(CGPoint(x: origin.x + size.width - 0.1, y: origin.y + size.height - 0.1)))
+    #expect(compactSize.width <= PinLayout.maximumImageWidth)
+    #expect(compactSize.height <= PinLayout.maximumImageHeight)
+    #expect(abs(compactSize.height - compactSize.width * 800 / 1_200) < 0.5)
+    #expect(zoomedSize.width > compactSize.width)
+    #expect(zoomedSize.height > compactSize.height)
+    #expect(safeFrame.contains(CGPoint(x: zoomedOrigin.x, y: zoomedOrigin.y)))
+    #expect(safeFrame.contains(CGPoint(x: zoomedOrigin.x + zoomedSize.width - 0.1, y: zoomedOrigin.y + zoomedSize.height - 0.1)))
+
+    let controller = PinController(addToHistory: { _ in })
+    let count = controller.activeWindowCount
+    let image = solidImage(color: .systemBlue, size: CGSize(width: 240, height: 160))
+    controller.present(image, on: nil, onRestoreAnnotation: {})
+    defer {
+        NSApp.windows
+            .compactMap { $0 as? PinWindow }
+            .compactMap(\.pinID)
+            .forEach(controller.close)
+    }
+
+    #expect(controller.activeWindowCount == count + 1)
+    guard let window = NSApp.windows.compactMap({ $0 as? PinWindow }).last else {
+        Issue.record("钉图应创建独立浮窗")
+        return
+    }
+    #expect(window.isVisible)
+    #expect(window.level == CaptureWindowLevels.pin)
+    #expect(!window.hidesOnDeactivate)
+    window.contentView?.layoutSubtreeIfNeeded()
+    let buttons = collectButtons(in: window.contentView)
+    let labels = Set(buttons.compactMap { $0.accessibilityLabel() })
+    #expect(buttons.count == 5)
+    #expect(labels.isSuperset(of: ["恢复标注", "放大查看", "复制", "保存", "关闭"]))
+    #expect(buttons.allSatisfy { $0.toolTip?.isEmpty == false })
+    #expect(buttons.allSatisfy { !$0.isBordered })
 }
 
 @Test @MainActor func recordingSegmentsMergeIntoOneVideo() async throws {
@@ -733,6 +814,18 @@ private func solidImage(color: NSColor, size: CGSize) -> NSImage {
     NSRect(origin: .zero, size: size).fill()
     image.unlockFocus()
     return image
+}
+
+private func collectButtons(in view: NSView?) -> [NSButton] {
+    guard let view else { return [] }
+    var buttons: [NSButton] = []
+    if let button = view as? NSButton {
+        buttons.append(button)
+    }
+    for subview in view.subviews {
+        buttons.append(contentsOf: collectButtons(in: subview))
+    }
+    return buttons
 }
 
 private func windowDictionary(

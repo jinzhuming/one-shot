@@ -11,9 +11,9 @@ enum AnnotationToolbarPresentation: Equatable {
 }
 
 enum AnnotationChromeMetrics {
-    static let controlSize: CGFloat = 28
-    static let symbolSize: CGFloat = 14
-    static let buttonCornerRadius: CGFloat = 6
+    static let controlSize = InterfaceMetrics.controlSize
+    static let symbolSize = InterfaceMetrics.symbolSize
+    static let buttonCornerRadius = InterfaceMetrics.buttonRadius
     static let windowPrimaryRowHeight: CGFloat = 44
     static let windowDetailRowHeight: CGFloat = 36
     static let windowSeparatorHeight: CGFloat = 1
@@ -42,7 +42,6 @@ struct AnnotationToolbar: View {
                 windowToolbar
             }
         }
-        .focusEffectDisabled()
         .onReceive(
             NSWorkspace.shared.notificationCenter.publisher(
                 for: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
@@ -109,30 +108,44 @@ struct AnnotationToolbar: View {
         .padding(.vertical, 7)
         .contentShape(Rectangle())
         .background {
-            HUDChrome.PanelBackground(cornerRadius: 12)
+            HUDChrome.PanelBackground(cornerRadius: InterfaceMetrics.panelRadius)
         }
     }
 
     private var windowPrimaryToolbar: some View {
-        ZStack {
-            HStack(spacing: 8) {
-                HStack(spacing: 0) {
-                    ForEach(Array(AnnotationToolID.groups.enumerated()), id: \.offset) { index, group in
-                        if index > 0 {
-                            Color.clear.frame(width: 4)
-                        }
-                        toolCluster(group)
-                    }
-                }
-                Spacer(minLength: 12)
-                exportActionGroup
-            }
-            historyGroup
+        ViewThatFits(in: .horizontal) {
+            primaryRow(compact: false)
+            primaryRow(compact: true)
         }
         .padding(.horizontal, 10)
         .contentShape(Rectangle())
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "标注工具"))
+    }
+
+    private func primaryRow(compact: Bool) -> some View {
+        HStack(spacing: 8) {
+            if compact {
+                Menu {
+                    ForEach(AnnotationToolID.allCases) { tool in
+                        Button(tool.title) { session.selectedTool = tool }
+                    }
+                } label: {
+                    Label(session.selectedTool.title, systemImage: session.selectedTool.systemImage)
+                }
+                .help(String(localized: "选择标注工具"))
+            } else {
+                HStack(spacing: 4) {
+                    ForEach(Array(AnnotationToolID.groups.enumerated()), id: \.offset) { _, group in
+                        toolCluster(group)
+                    }
+                }
+            }
+            Spacer(minLength: 8)
+            historyGroup
+            divider
+            exportActions(compact: compact)
+        }
     }
 
     private var detailToolbar: some View {
@@ -319,13 +332,17 @@ struct AnnotationToolbar: View {
                 )
             }
         case .mosaic:
-            detailSlider(
-                label: String(localized: "颗粒大小（pt）"),
-                value: $session.mosaicBlockSize,
-                range: 2...32,
-                step: 1,
-                valueText: numberText(session.mosaicBlockSize)
-            )
+            HStack(spacing: detailSpacing) {
+                mosaicShapePicker
+                mosaicEffectPicker
+                detailSlider(
+                    label: mosaicSizeLabel,
+                    value: $session.mosaicBlockSize,
+                    range: 2...32,
+                    step: 1,
+                    valueText: numberText(session.mosaicBlockSize)
+                )
+            }
         case .spotlight:
             detailSlider(
                 label: String(localized: "遮罩不透明度"),
@@ -349,9 +366,10 @@ struct AnnotationToolbar: View {
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                 switch selected.element {
-                case .mosaic(_, _):
+                case .mosaic(_, _, _):
+                    mosaicEffectPicker
                     detailSlider(
-                        label: String(localized: "颗粒大小（pt）"),
+                        label: mosaicSizeLabel,
                         value: $session.mosaicBlockSize,
                         range: 2...32,
                         step: 1,
@@ -522,6 +540,62 @@ struct AnnotationToolbar: View {
         .pickerStyle(.menu)
         .help(String(localized: "选择直线样式"))
         .accessibilityLabel(String(localized: "线型"))
+    }
+
+    private var mosaicSizeLabel: String {
+        session.mosaicEffect == .blur
+            ? String(localized: "模糊半径（pt）")
+            : String(localized: "颗粒大小（pt）")
+    }
+
+    private var mosaicShapePicker: some View {
+        compactMenuPicker(
+            label: String(localized: "形状"),
+            selection: $session.mosaicShape,
+            help: session.mosaicShape.helpText,
+            accessibilityLabel: String(localized: "马赛克形状")
+        ) {
+            ForEach(MosaicShapeKind.allCases) { shape in
+                Text(shape.title).tag(shape)
+            }
+        }
+    }
+
+    private var mosaicEffectPicker: some View {
+        compactMenuPicker(
+            label: String(localized: "效果"),
+            selection: $session.mosaicEffect,
+            help: session.mosaicEffect.helpText,
+            accessibilityLabel: String(localized: "马赛克效果")
+        ) {
+            ForEach(MosaicEffect.allCases) { effect in
+                Text(effect.title).tag(effect)
+            }
+        }
+    }
+
+    private func compactMenuPicker<Value: Hashable>(
+        label: String,
+        selection: Binding<Value>,
+        help: String,
+        accessibilityLabel: String,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        HStack(spacing: presentation.isFloating ? 6 : 4) {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize()
+            Picker(accessibilityLabel, selection: selection) {
+                content()
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+            .controlSize(.small)
+            .help(help)
+            .accessibilityLabel(accessibilityLabel)
+        }
     }
 
     private var calloutWrapToggle: some View {
@@ -755,14 +829,15 @@ struct AnnotationToolbar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(AnnotationIconButtonStyle(presentation: presentation))
-            .disabled(session.isExporting)
             .help(String(localized: "关闭编辑器（Esc）"))
             .accessibilityLabel(String(localized: "关闭"))
         }
         .controlSize(.small)
     }
 
-    private var exportActionGroup: some View {
+    private var exportActionGroup: some View { exportActions(compact: false) }
+
+    private func exportActions(compact: Bool) -> some View {
         HStack(spacing: presentation.isFloating ? 6 : 4) {
             if session.isExporting {
                 ProgressView()
@@ -782,6 +857,18 @@ struct AnnotationToolbar: View {
                 .accessibilityLabel(String(localized: "保存最终图片"))
                 .accessibilityHint(String(localized: "提交未完成的文字标注后保存"))
                 .disabled(session.isExporting)
+            if compact {
+                Menu {
+                    Button(String(localized: "钉图"), action: onPin)
+                    Button(String(localized: "识别文字"), action: onOCR)
+                } label: {
+                    Image(systemName: "ellipsis").frame(width: InterfaceMetrics.controlSize, height: InterfaceMetrics.controlSize)
+                }
+                .menuStyle(.borderlessButton)
+                .accessibilityLabel(String(localized: "更多操作"))
+                .help(String(localized: "更多操作"))
+                .disabled(session.isExporting)
+            } else {
             Button {
                 onPin()
             } label: {
@@ -804,6 +891,7 @@ struct AnnotationToolbar: View {
             .help(String(localized: "识别文字并复制"))
             .accessibilityLabel(String(localized: "识别文字"))
             .disabled(session.isExporting)
+            }
         }
         .controlSize(.small)
     }
@@ -992,6 +1080,7 @@ private struct AnnotationIconButtonBody: View {
     var tintsLabel: Bool
 
     @State private var isHovered = false
+    @ObservedObject private var preferences = InterfacePreferences.shared
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
@@ -1013,9 +1102,9 @@ private struct AnnotationIconButtonBody: View {
             .onHover { hovering in
                 isHovered = isEnabled && hovering
             }
-            .animation(.easeOut(duration: 0.12), value: isHovered)
-            .animation(.easeOut(duration: 0.12), value: isSelected)
-            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+            .animation(preferences.animation(0.12), value: isHovered)
+            .animation(preferences.animation(0.12), value: isSelected)
+            .animation(preferences.animation(0.08), value: configuration.isPressed)
     }
 
     @ViewBuilder

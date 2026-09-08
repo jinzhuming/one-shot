@@ -36,7 +36,7 @@ enum AnnotationToolID: String, CaseIterable, Identifiable {
         case .counter:
             return Metadata(title: "序号", helpText: "添加序号标记（8）", shortcut: "8", keyCode: 28)
         case .mosaic:
-            return Metadata(title: "马赛克", helpText: "遮挡指定区域（9）", shortcut: "9", keyCode: 25)
+            return Metadata(title: "马赛克", helpText: "用矩形或画笔遮挡（9）", shortcut: "9", keyCode: 25)
         case .spotlight:
             return Metadata(title: "聚光", helpText: "突出指定区域（0）", shortcut: "0", keyCode: 29)
         case .crop:
@@ -123,7 +123,7 @@ enum AnnotationTools {
         case .text: return TextPlaceholderTool()
         case .callout: return CalloutTool()
         case .counter: return CounterTool()
-        case .mosaic: return ShapeTool(id: .mosaic)
+        case .mosaic: return MosaicTool()
         case .spotlight: return ShapeTool(id: .spotlight)
         case .crop: return CropTool()
         }
@@ -181,7 +181,11 @@ struct ShapeTool: AnnotationTool {
         case .line:
             return .line(start: start, end: snapped, style: style)
         case .mosaic:
-            return .mosaic(rect, blockSize: style.mosaicBlockSize)
+            return .mosaic(
+                .rect(rect),
+                blockSize: style.mosaicBlockSize,
+                effect: style.mosaicEffect
+            )
         case .spotlight:
             return .spotlight(rect, opacity: style.spotlightOpacity)
         default:
@@ -193,10 +197,28 @@ struct ShapeTool: AnnotationTool {
         switch element {
         case .arrow(let start, let end, _), .line(let start, let end, _):
             return AnnotationMath.isSignificantDistance(start, end)
-        case .rect(let rect, _), .ellipse(let rect, _), .mosaic(let rect, _), .spotlight(let rect, _):
+        case .rect(let rect, _), .ellipse(let rect, _), .spotlight(let rect, _):
             return AnnotationMath.isSignificantRect(rect)
+        case .mosaic(let shape, _, _):
+            if case .rect(let rect) = shape {
+                return AnnotationMath.isSignificantRect(rect)
+            }
+            return true
         default:
             return true
+        }
+    }
+}
+
+struct MosaicTool: AnnotationTool {
+    let id: AnnotationToolID = .mosaic
+
+    func handle(_ event: CanvasEvent, document: inout AnnotationDocument) {
+        switch document.style.mosaicShape {
+        case .rect:
+            ShapeTool(id: .mosaic).handle(event, document: &document)
+        case .brush:
+            PathTool(id: .mosaic).handle(event, document: &document)
         }
     }
 }
@@ -236,6 +258,12 @@ struct PathTool: AnnotationTool {
             return .pen(points: points, style: style)
         case .highlighter:
             return .highlighter(points: points, style: style)
+        case .mosaic:
+            return .mosaic(
+                .brush(points: points, width: MosaicShapeKind.brushWidth(blockSize: style.mosaicBlockSize)),
+                blockSize: style.mosaicBlockSize,
+                effect: style.mosaicEffect
+            )
         default:
             return nil
         }

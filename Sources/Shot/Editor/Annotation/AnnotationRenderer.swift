@@ -28,8 +28,8 @@ enum AnnotationRenderer {
             drawCallout(string, in: rect, style: style)
         case .counter(let value, let center, let style):
             drawCounter(value, at: center, style: style)
-        case .mosaic(let rect, let blockSize):
-            drawMosaic(rect, blockSize: blockSize, from: baseImage)
+        case .mosaic(let shape, let blockSize, let effect):
+            drawMosaic(shape, blockSize: blockSize, effect: effect, from: baseImage)
         case .spotlight(let rect, let opacity):
             drawSpotlight(rect, opacity: opacity, bounds: bounds)
         }
@@ -213,41 +213,76 @@ enum AnnotationRenderer {
         text.draw(at: origin, withAttributes: attributes)
     }
 
-    private static func drawMosaic(_ rect: CGRect, blockSize: CGFloat, from baseImage: NSImage) {
-        guard rect.width > 1, rect.height > 1,
-              blockSize.isFinite, blockSize > 1 else { return }
-        let block = blockSize
-        let cols = max(1, Int((rect.width / block).rounded(.down)))
-        let rows = max(1, Int((rect.height / block).rounded(.down)))
+    private static func drawMosaic(
+        _ shape: MosaicShape,
+        blockSize: CGFloat,
+        effect: MosaicEffect,
+        from baseImage: NSImage
+    ) {
+        guard blockSize.isFinite, blockSize > 1 else { return }
         var proposed = CGRect(origin: .zero, size: baseImage.size)
         guard let baseCG = baseImage.cgImage(forProposedRect: &proposed, context: nil, hints: nil),
               let ctx = NSGraphicsContext.current?.cgContext else { return }
         let imageSize = baseImage.size
-        // `rect` is top-left annotation space; `CGImage.cropping` is also top-left.
-        let crop = CGRect(
-            x: rect.minX / max(imageSize.width, 1) * CGFloat(baseCG.width),
-            y: rect.minY / max(imageSize.height, 1) * CGFloat(baseCG.height),
-            width: rect.width / max(imageSize.width, 1) * CGFloat(baseCG.width),
-            height: rect.height / max(imageSize.height, 1) * CGFloat(baseCG.height)
-        ).integral
-        guard crop.width > 1, crop.height > 1, let cropped = baseCG.cropping(to: crop) else { return }
-        guard let tiny = CGContext(
-            data: nil,
-            width: cols,
-            height: rows,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: baseCG.colorSpace ?? CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return }
-        tiny.interpolationQuality = .none
-        tiny.draw(cropped, in: CGRect(x: 0, y: 0, width: cols, height: rows))
-        guard let pixelated = tiny.makeImage() else { return }
+        guard imageSize.width > 1, imageSize.height > 1,
+              let raster = MosaicRasterCache.shared.image(
+                for: baseCG,
+                effect: effect.rasterEffect,
+                blockSizePoints: blockSize,
+                imagePointSize: imageSize
+              ) else { return }
+
         ctx.saveGState()
-        ctx.clip(to: rect)
+        switch shape {
+        case .rect(let rect):
+            guard rect.width > 1, rect.height > 1 else {
+                ctx.restoreGState()
+                return
+            }
+            ctx.clip(to: rect)
+        case .brush(let points, let width):
+            guard let path = brushClipPath(points, width: width) else {
+                ctx.restoreGState()
+                return
+            }
+            ctx.addPath(path)
+            ctx.clip()
+        }
+        // The annotation context is flipped (y down). Drawing the full-image
+        // raster into point space keeps the grid locked to the image origin.
+        ctx.translateBy(x: 0, y: imageSize.height)
+        ctx.scaleBy(x: 1, y: -1)
         ctx.interpolationQuality = .none
-        ctx.draw(pixelated, in: rect)
+        ctx.draw(raster, in: CGRect(origin: .zero, size: imageSize))
         ctx.restoreGState()
+    }
+
+    private static func brushClipPath(_ points: [CGPoint], width: CGFloat) -> CGPath? {
+        let strokeWidth = max(1, width)
+        if points.count == 1 {
+            let radius = strokeWidth / 2
+            return CGPath(
+                ellipseIn: CGRect(
+                    x: points[0].x - radius,
+                    y: points[0].y - radius,
+                    width: strokeWidth,
+                    height: strokeWidth
+                ),
+                transform: nil
+            )
+        }
+        guard points.count >= 2 else { return nil }
+        let path = CGMutablePath()
+        path.move(to: points[0])
+        for point in points.dropFirst() {
+            path.addLine(to: point)
+        }
+        return path.copy(
+            strokingWithWidth: strokeWidth,
+            lineCap: .round,
+            lineJoin: .round,
+            miterLimit: 10
+        )
     }
 
     private static func drawSpotlight(_ hole: CGRect, opacity: CGFloat, bounds: CGRect) {

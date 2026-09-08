@@ -8,7 +8,6 @@ final class AppSettings: ObservableObject {
 
     private enum Key {
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
-        static let afterCaptureAction = "afterCaptureAction"
         static let copyOnComplete = "copyOnComplete"
         static let saveFormat = "saveFormat"
         static let saveDirectory = "saveDirectory"
@@ -31,10 +30,6 @@ final class AppSettings: ObservableObject {
 
     @Published var hasCompletedOnboarding: Bool {
         didSet { defaults.set(hasCompletedOnboarding, forKey: Key.hasCompletedOnboarding) }
-    }
-
-    @Published var afterCaptureAction: AfterCaptureAction {
-        didSet { defaults.set(afterCaptureAction.rawValue, forKey: Key.afterCaptureAction) }
     }
 
     @Published var annotationWindowPlacement: AnnotationWindowPlacement {
@@ -196,7 +191,6 @@ final class AppSettings: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         hasCompletedOnboarding = defaults.bool(forKey: Key.hasCompletedOnboarding)
-        afterCaptureAction = AfterCaptureAction(rawValue: defaults.string(forKey: Key.afterCaptureAction) ?? "") ?? .annotate
         annotationWindowPlacement = AnnotationWindowPlacement(
             rawValue: defaults.string(forKey: Key.annotationWindowPlacement) ?? ""
         ) ?? .inPlace
