@@ -188,12 +188,18 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         target: RecordingTarget,
         catalog: WindowCatalog,
         directory: URL,
-        options: RecordingOptions = RecordingOptions()
+        options: RecordingOptions = RecordingOptions(),
+        exceptingWindowIDs: [CGWindowID] = []
     ) async throws -> NSScreen {
         guard state == .idle else { throw RecordingError.alreadyRecording }
         state = .starting
         do {
-            let resolved = try await resolve(target: target, catalog: catalog, options: options)
+            let resolved = try await resolve(
+                target: target,
+                catalog: catalog,
+                options: options,
+                exceptingWindowIDs: exceptingWindowIDs
+            )
             let (output, url) = try makeRecordingOutput()
             let newStream = SCStream(
                 filter: resolved.filter,
@@ -454,7 +460,8 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
     private func resolve(
         target: RecordingTarget,
         catalog: WindowCatalog,
-        options: RecordingOptions
+        options: RecordingOptions,
+        exceptingWindowIDs: [CGWindowID]
     ) async throws -> ResolvedCapture {
         try await AsyncTimeout.run(
             timeout: .seconds(15),
@@ -470,7 +477,11 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
                   screen.frame.contains(selection.rect) else {
                 throw RecordingError.noDisplay
             }
-            let filter = contentFilter(display: display, content: catalog.content)
+            let filter = contentFilter(
+                display: display,
+                content: catalog.content,
+                exceptingWindowIDs: exceptingWindowIDs
+            )
             let scale = screen.backingScaleFactor
             let configuration = baseConfiguration(
                 width: selection.rect.width,
@@ -490,15 +501,29 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
                     try await catalog.refresh()
                 }
                 guard let window = catalog.scWindow(id: id) else { throw RecordingError.noWindow }
-                return try resolvedWindow(window, options: options)
+                return try resolvedWindow(
+                    window,
+                    catalog: catalog,
+                    options: options,
+                    overlayWindowIDs: exceptingWindowIDs
+                )
             }
-            return try resolvedWindow(window, options: options)
+            return try resolvedWindow(
+                window,
+                catalog: catalog,
+                options: options,
+                overlayWindowIDs: exceptingWindowIDs
+            )
 
         case .display(let screen):
             guard let display = CoordinateSpace.display(matching: screen, in: catalog.displays) else {
                 throw RecordingError.noDisplay
             }
-            let filter = contentFilter(display: display, content: catalog.content)
+            let filter = contentFilter(
+                display: display,
+                content: catalog.content,
+                exceptingWindowIDs: exceptingWindowIDs
+            )
             let configuration = baseConfiguration(
                 width: display.frame.width,
                 height: display.frame.height,
@@ -511,7 +536,9 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
 
     private func resolvedWindow(
         _ window: SCWindow,
-        options: RecordingOptions
+        catalog: WindowCatalog,
+        options: RecordingOptions,
+        overlayWindowIDs: [CGWindowID]
     ) throws -> ResolvedCapture {
         // Keep recording aligned with screenshot capture: SCWindow uses the
         // top-left global window space, while NSScreen uses Cocoa coordinates.
@@ -521,6 +548,17 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
             throw RecordingError.noDisplay
         }
         let screen = geometry.screen
+        if WindowCapturePolicy.recordsWindowAsDisplayCrop(includedOverlayCount: overlayWindowIDs.count),
+           let display = CoordinateSpace.display(matching: screen, in: catalog.displays) {
+            return resolvedWindowWithOverlays(
+                window,
+                geometry: geometry,
+                display: display,
+                catalog: catalog,
+                options: options,
+                overlayWindowIDs: overlayWindowIDs
+            )
+        }
         let filter = SCContentFilter(desktopIndependentWindow: window)
         let configuration = baseConfiguration(
             width: window.frame.width,
@@ -532,6 +570,43 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
             includeShadow: false
         )
         return ResolvedCapture(filter: filter, configuration: configuration, screen: screen)
+    }
+
+    private func resolvedWindowWithOverlays(
+        _ window: SCWindow,
+        geometry: (frame: CGRect, screen: NSScreen),
+        display: SCDisplay,
+        catalog: WindowCatalog,
+        options: RecordingOptions,
+        overlayWindowIDs: [CGWindowID]
+    ) -> ResolvedCapture {
+        let overlayWindows = overlayWindowIDs.compactMap { catalog.scWindow(id: $0) }
+        let filter: SCContentFilter
+        if overlayWindows.isEmpty {
+            filter = contentFilter(
+                display: display,
+                content: catalog.content,
+                exceptingWindowIDs: overlayWindowIDs
+            )
+        } else {
+            filter = contentFilter(display: display, includingWindows: [window] + overlayWindows)
+        }
+        let configuration = baseConfiguration(
+            width: geometry.frame.width,
+            height: geometry.frame.height,
+            scale: geometry.screen.backingScaleFactor,
+            options: options
+        )
+        let contentRect = filter.contentRect
+        if overlayWindows.isEmpty
+            || contentRect.width > geometry.frame.width + 1
+            || contentRect.height > geometry.frame.height + 1 {
+            configuration.sourceRect = CoordinateSpace.displaySourceRect(
+                geometry.frame,
+                on: geometry.screen
+            )
+        }
+        return ResolvedCapture(filter: filter, configuration: configuration, screen: geometry.screen)
     }
 
     private func baseConfiguration(
@@ -553,13 +628,31 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         return configuration
     }
 
-    private func contentFilter(display: SCDisplay, content: SCShareableContent?) -> SCContentFilter {
+    private func contentFilter(
+        display: SCDisplay,
+        content: SCShareableContent?,
+        exceptingWindowIDs: [CGWindowID]
+    ) -> SCContentFilter {
         let ourPID = ProcessInfo.processInfo.processIdentifier
-        let ourWindows = content?.windows.filter { $0.owningApplication?.processID == ourPID } ?? []
+        let excepting = content?.windows.filter { exceptingWindowIDs.contains($0.windowID) } ?? []
         if let app = content?.applications.first(where: { $0.processID == ourPID }) {
-            return SCContentFilter(display: display, excludingApplications: [app], exceptingWindows: [])
+            return SCContentFilter(
+                display: display,
+                excludingApplications: [app],
+                exceptingWindows: excepting
+            )
         }
+        let ourWindows = content?.windows.filter { window in
+            window.owningApplication?.processID == ourPID && !exceptingWindowIDs.contains(window.windowID)
+        } ?? []
         return SCContentFilter(display: display, excludingWindows: ourWindows)
+    }
+
+    /// Swift imports both the window and application `including:` filters under
+    /// the same selector; pin the window overload through its function type.
+    private func contentFilter(display: SCDisplay, includingWindows windows: [SCWindow]) -> SCContentFilter {
+        let makeFilter: (SCDisplay, [SCWindow]) -> SCContentFilter = SCContentFilter.init(display:including:)
+        return makeFilter(display, windows)
     }
 
     private func startCapture(_ stream: SCStream, timeout: Duration = .seconds(15)) async throws {

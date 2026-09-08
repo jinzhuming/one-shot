@@ -65,3 +65,15 @@ import Testing
     machine.reset()
     #expect(machine.phase == .idle)
 }
+
+@Test func lastRegionHotkeyDoesNotConflictWithSystemScreenshot() {
+    let lastRegion = Hotkey.defaultCapturePreviousRegion
+    #expect(lastRegion.displayString == "⌃⌘L")
+    #expect(!lastRegion.isSystemScreenshotShortcut)
+    let commandShift = NSEvent.ModifierFlags([.command, .shift]).rawValue
+    #expect(!lastRegion.conflicts(with: Hotkey(keyCode: 20, modifierRaw: commandShift, character: "3")))
+    #expect(!lastRegion.conflicts(with: Hotkey(keyCode: 21, modifierRaw: commandShift, character: "4")))
+    #expect(!lastRegion.conflicts(with: Hotkey(keyCode: 23, modifierRaw: commandShift, character: "5")))
+    #expect(!lastRegion.conflicts(with: Hotkey.defaultAllInOne))
+    #expect(!lastRegion.conflicts(with: Hotkey.defaultScrolling))
+}

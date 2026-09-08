@@ -22,4 +22,12 @@ public enum WindowCapturePolicy {
             return false
         }
     }
+
+    /// `SCContentFilter(desktopIndependentWindow:)` can only capture that one
+    /// window. Click-highlight overlays have to ride along as extra shareable
+    /// windows, so window recording switches to a display filter cropped to the
+    /// window whenever those overlays must appear in the file.
+    public static func recordsWindowAsDisplayCrop(includedOverlayCount: Int) -> Bool {
+        includedOverlayCount > 0
+    }
 }

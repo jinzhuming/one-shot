@@ -69,6 +69,9 @@ final class EditorPresenter {
     ) {
         presentationScreen = screen
         let session = EditSession(image: result.image)
+        session.onCanvasSizeChange = { [weak self] in
+            self?.relayoutForCurrentImage()
+        }
         self.session = session
 
         let vis = screen.visibleFrame
@@ -131,6 +134,8 @@ final class EditorPresenter {
             windowedLayout: windowedLayout,
             onCopy: { [weak self] in self?.copyAndFinish() },
             onSave: { [weak self] in self?.saveAndFinish() },
+            onPin: { [weak self] in self?.pinAndFinish() },
+            onOCR: { [weak self] in self?.ocrFromEditor() },
             onClose: { [weak self] in self?.closeFromToolbar() }
         )
         content.frame = NSRect(origin: .zero, size: presentationStyle == .windowed
@@ -344,7 +349,7 @@ final class EditorPresenter {
                 return event
             }
             if event.keyCode == 53 {
-                self.dismiss()
+                self.requestDismissDiscardingAnnotations()
                 return nil
             }
             if !command, (event.keyCode == 51 || event.keyCode == 117) {
@@ -398,7 +403,7 @@ final class EditorPresenter {
     @MainActor
     private func closeFromToolbar() {
         commitPendingText()
-        dismiss()
+        requestDismissDiscardingAnnotations()
     }
 
     @MainActor
@@ -410,6 +415,23 @@ final class EditorPresenter {
     private func cancelOrDismissFromWindow() {
         if session?.cancelTextEditing() == true {
             return
+        }
+        requestDismissDiscardingAnnotations()
+    }
+
+    @MainActor
+    private func requestDismissDiscardingAnnotations() {
+        if session?.document.elements.isEmpty == false {
+            let alert = NSAlert()
+            alert.messageText = String(localized: "放弃标注？")
+            alert.informativeText = String(localized: "关闭后未复制或保存的标注会丢失。")
+            alert.addButton(withTitle: String(localized: "放弃"))
+            alert.addButton(withTitle: String(localized: "取消"))
+            alert.alertStyle = .warning
+            alert.window.level = NSWindow.Level(rawValue: CaptureWindowLevels.editor.rawValue + 1)
+            if alert.runModal() != .alertFirstButtonReturn {
+                return
+            }
         }
         dismiss()
     }
@@ -443,6 +465,7 @@ final class EditorPresenter {
             }
             self.saveTask = nil
             self.dismiss()
+            ScreenshotHistoryStore.add(image)
             SaveLocationPresenter.showCopied(on: screen)
         }
     }
@@ -479,6 +502,9 @@ final class EditorPresenter {
                     session.endExport()
                     return
                 }
+                // The file is complete even if the optional clipboard copy
+                // below fails, so keep the finished image in history.
+                ScreenshotHistoryStore.add(image)
                 if copyOnComplete,
                    !ImageExporter.copyToClipboard(image) {
                     session.endExport()
@@ -505,6 +531,107 @@ final class EditorPresenter {
                 alert.window.level = NSWindow.Level(rawValue: CaptureWindowLevels.editor.rawValue + 1)
                 alert.runModal()
             }
+        }
+    }
+
+    private func pinAndFinish() {
+        commitPendingText()
+        guard let session, session.beginExport() else { return }
+        let document = session.document
+        saveTask?.cancel()
+        saveTask = Task { @MainActor [weak self] in
+            guard let self else {
+                session.endExport()
+                return
+            }
+            guard let image = await self.renderedImage(from: document) else {
+                session.endExport()
+                self.presentErrorPreservingEditor(ImageExporter.ExportError.encodingFailed)
+                return
+            }
+            guard !Task.isCancelled, self.session === session else {
+                session.endExport()
+                return
+            }
+            let screen = self.presentationScreen
+            session.endExport()
+            self.saveTask = nil
+            self.dismiss()
+            PinController.shared.present(image, on: screen)
+        }
+    }
+
+    private func ocrFromEditor() {
+        commitPendingText()
+        guard let session, session.beginExport() else { return }
+        let document = session.document
+        saveTask?.cancel()
+        saveTask = Task { @MainActor [weak self] in
+            guard let self else {
+                session.endExport()
+                return
+            }
+            guard let image = await self.renderedImage(from: document) else {
+                session.endExport()
+                self.presentErrorPreservingEditor(ImageExporter.ExportError.encodingFailed)
+                return
+            }
+            let text = await OCRService.recognizeText(in: image)
+            session.endExport()
+            self.saveTask = nil
+            ScreenshotHistoryStore.add(image)
+            if text.isEmpty {
+                SaveLocationPresenter.showCopied(message: String(localized: "未识别到文字"), on: self.presentationScreen)
+            } else {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+                SaveLocationPresenter.showCopied(message: String(localized: "已复制识别文字"), on: self.presentationScreen)
+            }
+        }
+    }
+
+    private func relayoutForCurrentImage() {
+        guard let session, let panel, let screen = presentationScreen ?? panel.screen else { return }
+        let content = panel.contentView as? EditorChromeView
+        let vis = screen.visibleFrame
+        let imageSize = session.document.baseImage.size
+        let toolbarSize = content?.toolbarFittingSize ?? NSSize(
+            width: EditorLayout.minContentWidth,
+            height: EditorLayout.estimatedToolbarHeight
+        )
+        if panel.styleMask.contains(.titled) {
+            let chrome = Self.windowChromeSize(for: panel.styleMask)
+            let maxContentSize = CGSize(
+                width: max(1, vis.width - 16 - chrome.width),
+                height: max(1, vis.height - 16 - chrome.height)
+            )
+            let contentSize = EditorLayout.windowedInitialContentSize(
+                imageSize: imageSize,
+                toolbarSize: toolbarSize,
+                maxContentSize: maxContentSize
+            )
+            let layout = EditorLayout.windowed(
+                imageSize: imageSize,
+                toolbarSize: toolbarSize,
+                contentSize: contentSize
+            )
+            content?.apply(layout)
+            let frame = Self.centeredWindowFrame(
+                contentSize: layout.contentSize,
+                styleMask: panel.styleMask,
+                visibleFrame: vis
+            )
+            panel.setFrame(frame, display: true)
+        } else {
+            let arrangement = Self.arrangement(
+                preferredImageSize: imageSize,
+                originForImage: nil,
+                visibleFrame: vis,
+                toolbarSize: toolbarSize,
+                center: true
+            )
+            content?.apply(arrangement)
+            panel.setFrame(arrangement.windowFrame, display: true)
         }
     }
 

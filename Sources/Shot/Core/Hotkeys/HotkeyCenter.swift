@@ -10,6 +10,7 @@ enum HotkeyAction: String, CaseIterable, Identifiable {
     case captureWindow
     case captureFullscreen
     case scrolling
+    case capturePreviousRegion
 
     var id: String { rawValue }
 
@@ -21,6 +22,7 @@ enum HotkeyAction: String, CaseIterable, Identifiable {
         case .captureWindow: return 4
         case .captureFullscreen: return 5
         case .scrolling: return 6
+        case .capturePreviousRegion: return 7
         }
     }
 
@@ -32,6 +34,7 @@ enum HotkeyAction: String, CaseIterable, Identifiable {
         case .captureWindow: return String(localized: "截取窗口")
         case .captureFullscreen: return String(localized: "截取全屏")
         case .scrolling: return String(localized: "滚动截图")
+        case .capturePreviousRegion: return String(localized: "截取上次区域")
         }
     }
 
@@ -43,6 +46,7 @@ enum HotkeyAction: String, CaseIterable, Identifiable {
         case .captureWindow: return .window
         case .captureFullscreen: return .fullscreen
         case .scrolling: return .area
+        case .capturePreviousRegion: return .area
         }
     }
 
@@ -210,6 +214,9 @@ final class HotkeyCenter: ObservableObject {
         if action == .scrolling {
             return .defaultScrolling
         }
+        if action == .capturePreviousRegion {
+            return .defaultCapturePreviousRegion
+        }
         return nil
     }
 
@@ -348,6 +355,8 @@ final class HotkeyCenter: ObservableObject {
             AppCoordinator.shared.toggleRecording()
         } else if action == .scrolling {
             AppCoordinator.shared.startScrollingCapture()
+        } else if action == .capturePreviousRegion {
+            CaptureSession.shared.capturePreviousRegion()
         } else {
             AppCoordinator.shared.startCapture(action.captureMode)
         }

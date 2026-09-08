@@ -1,4 +1,5 @@
 import AppKit
+import ShotKit
 import SwiftUI
 
 @MainActor
@@ -114,13 +115,26 @@ private enum StatusItemIcon {
         image.isTemplate = true
         return image
     }()
+
+    @MainActor
+    static var current: NSImage {
+        if CaptureSession.shared.isRecording {
+            let image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: String(localized: "正在录屏"))
+                ?? template
+            image.isTemplate = true
+            return image
+        }
+        return template
+    }
 }
 
 struct StatusItemLabel: View {
     @Environment(\.openSettings) private var openSettings
+    @ObservedObject private var menuState = StatusItemMenuState.shared
 
     var body: some View {
-        Image(nsImage: StatusItemIcon.template)
+        let _ = menuState.revision
+        Image(nsImage: StatusItemIcon.current)
             .accessibilityLabel("Shot")
             .help("Shot")
             .onAppear {
@@ -151,8 +165,10 @@ struct StatusItemMenuView: View {
         actionButton("All-in-One", hotkey: .allInOne) {
             AppCoordinator.shared.startCapture(.allInOne)
         }
-        Button(String(localized: "截取上次区域")) {
-            CaptureSession.shared.capturePreviousRegion()
+        Group {
+            actionButton(String(localized: "截取上次区域"), hotkey: .capturePreviousRegion) {
+                CaptureSession.shared.capturePreviousRegion()
+            }
         }
         .disabled(settings.lastSelection == nil)
         .help(
@@ -179,6 +195,25 @@ struct StatusItemMenuView: View {
             }
         }
 
+        let history = ScreenshotHistoryStore.items()
+        if !history.isEmpty {
+            Menu(String(localized: "最近截图")) {
+                ForEach(history) { item in
+                    Menu(historyTitle(for: item)) {
+                        Button(String(localized: "复制")) {
+                            copyHistory(item)
+                        }
+                        Button(String(localized: "打开标注")) {
+                            openHistory(item)
+                        }
+                        Button(String(localized: "在访达中显示")) {
+                            NSWorkspace.shared.activateFileViewerSelecting([ScreenshotHistoryStore.url(for: item)])
+                        }
+                    }
+                }
+            }
+        }
+
         Divider()
 
         Button(String(localized: "设置…")) {
@@ -200,6 +235,32 @@ struct StatusItemMenuView: View {
         guard CaptureSession.shared.isRecording else { return String(localized: "录屏") }
         let elapsed = Int(CaptureSession.shared.recordingElapsed ?? 0)
         return String(localized: "停止录制") + String(format: " %02d:%02d", elapsed / 60, elapsed % 60)
+    }
+
+    private func historyTitle(for item: ScreenshotHistoryItem) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 HH:mm:ss"
+        return formatter.string(from: item.createdAt)
+    }
+
+    private func copyHistory(_ item: ScreenshotHistoryItem) {
+        guard let image = ScreenshotHistoryStore.image(for: item) else { return }
+        if ImageExporter.copyToClipboard(image) {
+            SaveLocationPresenter.showCopied()
+        }
+    }
+
+    private func openHistory(_ item: ScreenshotHistoryItem) {
+        guard let image = ScreenshotHistoryStore.image(for: item) else { return }
+        guard let screen = CoordinateSpace.screen(containing: NSEvent.mouseLocation) else { return }
+        var result = CaptureResult(
+            image: image,
+            rect: CGRect(origin: .zero, size: image.size),
+            screen: screen
+        )
+        result.hasAppliedBackground = true
+        CaptureSession.shared.openHistory(result)
     }
 
     @ViewBuilder

@@ -169,6 +169,7 @@ final class EditSession: ObservableObject {
     @Published private(set) var textEditID: UUID?
     @Published private(set) var calloutEditRect: CGRect?
     @Published private(set) var isExporting = false
+    var onCanvasSizeChange: (() -> Void)?
 
     private let settings: AppSettings
     private var isLoadingPreferences = false
@@ -212,11 +213,13 @@ final class EditSession: ObservableObject {
         if selectedTool == .text {
             return
         }
+        let previousSize = document.baseImage.size
         AnnotationTools.tool(for: selectedTool).handle(event, document: &document)
         if selectedTool == .select, case .up = event {
             loadAppearanceFromSelection()
         }
         objectWillChange.send()
+        notifyCanvasSizeChange(from: previousSize)
     }
 
     func beginText(at point: CGPoint, replacing id: UUID? = nil) {
@@ -282,18 +285,22 @@ final class EditSession: ObservableObject {
 
     func undo() {
         guard document.canUndo else { return }
+        let previousSize = document.baseImage.size
         textEditOrigin = nil
         calloutEditRect = nil
         document.undo()
         objectWillChange.send()
+        notifyCanvasSizeChange(from: previousSize)
     }
 
     func redo() {
         guard document.canRedo else { return }
+        let previousSize = document.baseImage.size
         textEditOrigin = nil
         calloutEditRect = nil
         document.redo()
         objectWillChange.send()
+        notifyCanvasSizeChange(from: previousSize)
     }
 
     func deleteSelection() {
@@ -327,6 +334,11 @@ final class EditSession: ObservableObject {
     func endStyleAdjustment() {
         document.endUndoTransaction()
         objectWillChange.send()
+    }
+
+    private func notifyCanvasSizeChange(from previous: CGSize) {
+        guard document.baseImage.size != previous else { return }
+        onCanvasSizeChange?()
     }
 
     private func applyStyle() {

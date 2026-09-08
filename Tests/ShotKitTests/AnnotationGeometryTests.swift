@@ -134,3 +134,19 @@ import Testing
     #expect(smooth.last == points.last)
     #expect(smooth.count <= points.count)
 }
+
+@Test func annotationCropGeometryTranslatesAndDropsOutsideObjects() {
+    let crop = CGRect(x: 40, y: 20, width: 80, height: 60)
+    let kept = CGRect(x: 50, y: 30, width: 20, height: 20)
+    let dropped = CGRect(x: 200, y: 10, width: 30, height: 20)
+    #expect(AnnotationCropGeometry.shouldKeep(bounds: kept, in: crop))
+    #expect(!AnnotationCropGeometry.shouldKeep(bounds: dropped, in: crop))
+    #expect(
+        AnnotationCropGeometry.translated(kept, subtracting: crop.origin)
+            == CGRect(x: 10, y: 10, width: 20, height: 20)
+    )
+    #expect(
+        AnnotationCropGeometry.translated(CGPoint(x: 50, y: 30), subtracting: crop.origin)
+            == CGPoint(x: 10, y: 10)
+    )
+}

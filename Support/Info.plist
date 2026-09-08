@@ -30,6 +30,8 @@
 	<string>15.0</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Shot 需要录制屏幕内容以截取窗口、区域和全屏。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Shot 需要使用麦克风，以便在录屏时收录人声。</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHighResolutionCapable</key>

@@ -47,4 +47,13 @@ done
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")" == '$(CURRENT_PROJECT_VERSION)' ]] \
   || { echo "Support/Info.plist must keep CFBundleVersion as an Xcode template value." >&2; exit 1; }
 
+if ! /usr/libexec/PlistBuddy -c 'Print :NSMicrophoneUsageDescription' "$PLIST" >/dev/null; then
+  echo "Support/Info.plist is missing NSMicrophoneUsageDescription." >&2
+  exit 1
+fi
+
+ENTITLEMENTS="$ROOT/Shot.entitlements"
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.device.audio-input' "$ENTITLEMENTS")" == 'true' ]] \
+  || { echo "Shot.entitlements must enable com.apple.security.device.audio-input." >&2; exit 1; }
+
 echo "Xcode project and source plist are valid."

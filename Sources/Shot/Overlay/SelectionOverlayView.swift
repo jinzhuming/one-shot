@@ -37,6 +37,7 @@ struct OverlayVisualState: Equatable {
     var selectionRect: CGRect?
     var dimOnly = false
     var holeIsWindow = false
+    var showsHandles = false
 }
 
 @MainActor
@@ -116,6 +117,9 @@ final class SelectionOverlayView: NSView {
     }
 
     override func cursorUpdate(with event: NSEvent) {
+        if visual.showsHandles {
+            return
+        }
         NSCursor.crosshair.set()
     }
 
@@ -227,17 +231,13 @@ final class SelectionOverlayView: NSView {
     }
 
     private func drawSelectionHandles(in frameRect: CGRect, accent: NSColor) {
-        guard min(frameRect.width, frameRect.height) >= OverlayFocusStyle.selectionHandleMinimumDimension else {
+        guard visual.showsHandles,
+              min(frameRect.width, frameRect.height) >= OverlayFocusStyle.selectionHandleMinimumDimension else {
             return
         }
 
         let radius = OverlayFocusStyle.selectionHandleDiameter / 2
-        let points = [
-            CGPoint(x: frameRect.minX, y: frameRect.minY),
-            CGPoint(x: frameRect.minX, y: frameRect.maxY),
-            CGPoint(x: frameRect.maxX, y: frameRect.minY),
-            CGPoint(x: frameRect.maxX, y: frameRect.maxY)
-        ]
+        let points = SelectionHandleGeometry.points(in: frameRect).map(\.1)
 
         for point in points {
             let handleFrame = CGRect(

@@ -11,6 +11,15 @@ final class CaptureHUDView: NSView {
         }
     }
 
+    var sampledHex: String? {
+        didSet {
+            guard sampledHex != oldValue else { return }
+            invalidateIntrinsicContentSize()
+            needsLayout = true
+            needsDisplay = true
+        }
+    }
+
     private let effectView = NSVisualEffectView()
     private let label = NSTextField(labelWithString: "")
 
@@ -27,13 +36,36 @@ final class CaptureHUDView: NSView {
     override var intrinsicContentSize: NSSize {
         guard !text.isEmpty else { return .zero }
         let size = label.intrinsicContentSize
-        return NSSize(width: ceil(size.width) + 16, height: 24)
+        let swatchWidth: CGFloat = sampledHex == nil ? 0 : 22
+        return NSSize(width: ceil(size.width) + 16 + swatchWidth, height: 24)
     }
 
     override func layout() {
         super.layout()
         effectView.frame = bounds
-        label.frame = bounds.insetBy(dx: 8, dy: 2)
+        let swatchWidth: CGFloat = sampledHex == nil ? 0 : 18
+        label.frame = CGRect(
+            x: 8,
+            y: 2,
+            width: max(0, bounds.width - 16 - swatchWidth - (swatchWidth > 0 ? 4 : 0)),
+            height: max(0, bounds.height - 4)
+        )
+    }
+
+    var colorSwatchFrame: CGRect? {
+        guard sampledHex != nil else { return nil }
+        return CGRect(x: bounds.maxX - 8 - 18, y: 5, width: 18, height: 14)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard let sampledHex, let color = NSColor(hex: sampledHex), let frame = colorSwatchFrame else { return }
+        let path = NSBezierPath(roundedRect: frame, xRadius: 4, yRadius: 4)
+        color.setFill()
+        path.fill()
+        NSColor.white.withAlphaComponent(0.8).setStroke()
+        path.lineWidth = 1
+        path.stroke()
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -73,5 +105,18 @@ final class CaptureHUDView: NSView {
 
         setAccessibilityElement(true)
         setAccessibilityRole(.staticText)
+    }
+}
+
+private extension NSColor {
+    convenience init?(hex: String) {
+        let value = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        guard value.count == 6, let number = UInt32(value, radix: 16) else { return nil }
+        self.init(
+            calibratedRed: CGFloat((number >> 16) & 0xff) / 255,
+            green: CGFloat((number >> 8) & 0xff) / 255,
+            blue: CGFloat(number & 0xff) / 255,
+            alpha: 1
+        )
     }
 }

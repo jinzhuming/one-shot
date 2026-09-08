@@ -9,6 +9,11 @@ import Testing
     #expect(WindowCapturePolicy.ignoresShadowsSingleWindow(includeShadow: false))
 }
 
+@Test func windowRecordingCropsTheDisplayWhenClickHighlightsMustBeCaptured() {
+    #expect(!WindowCapturePolicy.recordsWindowAsDisplayCrop(includedOverlayCount: 0))
+    #expect(WindowCapturePolicy.recordsWindowAsDisplayCrop(includedOverlayCount: 1))
+}
+
 @Test func windowInclusionFiltersLayerSizeAndPID() {
     let our: pid_t = 100
     #expect(WindowInclusion.shouldInclude(layer: 0, size: CGSize(width: 80, height: 80), processID: 200, ourPID: our))

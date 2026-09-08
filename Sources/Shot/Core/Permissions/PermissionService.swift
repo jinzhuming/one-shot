@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import CoreGraphics
 import Foundation
 
@@ -8,12 +9,14 @@ final class PermissionService: ObservableObject {
 
     @Published private(set) var hasScreenRecording: Bool
     @Published private(set) var screenRecordingNeedsRestart: Bool
+    @Published private(set) var hasMicrophone: Bool
 
     private var pollTimer: Timer?
 
     private init() {
         hasScreenRecording = CGPreflightScreenCaptureAccess()
         screenRecordingNeedsRestart = false
+        hasMicrophone = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
     }
 
     func refresh() {
@@ -22,6 +25,7 @@ final class PermissionService: ObservableObject {
         if granted {
             screenRecordingNeedsRestart = false
         }
+        hasMicrophone = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
     }
 
     @discardableResult
@@ -32,6 +36,25 @@ final class PermissionService: ObservableObject {
             screenRecordingNeedsRestart = true
         }
         return granted
+    }
+
+    func requestMicrophone() async -> Bool {
+        let granted = await AVCaptureDevice.requestAccess(for: .audio)
+        hasMicrophone = granted
+        return granted
+    }
+
+    func openMicrophoneSettings() {
+        let urls = [
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Microphone"
+        ]
+        for string in urls {
+            if let url = URL(string: string), NSWorkspace.shared.open(url) {
+                return
+            }
+        }
+        openScreenRecordingSettings()
     }
 
     func quitForPermissionRestart() {

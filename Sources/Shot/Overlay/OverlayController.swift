@@ -6,7 +6,7 @@ import SwiftUI
 protocol OverlayControllerDelegate: AnyObject {
     func overlayDidCancel()
     func overlayDidPickWindow(id: CGWindowID)
-    func overlayDidPickRegion(selection: RegionSelection)
+    func overlayDidSubmitRegion(selection: RegionSelection, action: OverlayRegionAction)
     func overlayDidPickFullscreen(screen: NSScreen)
     func overlayDidInvalidateDisplayConfiguration()
 }
@@ -18,7 +18,12 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     private var overlayWindows: [CGDirectDisplayID: OverlayWindow] = [:]
     private var hudViews: [ObjectIdentifier: CaptureHUDView] = [:]
     private var modeBarWindows: [CGDirectDisplayID: NSWindow] = [:]
+    private var actionBarWindows: [CGDirectDisplayID: NSWindow] = [:]
     private let modeState = OverlayModeState()
+    private var confirmStyle: OverlayConfirmStyle = .screenshot
+    private var isSelectionConfirmed = false
+    private var activeHandle: OverlaySelectionHandle?
+    private var sampledHex: String?
 
     private var mode: CaptureMode {
         get { modeState.mode }
@@ -84,7 +89,8 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         mode: CaptureMode,
         snapshot: CaptureSnapshot? = nil,
         allowsModeSwitch: Bool = true,
-        hintOverride: String? = nil
+        hintOverride: String? = nil,
+        confirmStyle: OverlayConfirmStyle = .screenshot
     ) {
         hidePreparationHUD()
         stopCatalogRefresh()
@@ -93,6 +99,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         hintTask?.cancel()
         hintTask = nil
         self.mode = mode
+        self.confirmStyle = confirmStyle
         modeBarEnabled = allowsModeSwitch
         if !allowsModeSwitch {
             removeModeShortcutMonitor()
@@ -100,6 +107,9 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         isSnapshotBacked = snapshot != nil
         dimOnly = false
         isFrozen = false
+        isSelectionConfirmed = false
+        activeHandle = nil
+        sampledHex = nil
         highlighted = nil
         overlapIDs = []
         overlapIndex = 0
@@ -170,6 +180,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
             window.ignoresMouseEvents = true
         }
         hideModeBars()
+        hideActionBars()
         hideHUDs()
         applyVisuals()
         stopCatalogRefresh()
@@ -177,8 +188,11 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
 
     func freezeForCapture() {
         isFrozen = true
+        isSelectionConfirmed = false
+        activeHandle = nil
         removeModeShortcutMonitor()
         hideModeBars()
+        hideActionBars()
         stopCatalogRefresh()
     }
 
@@ -214,7 +228,11 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         clickedWindow = nil
         dragStart = nil
         isDragging = false
+        isSelectionConfirmed = false
+        activeHandle = nil
+        sampledHex = nil
         hint = nil
+        hideActionBars()
         showOverlays(interactive: false)
         applyVisuals()
     }
@@ -242,6 +260,10 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         dimOnly = false
         isFrozen = false
         isSnapshotBacked = false
+        isSelectionConfirmed = false
+        activeHandle = nil
+        sampledHex = nil
+        confirmStyle = .screenshot
         modeBarEnabled = true
         spaceDown = false
         hint = nil
@@ -251,14 +273,15 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     func overlayMouseMoved(_ pointInScreen: CGPoint) {
         guard !dimOnly, !isFrozen else { return }
         updateModeBarVisibility(for: CoordinateSpace.screen(containing: pointInScreen))
+        updateResizeCursor(at: pointInScreen)
         if !isDragging {
-            if mode.allowsWindowClick {
+            if mode.allowsWindowClick, !isSelectionConfirmed {
                 requestWindowRefreshForMouseMovement()
                 scheduleHoverRefresh(at: pointInScreen)
             } else {
                 cancelHoverRefresh()
             }
-            if mode == .area {
+            if mode == .area || isSelectionConfirmed {
                 scheduleVisuals()
             }
         } else {
@@ -268,7 +291,36 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
 
     func overlayMouseDown(_ pointInScreen: CGPoint) {
         guard !dimOnly, !isFrozen else { return }
+        if copyColorFromHUD(at: pointInScreen) {
+            return
+        }
         cancelHoverRefresh()
+        activeHandle = nil
+        if isSelectionConfirmed, let rect = selectionRect {
+            if let handle = SelectionHandleGeometry.handle(at: pointInScreen, in: rect) {
+                activeHandle = handle
+                isDragging = true
+                isMovingSelection = false
+                dragStart = pointInScreen
+                hideModeBars()
+                hideActionBars()
+                applyVisuals()
+                return
+            }
+            if SelectionHandleGeometry.contains(pointInScreen, in: rect) || spaceDown {
+                isMovingSelection = true
+                isDragging = true
+                moveAnchor = pointInScreen
+                dragStart = pointInScreen
+                hideModeBars()
+                hideActionBars()
+                applyVisuals()
+                return
+            }
+            clearConfirmedSelection()
+            applyVisuals()
+            return
+        }
         dragStart = pointInScreen
         isDragging = false
         isMovingSelection = spaceDown && selectionRect != nil
@@ -285,6 +337,21 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     func overlayMouseDragged(_ pointInScreen: CGPoint) {
         guard !dimOnly, !isFrozen, dragStart != nil else { return }
 
+        if let handle = activeHandle, let rect = selectionRect {
+            selectionRect = SelectionHandleGeometry.resize(
+                rect,
+                handle: handle,
+                to: clampedSelectionPoint(pointInScreen),
+                square: shiftDown,
+                inside: selectionDisplayFrame ?? .null
+            )
+            isDragging = true
+            highlighted = nil
+            clickedWindow = nil
+            scheduleVisuals()
+            return
+        }
+
         if spaceDown, isMovingSelection, let rect = selectionRect {
             if let anchor = moveAnchor {
                 let boundedPoint = clampedSelectionPoint(pointInScreen)
@@ -297,6 +364,21 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
             }
             isDragging = true
             cancelHoverRefresh()
+            highlighted = nil
+            clickedWindow = nil
+            scheduleVisuals()
+            return
+        }
+
+        if isSelectionConfirmed, isMovingSelection, let rect = selectionRect, let anchor = moveAnchor {
+            let boundedPoint = clampedSelectionPoint(pointInScreen)
+            let translated = SelectionGeometry.translated(
+                rect,
+                by: CGSize(width: boundedPoint.x - anchor.x, height: boundedPoint.y - anchor.y)
+            )
+            selectionRect = clampedSelection(translated)
+            moveAnchor = boundedPoint
+            isDragging = true
             highlighted = nil
             clickedWindow = nil
             scheduleVisuals()
@@ -322,6 +404,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         overlapIDs = []
         overlapIndex = 0
         hideModeBars()
+        hideActionBars()
         selectionRect = clampedSelection(
             SelectionGeometry.rect(from: start, to: endpoint, square: shiftDown)
         )
@@ -334,20 +417,30 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
 
     func overlayMouseUp(_ pointInScreen: CGPoint) {
         guard !dimOnly, !isFrozen else { return }
+        // A confirm-clear click returns from mouseDown without `dragStart`.
+        // Ignore that mouse-up so it cannot switch to window mode or capture.
+        guard dragStart != nil else { return }
         if isDragging {
-            // Mouse-up is the authoritative final coordinate even when the
-            // event stream skipped the last drag event.
             overlayMouseDragged(pointInScreen)
         }
         visualUpdateTask?.cancel()
         visualUpdateTask = nil
         applyVisuals()
+        let finishedHandleResize = activeHandle != nil
         defer {
-            dragStart = nil
-            isDragging = false
-            isMovingSelection = false
-            moveAnchor = nil
-            clickedWindow = nil
+            resetDragState()
+        }
+
+        if finishedHandleResize || (isSelectionConfirmed && selectionRect != nil) {
+            if let rect = selectionRect, let displayID = selectionDisplayID {
+                if rect.width > OverlayModeSwitch.dragThreshold,
+                   rect.height > OverlayModeSwitch.dragThreshold {
+                    persistLastSelection(RegionSelection(rect: rect, displayID: displayID))
+                }
+                resetDragState()
+                enterConfirmedSelection()
+            }
+            return
         }
 
         if isDragging, let rect = selectionRect,
@@ -357,10 +450,9 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
                 showHint(String(localized: "找不到选区所在的显示器。"))
                 return
             }
-            let selection = RegionSelection(rect: rect, displayID: displayID)
-            persistLastSelection(selection)
-            freezeForCapture()
-            delegate?.overlayDidPickRegion(selection: selection)
+            persistLastSelection(RegionSelection(rect: rect, displayID: displayID))
+            resetDragState()
+            enterConfirmedSelection()
             return
         }
 
@@ -410,6 +502,15 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
             delegate?.overlayDidCancel()
             return
         }
+        if copyColorIfNeeded(for: event) {
+            return
+        }
+        if submitConfirmedSelectionIfNeeded(for: event) {
+            return
+        }
+        if nudgeConfirmedSelectionIfNeeded(for: event) {
+            return
+        }
         if event.keyCode == 48 {
             cycleHighlightedWindow(reverse: event.modifierFlags.contains(.shift) || shiftDown)
             return
@@ -425,6 +526,10 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
             }
             return
         }
+        if event.keyCode == 36, isSelectionConfirmed {
+            submitConfirmedSelection(.default)
+            return
+        }
         if event.keyCode == 36, mode == .fullscreen,
            let screen = CoordinateSpace.screen(containing: NSEvent.mouseLocation) {
             freezeForCapture()
@@ -438,7 +543,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     }
 
     private func recomputeSelectionIfNeeded() {
-        guard !dimOnly, isDragging, !spaceDown, let start = dragStart else { return }
+        guard !dimOnly, isDragging, !spaceDown, activeHandle == nil, let start = dragStart else { return }
         let endpoint = clampedSelectionPoint(NSEvent.mouseLocation)
         selectionRect = SelectionGeometry.rect(from: start, to: endpoint, square: shiftDown)
         selectionRect = clampedSelection(selectionRect ?? .zero)
@@ -464,7 +569,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     }
 
     private func cycleHighlightedWindow(reverse: Bool) {
-        guard !dimOnly, !isFrozen, mode.allowsWindowClick, !isDragging else { return }
+        guard !dimOnly, !isFrozen, mode.allowsWindowClick, !isDragging, !isSelectionConfirmed else { return }
         let stack = catalog.windows(at: NSEvent.mouseLocation)
         guard stack.count > 1 else { return }
         overlapIDs = stack.map(\.windowID)
@@ -479,6 +584,226 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
 
     private func persistLastSelection(_ selection: RegionSelection) {
         AppSettings.shared.lastSelection = selection
+    }
+
+    private func resetDragState() {
+        dragStart = nil
+        isDragging = false
+        isMovingSelection = false
+        moveAnchor = nil
+        clickedWindow = nil
+        activeHandle = nil
+    }
+
+    private func enterConfirmedSelection() {
+        isSelectionConfirmed = true
+        highlighted = nil
+        hideModeBars()
+        showActionBars()
+        applyVisuals()
+    }
+
+    private func clearConfirmedSelection() {
+        isSelectionConfirmed = false
+        activeHandle = nil
+        selectionRect = nil
+        selectionDisplayID = nil
+        selectionDisplayFrame = nil
+        hideActionBars()
+        restoreModeBarsIfNeeded()
+    }
+
+    private func submitConfirmedSelection(_ action: OverlayRegionAction) {
+        guard isSelectionConfirmed,
+              let rect = selectionRect,
+              let displayID = selectionDisplayID else { return }
+        let selection = RegionSelection(rect: rect, displayID: displayID)
+        persistLastSelection(selection)
+        freezeForCapture()
+        delegate?.overlayDidSubmitRegion(selection: selection, action: action)
+    }
+
+    @discardableResult
+    private func submitConfirmedSelectionIfNeeded(for event: NSEvent) -> Bool {
+        guard isSelectionConfirmed, event.modifierFlags.contains(.command) else { return false }
+        let key = event.charactersIgnoringModifiers?.lowercased()
+        if key == "c" {
+            submitConfirmedSelection(.copy)
+            return true
+        }
+        if key == "s" {
+            submitConfirmedSelection(.save)
+            return true
+        }
+        return false
+    }
+
+    @discardableResult
+    private func nudgeConfirmedSelectionIfNeeded(for event: NSEvent) -> Bool {
+        guard isSelectionConfirmed, !isDragging, let rect = selectionRect else { return false }
+        let shift = event.modifierFlags.contains(.shift) || shiftDown
+        guard let delta = SelectionHandleGeometry.arrowDelta(keyCode: event.keyCode, shift: shift) else {
+            return false
+        }
+        selectionRect = SelectionHandleGeometry.nudge(rect, delta: delta, inside: selectionDisplayFrame ?? rect)
+        if let rect = selectionRect, let displayID = selectionDisplayID {
+            persistLastSelection(RegionSelection(rect: rect, displayID: displayID))
+        }
+        showActionBars()
+        applyVisuals()
+        return true
+    }
+
+    @discardableResult
+    private func copyColorIfNeeded(for event: NSEvent) -> Bool {
+        guard event.modifierFlags.contains(.option),
+              event.charactersIgnoringModifiers?.lowercased() == "c",
+              let sampledHex else { return false }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(sampledHex, forType: .string)
+        SaveLocationPresenter.showCopied(message: String(localized: "已复制颜色 \(sampledHex)"))
+        return true
+    }
+
+    private func copyColorFromHUD(at pointInScreen: CGPoint) -> Bool {
+        guard let sampledHex, sampledHex.hasPrefix("#") else { return false }
+        for (identifier, hud) in hudViews {
+            guard !hud.isHidden, !hud.text.isEmpty, let swatch = hud.colorSwatchFrame else { continue }
+            guard let window = overlayWindows.values.first(where: { ObjectIdentifier($0) == identifier }) else {
+                continue
+            }
+            let swatchRect = window.convertToScreen(hud.convert(swatch, to: nil))
+            guard swatchRect.contains(pointInScreen) else { continue }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(sampledHex, forType: .string)
+            SaveLocationPresenter.showCopied(message: String(localized: "已复制颜色 \(sampledHex)"))
+            return true
+        }
+        return false
+    }
+
+    private func sampleColor(from view: SelectionOverlayView, at point: CGPoint) {
+        guard let image = view.backgroundImage,
+              var proposed = Optional(CGRect(origin: .zero, size: image.size)),
+              let cgImage = image.cgImage(forProposedRect: &proposed, context: nil, hints: nil),
+              let sample = PixelSampling.sample(image: cgImage, at: point, imageBounds: view.bounds)
+        else {
+            sampledHex = nil
+            return
+        }
+        sampledHex = PixelSampling.hex(red: sample.red, green: sample.green, blue: sample.blue)
+    }
+
+    private func updateResizeCursor(at point: CGPoint) {
+        guard isSelectionConfirmed, let rect = selectionRect else {
+            NSCursor.crosshair.set()
+            return
+        }
+        if let handle = SelectionHandleGeometry.handle(at: point, in: rect) {
+            cursor(for: handle).set()
+        } else if SelectionHandleGeometry.contains(point, in: rect) {
+            NSCursor.openHand.set()
+        } else {
+            NSCursor.crosshair.set()
+        }
+    }
+
+    private func cursor(for handle: OverlaySelectionHandle) -> NSCursor {
+        let position: NSCursor.FrameResizePosition
+        switch handle {
+        case .top: position = .top
+        case .bottom: position = .bottom
+        case .left: position = .left
+        case .right: position = .right
+        case .topLeft: position = .topLeft
+        case .topRight: position = .topRight
+        case .bottomLeft: position = .bottomLeft
+        case .bottomRight: position = .bottomRight
+        }
+        return NSCursor.frameResize(position: position, directions: [.inward, .outward])
+    }
+
+    private func screenshotDefaultAction() -> OverlayRegionAction {
+        switch AppSettings.shared.afterCaptureAction {
+        case .annotate: return .annotate
+        case .copy: return .copy
+        case .save: return .save
+        }
+    }
+
+    private static let screenshotActionBarSize = NSSize(width: 468, height: 44)
+    private static let startActionBarSize = NSSize(width: 120, height: 44)
+
+    private func showActionBars() {
+        guard isSelectionConfirmed, let selectionRect, let selectionDisplayID else { return }
+        for screen in NSScreen.screens {
+            if screen.displayID == selectionDisplayID {
+                showActionBar(on: screen, around: selectionRect)
+            } else {
+                actionBarWindows[screen.displayID]?.orderOut(nil)
+            }
+        }
+    }
+
+    private func hideActionBars() {
+        actionBarWindows.values.forEach { $0.orderOut(nil) }
+    }
+
+    private func showActionBar(on screen: NSScreen, around rect: CGRect) {
+        let size = confirmStyle == .start ? Self.startActionBarSize : Self.screenshotActionBarSize
+        let hosting = NSHostingView(rootView: OverlayActionBar(
+            style: confirmStyle,
+            defaultAction: screenshotDefaultAction(),
+            onAction: { [weak self] action in
+                self?.submitConfirmedSelection(action == .start ? .start : action)
+            }
+        ))
+        hosting.appearance = NSAppearance(named: .vibrantDark)
+        let bar: NSWindow
+        if let existing = actionBarWindows[screen.displayID] {
+            bar = existing
+            bar.contentView = hosting
+        } else {
+            let window = CaptureModeBarWindow(
+                contentRect: NSRect(origin: .zero, size: size),
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.hasShadow = true
+            window.isRestorable = false
+            window.level = CaptureWindowLevels.modeBar
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.isReleasedWhenClosed = false
+            window.sharingType = .none
+            window.animationBehavior = .none
+            actionBarWindows[screen.displayID] = window
+            bar = window
+        }
+        hosting.frame = NSRect(origin: .zero, size: size)
+        bar.contentView = hosting
+        bar.setContentSize(size)
+        let visible = screen.visibleFrame
+        let hudSize = liveHUDSize(on: screen) ?? CGSize(width: 220, height: 24)
+        let hud = OverlayChromeLayout.hudFrame(size: hudSize, around: rect, in: visible)
+        let frame = OverlayChromeLayout.actionBarFrame(
+            size: size,
+            around: rect,
+            avoiding: hud,
+            in: visible
+        )
+        bar.setFrame(frame, display: true)
+        bar.orderFront(nil)
+    }
+
+    private func liveHUDSize(on screen: NSScreen) -> CGSize? {
+        guard let window = overlayWindows[screen.displayID] else { return nil }
+        guard let hud = hudViews[ObjectIdentifier(window)], !hud.isHidden else { return nil }
+        let size = hud.intrinsicContentSize
+        guard size.width > 0, size.height > 0 else { return nil }
+        return size
     }
 
     private func setSelectionDisplay(for point: CGPoint) {
@@ -518,10 +843,11 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
 
     private func applyVisuals() {
         let visual = OverlayVisualState(
-            highlightedWindow: isDragging ? nil : highlighted,
+            highlightedWindow: isDragging || isSelectionConfirmed ? nil : highlighted,
             selectionRect: selectionRect,
             dimOnly: dimOnly,
-            holeIsWindow: !isDragging && selectionRect == nil && highlighted != nil
+            holeIsWindow: !isDragging && !isSelectionConfirmed && selectionRect == nil && highlighted != nil,
+            showsHandles: isSelectionConfirmed && !isDragging
         )
         let mouseScreen = CoordinateSpace.screen(containing: NSEvent.mouseLocation)
         for screen in NSScreen.screens {
@@ -551,7 +877,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     ) {
         guard !dimOnly,
               !isFrozen,
-              (mode == .area || isDragging),
+              (mode == .area || isDragging || isSelectionConfirmed),
               let mouseScreen,
               mouseScreen.displayID == screen.displayID,
               view.backgroundImage != nil
@@ -593,6 +919,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         view.magnifierFrame = outerFrameInView
         view.magnifierSourceRect = source
         view.magnifierCursor = cursorInView
+        sampleColor(from: view, at: cursorInView)
     }
 
     private func updateHUD(on screen: NSScreen, window: OverlayWindow, mouseScreen: NSScreen?) {
@@ -604,7 +931,20 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
             text = hint
         } else if let rect = selectionRect, rect.width > 2, rect.height > 2 {
             targetRect = rect
-            text = "\(Int(rect.width.rounded())) × \(Int(rect.height.rounded()))"
+            let sizeText = "\(Int(rect.width.rounded())) × \(Int(rect.height.rounded()))"
+            if let mouseScreen, mouseScreen.displayID == screen.displayID {
+                let local = PixelSampling.displayPoint(global: NSEvent.mouseLocation, screenFrame: screen.frame)
+                var parts = [
+                    sizeText,
+                    "\(Int(local.x.rounded())), \(Int(local.y.rounded()))"
+                ]
+                if let sampledHex {
+                    parts.append(sampledHex)
+                }
+                text = parts.joined(separator: " · ")
+            } else {
+                text = sizeText
+            }
         } else if let highlighted, screen.frame.intersects(highlighted.frame) {
             targetRect = highlighted.frame
             text = highlighted.title.isEmpty ? String(localized: "窗口") : String(highlighted.title.prefix(40))
@@ -618,6 +958,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         }
         hud.isHidden = false
         hud.text = text
+        hud.sampledHex = selectionRect == nil ? nil : sampledHex
         if hud.frame.size != hud.intrinsicContentSize {
             hud.invalidateIntrinsicContentSize()
             hud.frame.size = hud.intrinsicContentSize
@@ -626,10 +967,15 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         let inView = view.convert(inWindow, from: nil)
         let visInView = view.convert(window.convertFromScreen(screen.visibleFrame), from: nil)
         let container = visInView.isNull || visInView.isEmpty ? view.bounds : visInView
+        var avoiding: CGRect?
+        if isSelectionConfirmed, let bar = actionBarWindows[screen.displayID], bar.isVisible {
+            avoiding = view.convert(window.convertFromScreen(bar.frame), from: nil)
+        }
         hud.frame = OverlayChromeLayout.hudFrame(
             size: hud.frame.size,
             around: inView,
-            in: container
+            in: container,
+            avoiding: avoiding
         )
     }
 
@@ -641,6 +987,9 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
                 tearDown(window)
             }
             if let bar = modeBarWindows.removeValue(forKey: id) {
+                tearDown(bar)
+            }
+            if let bar = actionBarWindows.removeValue(forKey: id) {
                 tearDown(bar)
             }
         }
@@ -684,6 +1033,9 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         let bars = Array(modeBarWindows.values)
         modeBarWindows.removeAll()
         bars.forEach(tearDown)
+        let actions = Array(actionBarWindows.values)
+        actionBarWindows.removeAll()
+        actions.forEach(tearDown)
     }
 
     private func overlayWindow(for screen: NSScreen) -> OverlayWindow {
@@ -796,10 +1148,14 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         selectionRect = nil
         selectionDisplayID = nil
         selectionDisplayFrame = nil
+        isSelectionConfirmed = false
+        activeHandle = nil
+        sampledHex = nil
         clickedWindow = nil
         overlapIDs = []
         overlapIndex = 0
         hint = nil
+        hideActionBars()
         refreshHover(at: NSEvent.mouseLocation, preserveCycle: false)
         applyVisuals()
         restoreOverlayFocus()
@@ -818,7 +1174,18 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         removeModeShortcutMonitor()
         modeShortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
-            return self.toggleModeIfNeeded(for: event) ? nil : event
+            if self.toggleModeIfNeeded(for: event) {
+                return nil
+            }
+            if self.isSelectionConfirmed,
+               event.modifierFlags.contains(.command)
+                || event.modifierFlags.contains(.option)
+                || event.keyCode == 36
+                || SelectionHandleGeometry.arrowDelta(keyCode: event.keyCode, shift: false) != nil {
+                self.overlayKeyDown(event)
+                return nil
+            }
+            return event
         }
     }
 
@@ -833,6 +1200,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     private func toggleModeIfNeeded(for event: NSEvent) -> Bool {
         guard !event.isARepeat,
               !isDragging,
+              !isSelectionConfirmed,
               AppSettings.shared.areaWindowToggleHotkey.matches(event),
               let next = OverlayModeSwitch.toggled(from: mode.overlayKind) else {
             return false
@@ -858,7 +1226,10 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     }
 
     private func updateModeBarVisibility(for mouseScreen: NSScreen?) {
-        guard !dimOnly, !isFrozen, !isDragging else { return }
+        guard !dimOnly, !isFrozen, !isDragging, !isSelectionConfirmed else {
+            hideModeBars()
+            return
+        }
         let activeDisplayID = mouseScreen?.displayID
         for screen in NSScreen.screens {
             guard let bar = modeBarWindows[screen.displayID] else { continue }
@@ -895,7 +1266,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 guard let self, !Task.isCancelled else { return }
-                guard !self.dimOnly, !self.isFrozen, !self.isDragging else { continue }
+                guard !self.dimOnly, !self.isFrozen, !self.isDragging, !self.isSelectionConfirmed else { continue }
                 await self.refreshWindowSnapshot()
                 ticks += 1
                 if ticks % 4 == 0 {
@@ -915,7 +1286,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     }
 
     private func refreshWindowSnapshot() async {
-        guard !dimOnly, !isFrozen, !isDragging else { return }
+        guard !dimOnly, !isFrozen, !isDragging, !isSelectionConfirmed else { return }
         windowSnapshotRevision += 1
         let revision = windowSnapshotRevision
         let primaryHeight = CoordinateSpace.primaryDisplayHeight
@@ -932,7 +1303,8 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
               revision == windowSnapshotRevision,
               !dimOnly,
               !isFrozen,
-              !isDragging
+              !isDragging,
+              !isSelectionConfirmed
         else { return }
 
         let previous = catalog.windows
@@ -948,7 +1320,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         guard !dimOnly, !isFrozen else { return }
         try? await catalog.refresh()
         guard !Task.isCancelled, !dimOnly, !isFrozen else { return }
-        if mode.allowsWindowClick, !isDragging {
+        if mode.allowsWindowClick, !isDragging, !isSelectionConfirmed {
             scheduleHoverRefresh(at: NSEvent.mouseLocation)
         }
         applyVisuals()
@@ -964,11 +1336,11 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     }
 
     private func scheduleHoverRefresh(at point: CGPoint) {
-        guard !dimOnly, !isFrozen, !isDragging, mode.allowsWindowClick else { return }
+        guard !dimOnly, !isFrozen, !isDragging, !isSelectionConfirmed, mode.allowsWindowClick else { return }
         hoverTask?.cancel()
         hoverTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(100))
-            guard let self, !Task.isCancelled, !self.dimOnly, !self.isFrozen, !self.isDragging else { return }
+            guard let self, !Task.isCancelled, !self.dimOnly, !self.isFrozen, !self.isDragging, !self.isSelectionConfirmed else { return }
             let previousID = self.highlighted?.windowID
             self.refreshHover(at: point, preserveCycle: true)
             guard self.highlighted?.windowID != previousID else { return }
@@ -1011,9 +1383,12 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         }
 
         showOverlays(interactive: !dimOnly)
-        if !dimOnly, !isDragging {
+        if !dimOnly, !isDragging, !isSelectionConfirmed {
             cancelHoverRefresh()
             refreshHover(at: NSEvent.mouseLocation, preserveCycle: true)
+        }
+        if isSelectionConfirmed {
+            showActionBars()
         }
         applyVisuals()
     }

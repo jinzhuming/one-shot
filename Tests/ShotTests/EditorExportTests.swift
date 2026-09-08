@@ -548,6 +548,8 @@ import Testing
         arrangement: arrangement,
         onCopy: {},
         onSave: {},
+        onPin: {},
+        onOCR: {},
         onClose: {}
     )
     content.frame = CGRect(origin: .zero, size: arrangement.windowFrame.size)
@@ -611,6 +613,8 @@ import Testing
         windowedLayout: layout,
         onCopy: {},
         onSave: {},
+        onPin: {},
+        onOCR: {},
         onClose: {}
     )
     content.frame = CGRect(origin: .zero, size: layout.contentSize)

@@ -39,6 +39,8 @@ targets:
       Release: Support/Shot.xcconfig
     entitlements:
       path: Shot.entitlements
+      properties:
+        com.apple.security.device.audio-input: true
     settings:
       base:
         PRODUCT_NAME: Shot

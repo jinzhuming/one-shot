@@ -29,6 +29,8 @@ final class EditorChromeView: NSView {
         windowedLayout: EditorWindowLayout? = nil,
         onCopy: @escaping () -> Void,
         onSave: @escaping () -> Void,
+        onPin: @escaping () -> Void,
+        onOCR: @escaping () -> Void,
         onClose: @escaping () -> Void
     ) {
         self.session = session
@@ -43,6 +45,8 @@ final class EditorChromeView: NSView {
                 session: session,
                 onCopy: onCopy,
                 onSave: onSave,
+                onPin: onPin,
+                onOCR: onOCR,
                 onClose: onClose,
                 presentation: presentationStyle == .windowed ? .windowAdaptive : .floatingHUD
             )

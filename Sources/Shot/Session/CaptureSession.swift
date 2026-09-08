@@ -11,6 +11,8 @@ final class CaptureSession: OverlayControllerDelegate {
     private let recordingService = RecordingService()
     private let recordingControls = RecordingControlBarController()
     private let recordingTargetOverlay = RecordingTargetOverlayController()
+    private let recordingCountdown = RecordingCountdownHUD()
+    private let recordingClickHighlight = RecordingClickHighlightController()
     private let editor = EditorPresenter()
     private var captureTask: Task<Void, Never>?
     private var captureWatchdogTask: Task<Void, Never>?
@@ -46,6 +48,8 @@ final class CaptureSession: OverlayControllerDelegate {
             guard let self else { return }
             self.recordingControls.dismiss()
             self.recordingTargetOverlay.dismiss()
+            self.recordingCountdown.hide()
+            self.recordingClickHighlight.dismiss()
             self.isFinishingRecording = false
             self.fail(error)
             StatusItemMenu.reload()
@@ -156,14 +160,15 @@ final class CaptureSession: OverlayControllerDelegate {
 
         installEscapeToCancel()
         if intent == .recording {
-            overlay.present(mode: mode)
+            overlay.present(mode: mode, confirmStyle: .start)
             return
         }
         if intent == .scrolling {
             overlay.present(
                 mode: .area,
                 allowsModeSwitch: false,
-                hintOverride: String(localized: "拖拽选择滚动区域 · Esc 取消")
+                hintOverride: String(localized: "拖拽选择滚动区域，松手后可调整 · Esc 取消"),
+                confirmStyle: .start
             )
             return
         }
@@ -180,6 +185,8 @@ final class CaptureSession: OverlayControllerDelegate {
             isFinishingRecording = true
             recordingControls.dismiss()
             recordingTargetOverlay.dismiss()
+            recordingCountdown.hide()
+            recordingClickHighlight.dismiss()
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 await self.recordingService.cancel()
@@ -191,6 +198,8 @@ final class CaptureSession: OverlayControllerDelegate {
         }
         invalidatePendingCapture()
         scrollCaptureCoordinator = nil
+        recordingCountdown.hide()
+        recordingClickHighlight.dismiss()
         removeEscapeToCancel()
         overlay.dismiss()
         editor.dismiss()
@@ -202,6 +211,11 @@ final class CaptureSession: OverlayControllerDelegate {
         cancel()
     }
 
+    func openHistory(_ result: CaptureResult) {
+        guard prepareSession() else { return }
+        presentEditor(result)
+    }
+
     func overlayDidPickWindow(id: CGWindowID) {
         overlay.showPreparationHUD()
         runCapture { [weak self] operation in
@@ -209,14 +223,21 @@ final class CaptureSession: OverlayControllerDelegate {
         }
     }
 
-    func overlayDidPickRegion(selection: RegionSelection) {
-        if intent == .scrolling {
-            startScrolling(selection)
+    func overlayDidSubmitRegion(selection: RegionSelection, action: OverlayRegionAction) {
+        if action == .start || (action == .default && (intent == .scrolling || intent == .recording)) {
+            if intent == .scrolling {
+                startScrolling(selection)
+                return
+            }
+            overlay.showPreparationHUD()
+            runCapture { [weak self] operation in
+                await self?.captureRegion(selection, operation: operation)
+            }
             return
         }
         overlay.showPreparationHUD()
         runCapture { [weak self] operation in
-            await self?.captureRegion(selection, operation: operation)
+            await self?.captureRegion(selection, operation: operation, action: action)
         }
     }
 
@@ -357,7 +378,11 @@ final class CaptureSession: OverlayControllerDelegate {
         }
     }
 
-    private func captureRegion(_ selection: RegionSelection, operation: UInt64) async {
+    private func captureRegion(
+        _ selection: RegionSelection,
+        operation: UInt64,
+        action: OverlayRegionAction = .default
+    ) async {
         guard isCurrent(operation) else { return }
         if intent == .recording {
             await startRecording(.region(selection), operation: operation)
@@ -373,7 +398,7 @@ final class CaptureSession: OverlayControllerDelegate {
                 result = try await captureService.captureRegion(selection, catalog: overlay.windowCatalog)
             }
             try Task.checkCancellation()
-            await handle(result, operation: operation)
+            await handle(result, operation: operation, action: action)
         } catch is CancellationError {
             return
         } catch {
@@ -438,18 +463,66 @@ final class CaptureSession: OverlayControllerDelegate {
 
     private func startRecording(_ target: RecordingTarget, operation: UInt64) async {
         guard isCurrent(operation) else { return }
+        overlay.dismiss()
         do {
-            let screen = try await recordingService.start(
+            let screen = try recordingScreen(for: target)
+            try await waitForRecordingCountdown(on: screen, operation: operation)
+            try Task.checkCancellation()
+            guard isCurrent(operation) else { return }
+
+            var captureMicrophone = false
+            var microphoneDenied = false
+            if AppSettings.shared.captureMicrophone {
+                PermissionService.shared.refresh()
+                if PermissionService.shared.hasMicrophone {
+                    captureMicrophone = true
+                } else {
+                    let granted = await PermissionService.shared.requestMicrophone()
+                    try Task.checkCancellation()
+                    guard isCurrent(operation) else { return }
+                    captureMicrophone = granted
+                    microphoneDenied = !granted
+                }
+            }
+            let options = RecordingOptions(
+                capturesAudio: AppSettings.shared.captureSystemAudio,
+                captureMicrophone: captureMicrophone
+            )
+
+            var exceptingWindowIDs: [CGWindowID] = []
+            if AppSettings.shared.highlightClicks {
+                recordingClickHighlight.present(in: recordingHighlightFrame(for: target, on: screen))
+                try await overlay.windowCatalog.refresh()
+                try Task.checkCancellation()
+                guard isCurrent(operation) else {
+                    recordingClickHighlight.dismiss()
+                    return
+                }
+                if let windowID = recordingClickHighlight.windowID {
+                    exceptingWindowIDs = [windowID]
+                }
+            }
+
+            let recordedScreen = try await recordingService.start(
                 target: target,
                 catalog: overlay.windowCatalog,
-                directory: AppSettings.shared.saveDirectoryURL
+                directory: AppSettings.shared.saveDirectoryURL,
+                options: options,
+                exceptingWindowIDs: exceptingWindowIDs
             )
             guard isCurrent(operation) else {
+                recordingClickHighlight.dismiss()
                 await recordingService.cancel()
                 return
             }
+            if microphoneDenied {
+                SaveLocationPresenter.showCopied(
+                    message: String(localized: "未授权麦克风，已继续录屏且不收录人声。可在系统设置中开启。"),
+                    on: recordedScreen
+                )
+            }
             recordingControls.present(
-                on: screen,
+                on: recordedScreen,
                 state: recordingService.state,
                 elapsedProvider: { [weak self] in self?.recordingService.elapsed },
                 onPause: { [weak self] in self?.toggleRecordingPause() },
@@ -458,16 +531,62 @@ final class CaptureSession: OverlayControllerDelegate {
             )
             recordingTargetOverlay.present(
                 target: target,
-                on: screen,
+                on: recordedScreen,
                 catalog: overlay.windowCatalog,
                 elapsedProvider: { [weak self] in self?.recordingService.elapsed }
             )
-            overlay.dismiss()
             StatusItemMenu.reload()
         } catch is CancellationError {
+            recordingCountdown.hide()
+            recordingClickHighlight.dismiss()
             return
         } catch {
+            recordingCountdown.hide()
+            recordingClickHighlight.dismiss()
             fail(error, operation: operation)
+        }
+    }
+
+    private func waitForRecordingCountdown(on screen: NSScreen, operation: UInt64) async throws {
+        let seconds = AppSettings.shared.recordingCountdown.rawValue
+        guard seconds > 0 else { return }
+        recordingCountdown.show(seconds: seconds, on: screen)
+        defer { recordingCountdown.hide() }
+        for remaining in stride(from: seconds, through: 1, by: -1) {
+            try Task.checkCancellation()
+            guard isCurrent(operation) else { throw CancellationError() }
+            recordingCountdown.update(remaining)
+            try await Task.sleep(for: .seconds(1))
+        }
+    }
+
+    private func recordingScreen(for target: RecordingTarget) throws -> NSScreen {
+        switch target {
+        case .region(let selection):
+            guard let screen = NSScreen.screens.first(where: { $0.displayID == selection.displayID }) else {
+                throw RecordingError.noDisplay
+            }
+            return screen
+        case .window(let id):
+            if let window = overlay.windowCatalog.windows.first(where: { $0.windowID == id }) {
+                if let screen = CoordinateSpace.screen(for: window.frame) {
+                    return screen
+                }
+            }
+            throw RecordingError.noDisplay
+        case .display(let screen):
+            return screen
+        }
+    }
+
+    private func recordingHighlightFrame(for target: RecordingTarget, on screen: NSScreen) -> CGRect {
+        switch target {
+        case .region(let selection):
+            return selection.rect
+        case .window(let id):
+            return overlay.windowCatalog.windows.first(where: { $0.windowID == id })?.frame ?? screen.frame
+        case .display:
+            return screen.frame
         }
     }
 
@@ -476,6 +595,7 @@ final class CaptureSession: OverlayControllerDelegate {
         isFinishingRecording = true
         recordingControls.update(state: .stopping, elapsed: recordingService.elapsed)
         recordingTargetOverlay.dismiss()
+        recordingClickHighlight.dismiss()
         overlay.dismiss()
         captureTask?.cancel()
         captureTask = Task { @MainActor [weak self] in
@@ -512,6 +632,8 @@ final class CaptureSession: OverlayControllerDelegate {
         isFinishingRecording = true
         recordingControls.dismiss()
         recordingTargetOverlay.dismiss()
+        recordingCountdown.hide()
+        recordingClickHighlight.dismiss()
         overlay.dismiss()
         captureTask?.cancel()
         if recordingService.isStarting {
@@ -532,6 +654,8 @@ final class CaptureSession: OverlayControllerDelegate {
         invalidatePendingCapture()
         recordingControls.dismiss()
         recordingTargetOverlay.dismiss()
+        recordingCountdown.hide()
+        recordingClickHighlight.dismiss()
         scrollCaptureCoordinator = nil
         removeEscapeToCancel()
         overlay.dismiss()
@@ -540,7 +664,11 @@ final class CaptureSession: OverlayControllerDelegate {
         NSCursor.arrow.set()
     }
 
-    private func handle(_ result: CaptureResult, operation: UInt64) async {
+    private func handle(
+        _ result: CaptureResult,
+        operation: UInt64,
+        action: OverlayRegionAction = .default
+    ) async {
         guard isCurrent(operation) else { return }
         captureWatchdogTask?.cancel()
         captureWatchdogTask = nil
@@ -548,39 +676,73 @@ final class CaptureSession: OverlayControllerDelegate {
         removeEscapeToCancel()
         let result = await applyingScreenshotBackground(to: result)
         guard !Task.isCancelled, isCurrent(operation) else { return }
-        switch AppSettings.shared.afterCaptureAction {
-        case .annotate:
-            presentEditor(result)
+        switch resolvedAction(action) {
         case .copy:
-            if ImageExporter.copyToClipboard(result.image) {
-                overlay.dismiss()
-                resetMachine()
-                SaveLocationPresenter.showCopied(on: result.screen)
-            } else {
-                presentEditor(result)
-                presentErrorPreservingEditor(ImageExporter.ExportError.clipboardFailed)
-            }
+            finishCopy(result)
         case .save:
-            overlay.suspendForModal()
-            switch await finishSave(result.image) {
-            case .saved where !isCurrent(operation):
-                return
-            case .cancelled where !isCurrent(operation):
-                return
-            case .failed where !isCurrent(operation):
-                return
-            case .saved(let url):
-                overlay.dismiss()
-                resetMachine()
-                SaveLocationPresenter.showSaved(at: url, on: result.screen)
-            case .cancelled:
-                overlay.dismiss()
-                resetMachine()
-            case .failed(let error):
-                overlay.resumeAfterModal()
-                presentEditor(result)
-                presentErrorPreservingEditor(error)
+            await finishSaveFlow(result, operation: operation)
+        case .pin:
+            overlay.dismiss()
+            resetMachine()
+            PinController.shared.present(result.image, on: result.screen)
+        case .ocr:
+            overlay.dismiss()
+            resetMachine()
+            let text = await OCRService.recognizeText(in: result.image)
+            if text.isEmpty {
+                SaveLocationPresenter.showCopied(message: String(localized: "未识别到文字"), on: result.screen)
+            } else {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+                SaveLocationPresenter.showCopied(message: String(localized: "已复制识别文字"), on: result.screen)
             }
+            ScreenshotHistoryStore.add(result.image)
+        case .annotate, .default, .start:
+            presentEditor(result)
+        }
+    }
+
+    private func resolvedAction(_ action: OverlayRegionAction) -> OverlayRegionAction {
+        guard action == .default else { return action }
+        switch AppSettings.shared.afterCaptureAction {
+        case .annotate: return .annotate
+        case .copy: return .copy
+        case .save: return .save
+        }
+    }
+
+    private func finishCopy(_ result: CaptureResult) {
+        if ImageExporter.copyToClipboard(result.image) {
+            overlay.dismiss()
+            resetMachine()
+            ScreenshotHistoryStore.add(result.image)
+            SaveLocationPresenter.showCopied(on: result.screen)
+        } else {
+            presentEditor(result)
+            presentErrorPreservingEditor(ImageExporter.ExportError.clipboardFailed)
+        }
+    }
+
+    private func finishSaveFlow(_ result: CaptureResult, operation: UInt64) async {
+        overlay.suspendForModal()
+        switch await finishSave(result.image) {
+        case .saved where !isCurrent(operation):
+            return
+        case .cancelled where !isCurrent(operation):
+            return
+        case .failed where !isCurrent(operation):
+            return
+        case .saved(let url):
+            overlay.dismiss()
+            resetMachine()
+            SaveLocationPresenter.showSaved(at: url, on: result.screen)
+        case .cancelled:
+            overlay.dismiss()
+            resetMachine()
+        case .failed(let error):
+            overlay.resumeAfterModal()
+            presentEditor(result)
+            presentErrorPreservingEditor(error)
         }
     }
 
@@ -636,6 +798,9 @@ final class CaptureSession: OverlayControllerDelegate {
         }
         do {
             try await ImageExporter.save(image, format: settings.saveFormat, to: url)
+            // A completed file belongs in history even when the optional
+            // copy-on-complete step fails.
+            ScreenshotHistoryStore.add(image)
             if settings.copyOnComplete,
                !ImageExporter.copyToClipboard(image) {
                 return .failed(ImageExporter.ExportError.clipboardFailed)
@@ -651,6 +816,8 @@ final class CaptureSession: OverlayControllerDelegate {
         invalidatePendingCapture()
         recordingControls.dismiss()
         recordingTargetOverlay.dismiss()
+        recordingCountdown.hide()
+        recordingClickHighlight.dismiss()
         removeEscapeToCancel()
         overlay.dismiss()
         editor.dismiss()

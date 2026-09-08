@@ -200,6 +200,8 @@ struct AnnotationPreferences: Codable, Equatable {
             return textLineWidth
         case .counter:
             return counterLineWidth
+        case .crop:
+            return shapeLineWidth
         }
     }
 
@@ -215,6 +217,8 @@ struct AnnotationPreferences: Codable, Equatable {
             textLineWidth = value
         case .counter:
             counterLineWidth = value
+        case .crop:
+            break
         }
     }
 
@@ -351,6 +355,10 @@ struct AnnotationObject: Identifiable {
         case .counter:
             return AnnotationGeometry.hitTest(point: point, shape: .filledEllipse(bounds), tolerance: tolerance)
         }
+    }
+
+    func offsetting(by delta: CGSize) -> AnnotationObject {
+        transformed(by: CGAffineTransform(translationX: delta.width, y: delta.height))
     }
 
     func translated(by delta: CGSize, inside canvas: CGRect) -> AnnotationObject {
@@ -575,6 +583,9 @@ struct AnnotationDocument {
     var penPoints: [CGPoint] = []
     private var selectionInteraction: SelectionInteraction?
     private(set) var selectedID: UUID?
+    private var imageUndo: [NSImage] = []
+    private var imageRedo: [NSImage] = []
+    private var didRememberImageInTransaction = false
 
     init(baseImage: NSImage, style: AnnotationStyle = AnnotationStyle()) {
         self.baseImage = baseImage
@@ -595,6 +606,7 @@ struct AnnotationDocument {
     var canRedo: Bool { stack.canRedo }
 
     mutating func commit(_ element: AnnotationElement) {
+        rememberImage()
         stack.append(AnnotationObject(element: element))
         draft = nil
         gestureStart = nil
@@ -641,8 +653,27 @@ struct AnnotationDocument {
         }
     }
 
+    mutating func crop(to rect: CGRect) -> CGSize? {
+        let crop = rect.standardized.intersection(imageBounds)
+        guard AnnotationMath.isSignificantRect(crop) else { return nil }
+        guard let cropped = Self.croppedImage(baseImage, to: crop) else { return nil }
+        rememberImage()
+        let origin = crop.origin
+        let kept = elements.compactMap { object -> AnnotationObject? in
+            guard AnnotationCropGeometry.shouldKeep(bounds: object.bounds, in: crop) else { return nil }
+            return object.offsetting(by: CGSize(width: -origin.x, height: -origin.y))
+        }
+        stack.replaceAll(kept)
+        baseImage = cropped
+        selectedID = nil
+        draft = nil
+        gestureStart = nil
+        return cropped.size
+    }
+
     mutating func removeSelected() {
         guard let selectedID, let index = elements.firstIndex(where: { $0.id == selectedID }) else { return }
+        rememberImage()
         stack.remove(at: index)
         self.selectedID = nil
         draft = nil
@@ -650,6 +681,7 @@ struct AnnotationDocument {
 
     mutating func duplicateSelected() {
         guard let selected = selectedObject else { return }
+        rememberImage()
         let copy = selected.translated(by: CGSize(width: 12, height: 12), inside: imageBounds)
         stack.append(AnnotationObject(element: copy.element))
         selectedID = stack.items.last?.id
@@ -657,19 +689,23 @@ struct AnnotationDocument {
 
     mutating func updateSelected(_ update: (AnnotationObject) -> AnnotationObject) {
         guard let selectedID, let index = elements.firstIndex(where: { $0.id == selectedID }) else { return }
+        rememberImage()
         stack.replace(at: index, with: update(elements[index]))
     }
 
     mutating func beginUndoTransaction() {
         stack.beginTransaction()
+        didRememberImageInTransaction = false
     }
 
     mutating func endUndoTransaction() {
         stack.endTransaction()
+        didRememberImageInTransaction = false
     }
 
     mutating func replaceText(id: UUID, with string: String) {
         guard let index = elements.firstIndex(where: { $0.id == id }) else { return }
+        rememberImage()
         stack.replace(at: index, with: elements[index].replacingText(string))
     }
 
@@ -679,6 +715,7 @@ struct AnnotationDocument {
         penPoints = []
         selectionInteraction = nil
         stack.undo()
+        restoreImage(undoing: true)
         if let selectedID, !elements.contains(where: { $0.id == selectedID }) { self.selectedID = nil }
     }
 
@@ -688,6 +725,8 @@ struct AnnotationDocument {
         penPoints = []
         selectionInteraction = nil
         stack.redo()
+        restoreImage(undoing: false)
+        if let selectedID, !elements.contains(where: { $0.id == selectedID }) { self.selectedID = nil }
     }
 
     func flattened(includeDraft: Bool = false) -> NSImage {
@@ -761,8 +800,48 @@ struct AnnotationDocument {
             draft = nil
             return
         }
+        rememberImage()
         stack.replace(at: index, with: object)
         draft = nil
+    }
+
+    private mutating func rememberImage() {
+        if stack.isInTransaction {
+            if didRememberImageInTransaction { return }
+            didRememberImageInTransaction = true
+        }
+        imageUndo.append(baseImage)
+        if imageUndo.count > 100 {
+            imageUndo.removeFirst()
+        }
+        imageRedo.removeAll()
+    }
+
+    private mutating func restoreImage(undoing: Bool) {
+        if undoing {
+            guard let previous = imageUndo.popLast() else { return }
+            imageRedo.append(baseImage)
+            baseImage = previous
+        } else {
+            guard let previous = imageRedo.popLast() else { return }
+            imageUndo.append(baseImage)
+            baseImage = previous
+        }
+    }
+
+    private static func croppedImage(_ image: NSImage, to rect: CGRect) -> NSImage? {
+        var proposed = CGRect(origin: .zero, size: image.size)
+        guard let cgImage = image.cgImage(forProposedRect: &proposed, context: nil, hints: nil) else {
+            return nil
+        }
+        guard let pixel = AnnotationCropGeometry.pixelCropRect(
+            imageRect: rect,
+            imageSize: image.size,
+            pixelSize: CGSize(width: cgImage.width, height: cgImage.height)
+        ), let cropped = cgImage.cropping(to: pixel) else {
+            return nil
+        }
+        return NSImage(cgImage: cropped, size: rect.size)
     }
 }
 

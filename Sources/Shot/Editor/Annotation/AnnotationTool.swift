@@ -2,7 +2,7 @@ import AppKit
 import ShotKit
 
 enum AnnotationToolID: String, CaseIterable, Identifiable {
-    case select, arrow, rect, ellipse, line, pen, highlighter, text, callout, counter, mosaic, spotlight
+    case select, arrow, rect, ellipse, line, pen, highlighter, text, callout, counter, mosaic, spotlight, crop
 
     var id: String { rawValue }
 
@@ -39,6 +39,8 @@ enum AnnotationToolID: String, CaseIterable, Identifiable {
             return Metadata(title: "马赛克", helpText: "遮挡指定区域（9）", shortcut: "9", keyCode: 25)
         case .spotlight:
             return Metadata(title: "聚光", helpText: "突出指定区域（0）", shortcut: "0", keyCode: 29)
+        case .crop:
+            return Metadata(title: "裁剪", helpText: "裁剪画布（C）", shortcut: "C", keyCode: 8)
         }
     }
 
@@ -60,6 +62,7 @@ enum AnnotationToolID: String, CaseIterable, Identifiable {
         case .counter: return "1.circle"
         case .mosaic: return "square.grid.3x3.fill"
         case .spotlight: return "sun.max"
+        case .crop: return "crop"
         }
     }
 
@@ -70,7 +73,7 @@ enum AnnotationToolID: String, CaseIterable, Identifiable {
     /// The toolbar order is kept explicit so every implemented tool, including
     /// mosaic, remains visible even when the enum gains another tool later.
     static let groups: [[AnnotationToolID]] = [
-        [.select],
+        [.select, .crop],
         [.arrow, .rect, .ellipse, .line],
         [.pen, .highlighter],
         [.text, .callout, .counter],
@@ -122,6 +125,7 @@ enum AnnotationTools {
         case .counter: return CounterTool()
         case .mosaic: return ShapeTool(id: .mosaic)
         case .spotlight: return ShapeTool(id: .spotlight)
+        case .crop: return CropTool()
         }
     }
 }
@@ -255,6 +259,36 @@ struct CalloutTool: AnnotationTool {
     func handle(_ event: CanvasEvent, document: inout AnnotationDocument) {
         _ = event
         _ = document
+    }
+}
+
+struct CropTool: AnnotationTool {
+    let id: AnnotationToolID = .crop
+
+    func handle(_ event: CanvasEvent, document: inout AnnotationDocument) {
+        switch event {
+        case .down(let point, _):
+            document.gestureStart = point
+            document.draft = nil
+        case .drag(let point, let shift):
+            guard let start = document.gestureStart else { return }
+            let rect = SelectionGeometry.rect(from: start, to: point, square: shift)
+            document.draft = AnnotationObject(element: .rect(rect, style: cropPreviewStyle))
+        case .up(let point, let shift):
+            guard let start = document.gestureStart else { return }
+            let rect = SelectionGeometry.rect(from: start, to: point, square: shift)
+            document.draft = nil
+            document.gestureStart = nil
+            _ = document.crop(to: rect)
+        }
+    }
+
+    private var cropPreviewStyle: AnnotationStyle {
+        var style = AnnotationStyle()
+        style.color = .white
+        style.lineWidth = 1
+        style.shapeFillOpacity = 0.12
+        return style
     }
 }
 

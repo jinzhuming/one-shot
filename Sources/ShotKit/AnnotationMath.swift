@@ -52,6 +52,7 @@ public struct UndoStack<Element> {
 
     public var canUndo: Bool { !undoItems.isEmpty }
     public var canRedo: Bool { !redoItems.isEmpty }
+    public var isInTransaction: Bool { transactionStart != nil }
 
     /// Coalesces a continuous interaction (for example, a slider drag) into
     /// one undo step while keeping each intermediate value in `items`.
@@ -86,6 +87,11 @@ public struct UndoStack<Element> {
         guard items.indices.contains(index) else { return }
         recordMutation()
         items.remove(at: index)
+    }
+
+    public mutating func replaceAll(_ items: [Element]) {
+        recordMutation()
+        self.items = items
     }
 
     public mutating func undo() {

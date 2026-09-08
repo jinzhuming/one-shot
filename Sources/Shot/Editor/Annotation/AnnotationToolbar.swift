@@ -26,6 +26,8 @@ struct AnnotationToolbar: View {
     @ObservedObject var session: EditSession
     var onCopy: () -> Void
     var onSave: () -> Void
+    var onPin: () -> Void
+    var onOCR: () -> Void
     var onClose: () -> Void
     var presentation: AnnotationToolbarPresentation = .floatingHUD
 
@@ -332,6 +334,10 @@ struct AnnotationToolbar: View {
                 step: 0.05,
                 valueText: percentageText(session.spotlightOpacity)
             )
+        case .crop:
+            Text(String(localized: "拖拽选择要保留的区域"))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -776,6 +782,28 @@ struct AnnotationToolbar: View {
                 .accessibilityLabel(String(localized: "保存最终图片"))
                 .accessibilityHint(String(localized: "提交未完成的文字标注后保存"))
                 .disabled(session.isExporting)
+            Button {
+                onPin()
+            } label: {
+                Image(systemName: "pin")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: AnnotationChromeMetrics.controlSize, height: AnnotationChromeMetrics.controlSize)
+            }
+            .buttonStyle(AnnotationIconButtonStyle(presentation: presentation))
+            .help(String(localized: "将截图钉在桌面上"))
+            .accessibilityLabel(String(localized: "钉图"))
+            .disabled(session.isExporting)
+            Button {
+                onOCR()
+            } label: {
+                Image(systemName: "text.viewfinder")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: AnnotationChromeMetrics.controlSize, height: AnnotationChromeMetrics.controlSize)
+            }
+            .buttonStyle(AnnotationIconButtonStyle(presentation: presentation))
+            .help(String(localized: "识别文字并复制"))
+            .accessibilityLabel(String(localized: "识别文字"))
+            .disabled(session.isExporting)
         }
         .controlSize(.small)
     }

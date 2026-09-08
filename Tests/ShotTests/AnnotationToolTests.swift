@@ -6,7 +6,7 @@ import Testing
 @Test func annotationToolMetadataIsCompleteAndShortcutMappingRoundTrips() {
     let tools = AnnotationToolID.allCases
 
-    #expect(tools.count == 12)
+    #expect(tools.count == 13)
     #expect(Set(tools.map(\.shortcut)).count == tools.count)
     #expect(Set(tools.map(\.shortcutKeyCode)).count == tools.count)
 
@@ -22,6 +22,74 @@ import Testing
 
     #expect(Set(groupedTools) == Set(AnnotationToolID.allCases))
     #expect(groupedTools.contains(.mosaic))
+}
+
+@Test @MainActor func cropToolKeepsInsideAnnotationsAndUndoesImageTogether() {
+    let image = NSImage(size: CGSize(width: 320, height: 180))
+    image.lockFocus()
+    NSColor.systemRed.setFill()
+    NSRect(origin: .zero, size: image.size).fill()
+    image.unlockFocus()
+
+    let session = EditSession(image: image)
+    session.selectedTool = .rect
+    session.handle(.down(CGPoint(x: 40, y: 30), shift: false))
+    session.handle(.up(CGPoint(x: 140, y: 90), shift: false))
+    session.handle(.down(CGPoint(x: 220, y: 20), shift: false))
+    session.handle(.up(CGPoint(x: 280, y: 50), shift: false))
+    #expect(session.document.elements.count == 2)
+
+    session.selectedTool = .crop
+    session.handle(.down(CGPoint(x: 20, y: 20), shift: false))
+    session.handle(.up(CGPoint(x: 180, y: 120), shift: false))
+
+    #expect(session.document.elements.count == 1)
+    #expect(session.document.baseImage.size.width < 320)
+    guard case .rect(let croppedRect, _) = session.document.elements[0].element else {
+        Issue.record("The remaining rectangle must be remapped into crop space")
+        return
+    }
+    #expect(croppedRect.origin.x < 40)
+
+    session.undo()
+    #expect(session.document.elements.count == 2)
+    #expect(session.document.baseImage.size == CGSize(width: 320, height: 180))
+}
+
+@Test @MainActor func cropThenStyleSliderUndoRestoresImageInLockstep() {
+    let image = NSImage(size: CGSize(width: 320, height: 180))
+    image.lockFocus()
+    NSColor.systemBlue.setFill()
+    NSRect(origin: .zero, size: image.size).fill()
+    image.unlockFocus()
+
+    let session = EditSession(image: image)
+    session.selectedTool = .rect
+    session.handle(.down(CGPoint(x: 40, y: 30), shift: false))
+    session.handle(.up(CGPoint(x: 140, y: 90), shift: false))
+    #expect(session.document.elements.count == 1)
+
+    session.selectedTool = .crop
+    session.handle(.down(CGPoint(x: 20, y: 20), shift: false))
+    session.handle(.up(CGPoint(x: 180, y: 120), shift: false))
+    let croppedSize = session.document.baseImage.size
+    #expect(croppedSize.width < 320)
+    #expect(session.document.elements.count == 1)
+
+    session.selectedTool = .select
+    session.document.select(session.document.elements[0].id)
+    session.beginStyleAdjustment()
+    session.lineWidth = 8
+    session.lineWidth = 12
+    session.endStyleAdjustment()
+
+    session.undo()
+    #expect(session.document.elements.count == 1)
+    #expect(session.document.baseImage.size == croppedSize)
+
+    session.undo()
+    #expect(session.document.elements.count == 1)
+    #expect(session.document.baseImage.size == CGSize(width: 320, height: 180))
 }
 
 @Test @MainActor func mosaicToolCommitsTheSelectedRegion() {

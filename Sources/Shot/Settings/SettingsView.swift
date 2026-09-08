@@ -10,11 +10,12 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             Tab(String(localized: "通用"), systemImage: "gearshape") { generalTab }
-            Tab(String(localized: "快捷键"), systemImage: "keyboard") { shortcutsTab }
             Tab(String(localized: "截图"), systemImage: "camera") { screenshotsTab }
+            Tab(String(localized: "录屏"), systemImage: "record.circle") { recordingTab }
+            Tab(String(localized: "快捷键"), systemImage: "keyboard") { shortcutsTab }
         }
         .scenePadding()
-        .frame(width: 520, height: 500)
+        .frame(width: 520, height: 540)
         .background {
             SettingsWindowConfigurator()
                 .frame(width: 0, height: 0)
@@ -28,6 +29,72 @@ struct SettingsView: View {
     }
 
     private var generalTab: some View {
+        Form {
+            Section(String(localized: "外观")) {
+                Toggle(String(localized: "模式条更通透"), isOn: $settings.useLightweightCaptureHUD)
+                Text(String(localized: "开启后，截图模式条使用更透明的原生 HUD 外观。"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle(String(localized: "登录时打开"), isOn: loginEnabled)
+            }
+
+            Section(String(localized: "权限")) {
+                permissionRow(
+                    granted: permissions.hasScreenRecording,
+                    needsRestart: permissions.screenRecordingNeedsRestart,
+                    grantedText: String(localized: "屏幕录制已授权"),
+                    pendingText: String(localized: "已授权，退出并重新打开 Shot 后生效"),
+                    deniedText: String(localized: "屏幕录制未授权"),
+                    openSettings: { permissions.openScreenRecordingSettings() }
+                )
+                microphoneRow
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var loginEnabled: Binding<Bool> {
+        Binding(
+            get: { loginItem.isEnabled },
+            set: { loginItem.setEnabled($0) }
+        )
+    }
+
+    private var shortcutsTab: some View {
+        Form {
+            Section {
+                HotkeyRecorder(action: .allInOne)
+                HotkeyRecorder(action: .recording)
+                HotkeyRecorder(action: .captureArea)
+                HotkeyRecorder(action: .captureWindow)
+                HotkeyRecorder(action: .captureFullscreen)
+                HotkeyRecorder(action: .scrolling)
+                HotkeyRecorder(action: .capturePreviousRegion)
+            } footer: {
+                Text(String(localized: "若快捷键被系统或其他 App 占用，此处会显示「未生效」。"))
+            }
+            Section {
+                OverlayToggleHotkeyRecorder()
+            } header: {
+                Text(String(localized: "截图时"))
+            } footer: {
+                Text(String(localized: "未框选时按该快捷键或点击，可在区域和窗口之间切换。拖拽选区时仍按空格移动选区。"))
+            }
+            Section {
+                Text(String(localized: "标注：V 选择，C 裁剪，1–4 形状，5 画笔，6 荧光笔，7 文字，K 气泡，8 序号，9 马赛克，0 聚光。⌘D 复制标注，Delete 删除。"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text(String(localized: "编辑器"))
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var screenshotsTab: some View {
         Form {
             Section {
                 Picker(String(localized: "截图后"), selection: $settings.afterCaptureAction) {
@@ -54,83 +121,6 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-
-            Section(String(localized: "外观")) {
-                Toggle(String(localized: "使用轻量透明提示"), isOn: $settings.useLightweightCaptureHUD)
-                Text(String(localized: "开启后，截图模式条使用更透明的原生 HUD 外观。"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
-                Toggle(String(localized: "登录时打开"), isOn: loginEnabled)
-            }
-
-            Section(String(localized: "权限")) {
-                HStack {
-                    Circle()
-                        .fill(permissions.hasScreenRecording ? Color.green : Color.orange)
-                        .frame(width: 8, height: 8)
-                        .accessibilityHidden(true)
-                    Text(permissionStatus)
-                    Spacer()
-                    if permissions.screenRecordingNeedsRestart {
-                        Button(String(localized: "退出并重新打开 Shot")) {
-                            permissions.quitForPermissionRestart()
-                        }
-                    } else {
-                        Button(String(localized: "打开系统设置")) {
-                            permissions.openScreenRecordingSettings()
-                        }
-                    }
-                }
-            }
-        }
-        .formStyle(.grouped)
-    }
-
-    private var loginEnabled: Binding<Bool> {
-        Binding(
-            get: { loginItem.isEnabled },
-            set: { loginItem.setEnabled($0) }
-        )
-    }
-
-    private var permissionStatus: String {
-        if permissions.hasScreenRecording {
-            return String(localized: "屏幕录制已授权")
-        }
-        if permissions.screenRecordingNeedsRestart {
-            return String(localized: "已授权，退出并重新打开 Shot 后生效")
-        }
-        return String(localized: "屏幕录制未授权")
-    }
-
-    private var shortcutsTab: some View {
-        Form {
-            Section {
-                HotkeyRecorder(action: .allInOne)
-                HotkeyRecorder(action: .recording)
-                HotkeyRecorder(action: .captureArea)
-                HotkeyRecorder(action: .captureWindow)
-                HotkeyRecorder(action: .captureFullscreen)
-                HotkeyRecorder(action: .scrolling)
-            } footer: {
-                Text(String(localized: "若快捷键被系统或其他 App 占用，此处会显示「未生效」。录屏保存为 MP4，当前不包含系统音频或麦克风。"))
-            }
-            Section {
-                OverlayToggleHotkeyRecorder()
-            } header: {
-                Text(String(localized: "截图时"))
-            } footer: {
-                Text(String(localized: "未框选时按该快捷键或点击，可在区域和窗口之间切换。拖拽选区时仍按空格移动选区。"))
-            }
-        }
-        .formStyle(.grouped)
-    }
-
-    private var screenshotsTab: some View {
-        Form {
             Picker(String(localized: "格式"), selection: $settings.saveFormat) {
                 ForEach(SaveFormat.allCases) { format in
                     Text(format.title).tag(format)
@@ -178,6 +168,90 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var recordingTab: some View {
+        Form {
+            Section {
+                Toggle(String(localized: "录制系统声音"), isOn: $settings.captureSystemAudio)
+                Toggle(String(localized: "录制麦克风"), isOn: microphoneCapture)
+                Text(String(localized: "麦克风需要系统权限。未授权时仍会继续录屏，只是不包含人声。"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Picker(String(localized: "开始前倒计时"), selection: $settings.recordingCountdown) {
+                    ForEach(RecordingCountdown.allCases) { value in
+                        Text(value.title).tag(value)
+                    }
+                }
+                Toggle(String(localized: "高亮鼠标点击"), isOn: $settings.highlightClicks)
+                Text(String(localized: "倒计时不会写入成片。点击高亮会显示在录制画面中，便于演示。"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var microphoneCapture: Binding<Bool> {
+        Binding(
+            get: { settings.captureMicrophone },
+            set: { enabled in
+                settings.captureMicrophone = enabled
+                if enabled, !permissions.hasMicrophone {
+                    Task {
+                        let granted = await permissions.requestMicrophone()
+                        if !granted {
+                            settings.captureMicrophone = false
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    private var microphoneRow: some View {
+        HStack {
+            Circle()
+                .fill(permissions.hasMicrophone ? Color.green : Color.orange)
+                .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
+            Text(
+                permissions.hasMicrophone
+                    ? String(localized: "麦克风已授权")
+                    : String(localized: "麦克风未授权")
+            )
+            Spacer()
+            Button(String(localized: "打开系统设置")) {
+                permissions.openMicrophoneSettings()
+            }
+        }
+    }
+
+    private func permissionRow(
+        granted: Bool,
+        needsRestart: Bool,
+        grantedText: String,
+        pendingText: String,
+        deniedText: String,
+        openSettings: @escaping () -> Void
+    ) -> some View {
+        HStack {
+            Circle()
+                .fill(granted ? Color.green : Color.orange)
+                .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
+            Text(granted ? grantedText : (needsRestart ? pendingText : deniedText))
+            Spacer()
+            if needsRestart {
+                Button(String(localized: "退出并重新打开 Shot")) {
+                    permissions.quitForPermissionRestart()
+                }
+            } else {
+                Button(String(localized: "打开系统设置"), action: openSettings)
+            }
+        }
     }
 
     private func pickDirectory() {

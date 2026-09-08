@@ -22,6 +22,11 @@ final class AppSettings: ObservableObject {
         static let annotationWindowPlacement = "annotation.windowPlacement"
         static let annotationZoomWithCommandScroll = "annotation.zoomWithCommandScroll"
         static let annotationPreferences = "annotation.preferences"
+        static let screenshotHistory = "screenshot.history"
+        static let captureSystemAudio = "recording.systemAudio"
+        static let captureMicrophone = "recording.microphone"
+        static let recordingCountdown = "recording.countdown"
+        static let highlightClicks = "recording.highlightClicks"
     }
 
     @Published var hasCompletedOnboarding: Bool {
@@ -97,6 +102,30 @@ final class AppSettings: ObservableObject {
                 defaults.set(data, forKey: Key.annotationPreferences)
             }
         }
+    }
+
+    @Published var screenshotHistory: [ScreenshotHistoryItem] {
+        didSet {
+            if let data = try? JSONEncoder().encode(screenshotHistory) {
+                defaults.set(data, forKey: Key.screenshotHistory)
+            }
+        }
+    }
+
+    @Published var captureSystemAudio: Bool {
+        didSet { defaults.set(captureSystemAudio, forKey: Key.captureSystemAudio) }
+    }
+
+    @Published var captureMicrophone: Bool {
+        didSet { defaults.set(captureMicrophone, forKey: Key.captureMicrophone) }
+    }
+
+    @Published var recordingCountdown: RecordingCountdown {
+        didSet { defaults.set(recordingCountdown.rawValue, forKey: Key.recordingCountdown) }
+    }
+
+    @Published var highlightClicks: Bool {
+        didSet { defaults.set(highlightClicks, forKey: Key.highlightClicks) }
     }
 
     var saveDirectoryURL: URL {
@@ -197,6 +226,18 @@ final class AppSettings: ObservableObject {
         } else {
             annotationPreferences = .default
         }
+        if let data = defaults.data(forKey: Key.screenshotHistory),
+           let items = try? JSONDecoder().decode([ScreenshotHistoryItem].self, from: data) {
+            screenshotHistory = items
+        } else {
+            screenshotHistory = []
+        }
+        captureSystemAudio = defaults.bool(forKey: Key.captureSystemAudio)
+        captureMicrophone = defaults.bool(forKey: Key.captureMicrophone)
+        recordingCountdown = RecordingCountdown(
+            rawValue: defaults.object(forKey: Key.recordingCountdown) as? Int ?? 0
+        ) ?? .off
+        highlightClicks = defaults.bool(forKey: Key.highlightClicks)
     }
 
     private static func loadAreaWindowToggleHotkey(from defaults: UserDefaults) -> Hotkey {

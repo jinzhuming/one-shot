@@ -6,7 +6,7 @@ import ShotKit
 final class RecordingPreviewController: NSObject, NSWindowDelegate {
     static let shared = RecordingPreviewController()
 
-    private static let previewSize = CGSize(width: 360, height: 240)
+    private static let previewSize = CGSize(width: 380, height: 284)
     private var windows: [UUID: RecordingPreviewWindow] = [:]
     private var order: [UUID] = []
     private var screenParametersObserver: NSObjectProtocol?
@@ -45,6 +45,9 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
                 )
             },
             onSave: { [weak self] in self?.save(result.url) },
+            onReveal: {
+                NSWorkspace.shared.activateFileViewerSelecting([result.url])
+            },
             onClose: { [weak self] in self?.close(id: id) }
         )
         let window = RecordingPreviewWindow(
@@ -59,7 +62,7 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
         }
         window.displayID = result.screen.displayID
         window.isOpaque = false
-        window.backgroundColor = .black
+        window.backgroundColor = .clear
         window.hasShadow = true
         window.isReleasedWhenClosed = false
         window.isRestorable = false
@@ -148,20 +151,30 @@ final class RecordingPreviewWindow: NSWindow {
 }
 
 final class RecordingPreviewView: NSView {
+    private let effectView = NSVisualEffectView()
     private let playerView = AVPlayerView()
     private let actionGroup = NSStackView()
     private let copyButton = NSButton(title: "", target: nil, action: nil)
     private let saveButton = NSButton(title: "", target: nil, action: nil)
+    private let revealButton = NSButton(title: "", target: nil, action: nil)
     private let closeButton = NSButton(title: "", target: nil, action: nil)
     private let player: AVPlayer
     private let onCopy: () -> Void
     private let onSave: () -> Void
+    private let onReveal: () -> Void
     private let onClose: () -> Void
 
-    init(url: URL, onCopy: @escaping () -> Void, onSave: @escaping () -> Void, onClose: @escaping () -> Void) {
+    init(
+        url: URL,
+        onCopy: @escaping () -> Void,
+        onSave: @escaping () -> Void,
+        onReveal: @escaping () -> Void,
+        onClose: @escaping () -> Void
+    ) {
         self.player = AVPlayer(url: url)
         self.onCopy = onCopy
         self.onSave = onSave
+        self.onReveal = onReveal
         self.onClose = onClose
         super.init(frame: .zero)
         setup()
@@ -188,109 +201,64 @@ final class RecordingPreviewView: NSView {
     private func setup() {
         wantsLayer = true
         layer?.cornerRadius = 10
+        layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
+        appearance = NSAppearance(named: .vibrantDark)
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "录制视频预览"))
 
+        effectView.material = .hudWindow
+        effectView.blendingMode = .behindWindow
+        effectView.state = .active
+        effectView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(effectView)
+
         playerView.player = player
-        playerView.controlsStyle = .floating
+        playerView.controlsStyle = .inline
         playerView.showsFullScreenToggleButton = true
         playerView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(playerView)
 
-        configureIconButton(
-            copyButton,
-            systemSymbolName: "doc.on.doc",
-            action: #selector(copyVideo),
-            accessibilityLabel: String(localized: "复制视频文件"),
-            help: String(localized: "复制视频文件"),
-            isPrimary: true
-        )
-        configureIconButton(
-            saveButton,
-            systemSymbolName: "square.and.arrow.down",
-            action: #selector(saveVideo),
-            accessibilityLabel: String(localized: "将视频另存到其他位置"),
-            help: String(localized: "将视频另存到其他位置"),
-            isPrimary: false
-        )
-        configureIconButton(
-            closeButton,
-            systemSymbolName: "xmark",
-            action: #selector(closePreview),
-            accessibilityLabel: String(localized: "关闭"),
-            help: String(localized: "关闭视频预览"),
-            isPrimary: false
-        )
+        configure(copyButton, title: String(localized: "复制"), action: #selector(copyVideo))
+        configure(saveButton, title: String(localized: "保存"), action: #selector(saveVideo))
+        configure(revealButton, title: String(localized: "在访达中显示"), action: #selector(revealVideo))
+        configure(closeButton, title: String(localized: "关闭"), action: #selector(closePreview))
 
         actionGroup.orientation = .horizontal
         actionGroup.alignment = .centerY
-        actionGroup.spacing = 10
+        actionGroup.spacing = 8
         actionGroup.addArrangedSubview(copyButton)
         actionGroup.addArrangedSubview(saveButton)
+        actionGroup.addArrangedSubview(revealButton)
+        actionGroup.addArrangedSubview(closeButton)
         actionGroup.translatesAutoresizingMaskIntoConstraints = false
         addSubview(actionGroup)
 
-        closeButton.controlSize = .small
-        closeButton.wantsLayer = true
-        closeButton.layer?.shadowOpacity = 0
-        closeButton.showsBorderOnlyWhileMouseInside = true
-
-        addSubview(closeButton)
-
         NSLayoutConstraint.activate([
-            playerView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            playerView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            playerView.topAnchor.constraint(equalTo: topAnchor),
-            playerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            effectView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            effectView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            effectView.topAnchor.constraint(equalTo: topAnchor),
+            effectView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            playerView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            playerView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            playerView.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            playerView.bottomAnchor.constraint(equalTo: actionGroup.topAnchor, constant: -8),
             actionGroup.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
-            actionGroup.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            copyButton.widthAnchor.constraint(equalToConstant: 32),
-            copyButton.heightAnchor.constraint(equalToConstant: 32),
-            saveButton.widthAnchor.constraint(equalTo: copyButton.widthAnchor),
-            saveButton.heightAnchor.constraint(equalTo: copyButton.heightAnchor),
-            closeButton.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            closeButton.widthAnchor.constraint(equalToConstant: 28),
-            closeButton.heightAnchor.constraint(equalToConstant: 28)
+            actionGroup.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -10),
+            actionGroup.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            actionGroup.heightAnchor.constraint(equalToConstant: 28)
         ])
     }
 
-    private func configureIconButton(
-        _ button: NSButton,
-        systemSymbolName: String,
-        action: Selector,
-        accessibilityLabel: String,
-        help: String,
-        isPrimary: Bool
-    ) {
-        button.image = NSImage(
-            systemSymbolName: systemSymbolName,
-            accessibilityDescription: accessibilityLabel
-        )
-        button.imagePosition = .imageOnly
-        button.imageScaling = .scaleProportionallyDown
+    private func configure(_ button: NSButton, title: String, action: Selector) {
+        button.title = title
+        button.bezelStyle = .rounded
+        button.controlSize = .small
         button.target = self
         button.action = action
-        button.bezelStyle = .circular
-        button.controlSize = .small
-        button.contentTintColor = .white
-        button.appearance = NSAppearance(named: .vibrantDark)
-        button.bezelColor = isPrimary
-            ? .controlAccentColor
-            : NSColor.white.withAlphaComponent(0.18)
-        button.isBordered = true
-        button.toolTip = help
-        button.setAccessibilityLabel(accessibilityLabel)
-        button.setAccessibilityHelp(help)
+        button.setAccessibilityLabel(title)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.wantsLayer = true
-        button.layer?.cornerRadius = 16
-        button.layer?.shadowColor = NSColor.black.cgColor
-        button.layer?.shadowOpacity = 0.45
-        button.layer?.shadowRadius = 8
-        button.layer?.shadowOffset = CGSize(width: 0, height: -2)
     }
 
     @objc private func copyVideo() {
@@ -299,6 +267,10 @@ final class RecordingPreviewView: NSView {
 
     @objc private func saveVideo() {
         onSave()
+    }
+
+    @objc private func revealVideo() {
+        onReveal()
     }
 
     @objc private func closePreview() {

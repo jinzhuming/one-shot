@@ -289,3 +289,73 @@ import Testing
     #expect(OverlayFocusStyle.magnifierShadowOpacity > 0)
     #expect(OverlayFocusStyle.magnifierShadowOpacity < 0.4)
 }
+
+@Test func selectionHandlesResizeNudgeAndStayInsideDisplay() {
+    let bounds = CGRect(x: 0, y: 0, width: 800, height: 600)
+    let rect = CGRect(x: 100, y: 80, width: 200, height: 120)
+    let handles = SelectionHandleGeometry.points(in: rect)
+    #expect(handles.count == 8)
+    #expect(SelectionHandleGeometry.handle(at: CGPoint(x: 100, y: 200), in: rect) == .topLeft)
+
+    let resized = SelectionHandleGeometry.resize(
+        rect,
+        handle: .bottomRight,
+        to: CGPoint(x: 900, y: -40),
+        square: false,
+        inside: bounds
+    )
+    #expect(bounds.contains(resized))
+    #expect(resized.maxX <= bounds.maxX)
+    #expect(resized.minY >= bounds.minY)
+
+    let nudged = SelectionHandleGeometry.nudge(
+        rect,
+        delta: SelectionHandleGeometry.arrowDelta(keyCode: 124, shift: true)!,
+        inside: bounds
+    )
+    #expect(nudged.origin.x == rect.origin.x + 10)
+    #expect(bounds.contains(nudged))
+}
+
+@Test func overlayActionBarStaysInsideVisibleFrame() {
+    let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
+    let target = CGRect(x: 200, y: 80, width: 320, height: 180)
+    let hud = OverlayChromeLayout.hudFrame(
+        size: CGSize(width: 160, height: 24),
+        around: target,
+        in: visible
+    )
+    let bar = OverlayChromeLayout.actionBarFrame(
+        size: CGSize(width: 468, height: 44),
+        around: target,
+        avoiding: hud,
+        in: visible
+    )
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(bar))
+    #expect(!bar.intersects(hud))
+}
+
+@Test func overlayHUDFlipsAwayFromActionBarWhenTheyWouldOverlap() {
+    let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
+    let target = CGRect(x: 200, y: 80, width: 320, height: 180)
+    let hudSize = CGSize(width: 280, height: 24)
+    let naiveHUD = OverlayChromeLayout.hudFrame(
+        size: hudSize,
+        around: target,
+        in: visible
+    )
+    let bar = OverlayChromeLayout.actionBarFrame(
+        size: CGSize(width: 468, height: 44),
+        around: target,
+        avoiding: naiveHUD,
+        in: visible
+    )
+    let hud = OverlayChromeLayout.hudFrame(
+        size: hudSize,
+        around: target,
+        in: visible,
+        avoiding: bar
+    )
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(hud))
+    #expect(!hud.intersects(bar))
+}

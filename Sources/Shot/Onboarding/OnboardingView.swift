@@ -47,6 +47,12 @@ struct OnboardingView: View {
                     .font(.title2)
                 Text(String(localized: "从菜单栏或快捷键开始截图、滚动截图或录屏。悬停点选窗口，拖拽框选区域；截取后可以直接标注、复制或保存。"))
                     .foregroundStyle(.secondary)
+                HStack(spacing: 16) {
+                    onboardingHint(systemImage: "rectangle.dashed", title: String(localized: "框选区域"))
+                    onboardingHint(systemImage: "macwindow", title: String(localized: "点选窗口"))
+                    onboardingHint(systemImage: "rectangle.bottomhalf.inset.filled", title: String(localized: "底部切换模式"))
+                }
+                .padding(.top, 4)
             }
         case 1:
             VStack(alignment: .leading, spacing: 12) {
@@ -80,7 +86,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text(String(localized: "保存位置与快捷键"))
                     .font(.title2)
-                Text(String(localized: "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，录屏为 ⌘⇧6，可在设置里更改。录屏当前不包含声音。"))
+                Text(String(localized: "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，截取上次区域为 ⌃⌘L，录屏为 ⌘⇧6，可在设置里更改。"))
                     .foregroundStyle(.secondary)
                 HStack {
                     Text(settings.saveDirectoryURL.path)
@@ -91,6 +97,22 @@ struct OnboardingView: View {
                 HotkeyRecorder(action: .allInOne)
             }
         }
+    }
+
+    private func onboardingHint(systemImage: String, title: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(height: 28)
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(title)
     }
 
     private var primaryTitle: String {

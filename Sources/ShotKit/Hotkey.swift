@@ -78,6 +78,12 @@ public struct Hotkey: Equatable, Codable, Sendable {
         character: "s"
     )
 
+    public static let defaultCapturePreviousRegion = Hotkey(
+        keyCode: 37,
+        modifierRaw: NSEvent.ModifierFlags([.control, .command]).rawValue,
+        character: "l"
+    )
+
     public static let defaultAreaWindowToggle = Hotkey(
         keyCode: 49,
         modifierRaw: 0,
