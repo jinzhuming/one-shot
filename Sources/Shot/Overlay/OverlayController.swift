@@ -118,7 +118,6 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         } else {
             catalog.refreshWindowsFromCG()
         }
-        NSApp.activate(ignoringOtherApps: true)
         NSCursor.crosshair.set()
         showOverlays(interactive: true, snapshot: snapshot)
         if snapshot == nil, mode.allowsWindowClick {
@@ -564,20 +563,14 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         }
 
         let cursor = NSEvent.mouseLocation
-        let globalFrame: CGRect
-        if let selectionRect, selectionRect.width > 2, selectionRect.height > 2 {
-            globalFrame = MagnifierLayout.frame(
-                nextTo: selectionRect,
-                visibleFrame: screen.visibleFrame,
-                chromeInset: OverlayFocusStyle.magnifierBezelInset
-            )
-        } else {
-            globalFrame = MagnifierLayout.frame(
-                cursor: cursor,
-                visibleFrame: screen.visibleFrame,
-                chromeInset: OverlayFocusStyle.magnifierBezelInset
-            )
-        }
+        // The lens follows the pointer throughout the gesture. Anchoring it
+        // to the completed selection makes it jump as soon as a drag starts,
+        // which breaks the precision feedback loop used by the crosshair.
+        let globalFrame = MagnifierLayout.frame(
+            cursor: cursor,
+            visibleFrame: screen.visibleFrame,
+            chromeInset: OverlayFocusStyle.magnifierBezelInset
+        )
         guard !globalFrame.isEmpty else {
             view.magnifierFrame = nil
             view.magnifierSourceRect = nil
@@ -705,7 +698,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     private func makeOverlayWindow(for screen: NSScreen) -> OverlayWindow {
         let window = OverlayWindow(
             contentRect: screen.frame,
-            styleMask: [.borderless, .fullSizeContentView],
+            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -719,6 +712,7 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         window.hasShadow = false
         window.ignoresMouseEvents = false
         window.acceptsMouseMovedEvents = true
+        window.becomesKeyOnlyIfNeeded = false
         window.isRestorable = false
         window.level = CaptureWindowLevels.overlay
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]

@@ -33,13 +33,17 @@ public enum OverlayFocusStyle {
     /// The lens is a floating theme-adaptive inspection surface. Keep the
     /// chrome separate from the captured pixels so the content edge remains
     /// geometrically honest.
-    public static let magnifierBezelInset: CGFloat = 6
+    public static let magnifierBezelInset: CGFloat = 4
     public static let magnifierBezelOpacity: CGFloat = 0.86
     public static let magnifierShadowOpacity: CGFloat = 0.34
     public static let magnifierOuterBorderOpacity: CGFloat = 0.30
     public static let magnifierInnerBorderOpacity: CGFloat = 0.82
     public static let magnifierBorderLineWidth: CGFloat = 1
     public static let magnifierContrastLineWidth: CGFloat = 2
+    public static let magnifierCornerRadius: CGFloat = 12
+    public static let magnifierGuideOpacity: CGFloat = 0.54
+    public static let magnifierGuideContrastOpacity: CGFloat = 0.34
+    public static let magnifierTargetDiameter: CGFloat = 14
 
     public static func maskOpacity(
         dimOnly: Bool,

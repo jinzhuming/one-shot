@@ -113,13 +113,14 @@ import Testing
     let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
     let size = CGSize(width: 124, height: 124)
 
-    let above = MagnifierLayout.frame(
+    let lowerRight = MagnifierLayout.frame(
         cursor: CGPoint(x: 720, y: 400),
         size: size,
         visibleFrame: visible
     )
-    #expect(above.minY > 400)
-    #expect(visible.insetBy(dx: 8, dy: 8).contains(above))
+    #expect(lowerRight.minX > 720)
+    #expect(lowerRight.maxY < 400)
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(lowerRight))
 
     let top = MagnifierLayout.frame(
         cursor: CGPoint(x: 20, y: 890),
@@ -128,6 +129,18 @@ import Testing
     )
     #expect(visible.insetBy(dx: 8, dy: 8).contains(top))
     #expect(top.minX >= visible.minX + 8)
+}
+
+@Test func magnifierFrameKeepsPointerAsAnchorNearEdges() {
+    let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
+    let frame = MagnifierLayout.frame(
+        cursor: CGPoint(x: 1420, y: 60),
+        visibleFrame: visible
+    )
+
+    #expect(visible.insetBy(dx: 8, dy: 8).contains(frame))
+    #expect(frame.maxX < 1420)
+    #expect(frame.minY > 60)
 }
 
 @Test func magnifierFrameKeepsChromeInsideSafeAreaAndContentAligned() {

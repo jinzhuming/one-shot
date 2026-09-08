@@ -32,6 +32,14 @@ final class CaptureSession: OverlayControllerDelegate {
         intent == .scrolling && machine.phase == .capturing
     }
 
+    /// Screenshot capture deliberately uses nonactivating panels so the app
+    /// being captured keeps its native active/inactive rendering. AppKit's
+    /// deactivation observer must not treat that expected state as an escape
+    /// from the capture session.
+    var isNonactivatingScreenshotCapture: Bool {
+        machine.phase == .capturing && intent != .recording
+    }
+
     private init() {
         overlay.delegate = self
         recordingService.onFailure = { [weak self] error in
@@ -693,7 +701,6 @@ final class CaptureSession: OverlayControllerDelegate {
 
     private func installEscapeToCancel() {
         removeEscapeToCancel()
-        NSApp.activate(ignoringOtherApps: true)
         if let local = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
             if event.keyCode == 36, self?.isScrollingCapture == true {
                 self?.finishScrolling()

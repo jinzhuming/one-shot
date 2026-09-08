@@ -4,9 +4,10 @@ public enum MagnifierLayout {
     /// Size of the captured content inside the lens. The returned frame also
     /// includes the surrounding HUD chrome.
     public static let defaultSize = CGSize(width: 124, height: 124)
-    public static let defaultGap: CGFloat = 18
+    /// Distance between the pointer anchor and the nearest lens edge.
+    public static let defaultGap: CGFloat = 20
     public static let defaultZoom: CGFloat = 8
-    public static let defaultChromeInset: CGFloat = 6
+    public static let defaultChromeInset: CGFloat = 4
 
     public static func frame(
         cursor: CGPoint,
@@ -20,7 +21,10 @@ public enum MagnifierLayout {
               size.height > 0,
               visibleFrame.width > 0,
               visibleFrame.height > 0,
+              cursor.x.isFinite,
+              cursor.y.isFinite,
               gap.isFinite,
+              gap >= 0,
               margin.isFinite,
               margin >= 0,
               chromeInset.isFinite,
@@ -36,26 +40,39 @@ public enum MagnifierLayout {
         guard outerSize.width.isFinite, outerSize.height.isFinite else { return .zero }
 
         let safe = visibleFrame.insetBy(dx: margin, dy: margin)
-        var x = cursor.x - outerSize.width / 2
-        x = min(max(x, safe.minX), max(safe.minX, safe.maxX - outerSize.width))
+        // Keep the cursor as the visual anchor. The stable lower-right
+        // placement matches the common macOS capture pattern and avoids the
+        // lens jumping to a different anchor once a drag creates a selection.
+        // The remaining candidates are only fallbacks for screen edges.
+        let candidates = [
+            CGRect(
+                x: cursor.x + gap,
+                y: cursor.y - gap - outerSize.height,
+                width: outerSize.width,
+                height: outerSize.height
+            ),
+            CGRect(
+                x: cursor.x - gap - outerSize.width,
+                y: cursor.y - gap - outerSize.height,
+                width: outerSize.width,
+                height: outerSize.height
+            ),
+            CGRect(
+                x: cursor.x + gap,
+                y: cursor.y + gap,
+                width: outerSize.width,
+                height: outerSize.height
+            ),
+            CGRect(
+                x: cursor.x - gap - outerSize.width,
+                y: cursor.y + gap,
+                width: outerSize.width,
+                height: outerSize.height
+            )
+        ]
 
-        let above = CGRect(
-            x: x,
-            y: cursor.y + gap,
-            width: outerSize.width,
-            height: outerSize.height
-        )
-        if safe.contains(above) {
-            return above
-        }
-
-        let below = CGRect(
-            x: x,
-            y: cursor.y - gap - outerSize.height,
-            width: outerSize.width,
-            height: outerSize.height
-        )
-        return RectMath.clampedRect(below, in: safe)
+        return candidates.first(where: safe.contains)
+            ?? RectMath.clampedRect(candidates[0], in: safe)
     }
 
     /// Places the lens outside a live selection, preferring the selection's

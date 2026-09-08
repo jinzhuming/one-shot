@@ -2,7 +2,11 @@ import AppKit
 import QuartzCore
 import ShotKit
 
-final class OverlayWindow: NSWindow {
+/// A desktop-wide input surface that stays above the captured app without
+/// activating Shot. Keeping the panel nonactivating lets ScreenCaptureKit see
+/// the target in its original active/inactive state, including native chrome
+/// such as Finder's shadow.
+final class OverlayWindow: NSPanel {
     var onRequestCancel: (() -> Void)?
 
     override var canBecomeKey: Bool { true }
@@ -350,10 +354,12 @@ final class SelectionOverlayView: NSView {
         )
         guard !contentFrame.isNull, !contentFrame.isEmpty else { return }
 
+        drawMagnifierGuides(at: magnifierCursor)
+
         // Keep the outer HUD plate, image window, and keylines on distinct
         // geometry. This prevents the bezel from stealing pixels from the
         // sampled image and keeps the border aligned at display edges.
-        let bezel = NSBezierPath(ovalIn: outerFrame.insetBy(dx: 0.5, dy: 0.5))
+        let bezel = magnifierPath(in: outerFrame.insetBy(dx: 0.5, dy: 0.5))
         let shadow = NSShadow()
         effectiveAppearance.performAsCurrentDrawingAppearance {
             shadow.shadowColor = NSColor.shadowColor.withAlphaComponent(OverlayFocusStyle.magnifierShadowOpacity)
@@ -366,7 +372,7 @@ final class SelectionOverlayView: NSView {
         bezel.fill()
         NSGraphicsContext.restoreGraphicsState()
 
-        let clip = NSBezierPath(ovalIn: contentFrame)
+        let clip = magnifierPath(in: contentFrame)
         NSGraphicsContext.saveGraphicsState()
         clip.addClip()
         NSGraphicsContext.current?.imageInterpolation = .none
@@ -383,19 +389,19 @@ final class SelectionOverlayView: NSView {
         // Contrast keylines make the lens readable over either a bright or a
         // dark desktop. The inner keyline is the exact boundary of the pixels.
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            let outerBorder = NSBezierPath(ovalIn: outerFrame.insetBy(dx: 0.5, dy: 0.5))
+            let outerBorder = magnifierPath(in: outerFrame.insetBy(dx: 0.5, dy: 0.5))
             outerBorder.lineWidth = OverlayFocusStyle.magnifierBorderLineWidth
             NSColor.separatorColor
                 .withAlphaComponent(OverlayFocusStyle.magnifierOuterBorderOpacity)
                 .setStroke()
             outerBorder.stroke()
 
-            let innerContrast = NSBezierPath(ovalIn: contentFrame.insetBy(dx: -0.5, dy: -0.5))
+            let innerContrast = magnifierPath(in: contentFrame.insetBy(dx: -0.5, dy: -0.5))
             innerContrast.lineWidth = OverlayFocusStyle.magnifierContrastLineWidth
             NSColor.shadowColor.withAlphaComponent(0.62).setStroke()
             innerContrast.stroke()
 
-            let innerBorder = NSBezierPath(ovalIn: contentFrame.insetBy(dx: 0.5, dy: 0.5))
+            let innerBorder = magnifierPath(in: contentFrame.insetBy(dx: 0.5, dy: 0.5))
             innerBorder.lineWidth = OverlayFocusStyle.magnifierBorderLineWidth
             NSColor.labelColor
                 .withAlphaComponent(OverlayFocusStyle.magnifierInnerBorderOpacity)
@@ -409,16 +415,16 @@ final class SelectionOverlayView: NSView {
             destinationFrame: contentFrame
         )
         let crosshair = NSBezierPath()
-        crosshair.move(to: CGPoint(x: cursor.x - 12, y: cursor.y))
-        crosshair.line(to: CGPoint(x: cursor.x + 12, y: cursor.y))
-        crosshair.move(to: CGPoint(x: cursor.x, y: cursor.y - 12))
-        crosshair.line(to: CGPoint(x: cursor.x, y: cursor.y + 12))
+        crosshair.move(to: CGPoint(x: cursor.x - 10, y: cursor.y))
+        crosshair.line(to: CGPoint(x: cursor.x + 10, y: cursor.y))
+        crosshair.move(to: CGPoint(x: cursor.x, y: cursor.y - 10))
+        crosshair.line(to: CGPoint(x: cursor.x, y: cursor.y + 10))
         crosshair.lineCapStyle = .round
         // A dark under-stroke keeps the white cursor marker visible over
         // white or light captured content while preserving a white center on
         // dark content.
         NSGraphicsContext.saveGraphicsState()
-        NSBezierPath(ovalIn: contentFrame).addClip()
+        magnifierPath(in: contentFrame).addClip()
         crosshair.lineWidth = 4
         NSColor.black.withAlphaComponent(0.85).setStroke()
         crosshair.stroke()
@@ -426,6 +432,55 @@ final class SelectionOverlayView: NSView {
         NSColor.white.withAlphaComponent(0.9).setStroke()
         crosshair.stroke()
         NSGraphicsContext.restoreGraphicsState()
+    }
+
+    private func drawMagnifierGuides(at cursor: CGPoint) {
+        let guides = NSBezierPath()
+        guides.move(to: CGPoint(x: bounds.minX, y: cursor.y))
+        guides.line(to: CGPoint(x: bounds.maxX, y: cursor.y))
+        guides.move(to: CGPoint(x: cursor.x, y: bounds.minY))
+        guides.line(to: CGPoint(x: cursor.x, y: bounds.maxY))
+        guides.lineCapStyle = .butt
+
+        // A dark under-stroke and a lighter hairline preserve the guide over
+        // both bright and dark desktop content without turning it into a
+        // second selection border.
+        guides.lineWidth = 2
+        NSColor.black
+            .withAlphaComponent(OverlayFocusStyle.magnifierGuideContrastOpacity)
+            .setStroke()
+        guides.stroke()
+        guides.lineWidth = 1
+        NSColor.white
+            .withAlphaComponent(OverlayFocusStyle.magnifierGuideOpacity)
+            .setStroke()
+        guides.stroke()
+
+        let diameter = OverlayFocusStyle.magnifierTargetDiameter
+        let target = NSBezierPath(ovalIn: CGRect(
+            x: cursor.x - diameter / 2,
+            y: cursor.y - diameter / 2,
+            width: diameter,
+            height: diameter
+        ))
+        target.lineWidth = 2
+        NSColor.black.withAlphaComponent(0.56).setStroke()
+        target.stroke()
+        target.lineWidth = 1
+        NSColor.white.withAlphaComponent(0.82).setStroke()
+        target.stroke()
+    }
+
+    private func magnifierPath(in frame: CGRect) -> NSBezierPath {
+        let radius = min(
+            OverlayFocusStyle.magnifierCornerRadius,
+            min(frame.width, frame.height) / 2
+        )
+        return NSBezierPath(
+            roundedRect: frame,
+            xRadius: max(0, radius),
+            yRadius: max(0, radius)
+        )
     }
 
     private func drawMagnifierBezelFill() {

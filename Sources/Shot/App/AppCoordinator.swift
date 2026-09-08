@@ -270,10 +270,13 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
             guard !Task.isCancelled else { return }
             resignDebounceTask = nil
             guard !NSApp.isActive else { return }
+            guard !CaptureSession.shared.isNonactivatingScreenshotCapture else { return }
             // A screenshot selection is an intentionally modal desktop
             // interaction. If the app loses activation, releasing its
             // full-screen capture chrome is safer than leaving an input
-            // shield above another application. Recording is excluded:
+            // shield above another application. Nonactivating screenshot
+            // panels are excluded because remaining inactive is their
+            // intentional behavior; recording is excluded separately because
             // its overlay has already been dismissed and the stream is
             // allowed to continue in the background.
             guard CaptureSession.shared.phase == .capturing,
