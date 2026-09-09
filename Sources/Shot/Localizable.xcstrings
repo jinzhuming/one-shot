@@ -2340,6 +2340,83 @@
         }
       }
     },
+    "正在调整裁剪区域，可拖拽边缘或手柄，按 Return 应用": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在调整裁剪区域，可拖拽边缘或手柄，按 Return 应用"
+          }
+        }
+      }
+    },
+    "拖拽边缘或手柄调整，拖动框内移动": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖拽边缘或手柄调整，拖动框内移动"
+          }
+        }
+      }
+    },
+    "应用": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用"
+          }
+        }
+      }
+    },
+    "应用裁剪（Return）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用裁剪（Return）"
+          }
+        }
+      }
+    },
+    "应用裁剪": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用裁剪"
+          }
+        }
+      }
+    },
+    "取消裁剪（Esc）": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消裁剪（Esc）"
+          }
+        }
+      }
+    },
+    "取消裁剪": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消裁剪"
+          }
+        }
+      }
+    },
     "格式": {
       "extractionState": "manual",
       "localizations": {

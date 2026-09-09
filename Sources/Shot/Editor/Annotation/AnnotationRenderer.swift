@@ -36,9 +36,16 @@ enum AnnotationRenderer {
     }
 
     private static func drawFilledShape(_ path: NSBezierPath, style: AnnotationStyle) {
-        if style.shapeFillOpacity > 0 {
-            style.color.withAlphaComponent(min(max(style.shapeFillOpacity, 0), 1)).setFill()
-            path.fill()
+        let opacity = min(max(style.shapeFillOpacity, 0), 1)
+        if opacity > 0, let context = NSGraphicsContext.current?.cgContext {
+            // Fill through the active CGContext so the live canvas and the
+            // background export renderer use the same explicit compositing
+            // behavior. Restore the state before stroking the outline.
+            context.saveGState()
+            context.setFillColor(style.color.withAlphaComponent(opacity).cgColor)
+            context.addPath(path.cgPath)
+            context.fillPath()
+            context.restoreGState()
         }
         stroke(path, style: style, pattern: .solid)
     }

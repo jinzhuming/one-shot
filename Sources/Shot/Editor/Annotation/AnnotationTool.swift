@@ -294,29 +294,7 @@ struct CropTool: AnnotationTool {
     let id: AnnotationToolID = .crop
 
     func handle(_ event: CanvasEvent, document: inout AnnotationDocument) {
-        switch event {
-        case .down(let point, _):
-            document.gestureStart = point
-            document.draft = nil
-        case .drag(let point, let shift):
-            guard let start = document.gestureStart else { return }
-            let rect = SelectionGeometry.rect(from: start, to: point, square: shift)
-            document.draft = AnnotationObject(element: .rect(rect, style: cropPreviewStyle))
-        case .up(let point, let shift):
-            guard let start = document.gestureStart else { return }
-            let rect = SelectionGeometry.rect(from: start, to: point, square: shift)
-            document.draft = nil
-            document.gestureStart = nil
-            _ = document.crop(to: rect)
-        }
-    }
-
-    private var cropPreviewStyle: AnnotationStyle {
-        var style = AnnotationStyle()
-        style.color = .white
-        style.lineWidth = 1
-        style.shapeFillOpacity = 0.12
-        return style
+        document.handleCrop(event)
     }
 }
 

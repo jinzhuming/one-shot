@@ -41,8 +41,16 @@ import Testing
     #expect(session.document.elements.count == 2)
 
     session.selectedTool = .crop
-    session.handle(.down(CGPoint(x: 20, y: 20), shift: false))
+    session.handle(.down(CGPoint(x: 0, y: 0), shift: false))
+    session.handle(.drag(CGPoint(x: 20, y: 20), shift: false))
+    session.handle(.up(CGPoint(x: 20, y: 20), shift: false))
+    session.handle(.down(CGPoint(x: 320, y: 180), shift: false))
+    session.handle(.drag(CGPoint(x: 180, y: 120), shift: false))
     session.handle(.up(CGPoint(x: 180, y: 120), shift: false))
+
+    #expect(session.document.baseImage.size == CGSize(width: 320, height: 180))
+    #expect(session.document.elements.count == 2)
+    #expect(session.commitCrop())
 
     #expect(session.document.elements.count == 1)
     #expect(session.document.baseImage.size.width < 320)
@@ -71,8 +79,10 @@ import Testing
     #expect(session.document.elements.count == 1)
 
     session.selectedTool = .crop
-    session.handle(.down(CGPoint(x: 20, y: 20), shift: false))
+    session.handle(.down(CGPoint(x: 320, y: 180), shift: false))
+    session.handle(.drag(CGPoint(x: 180, y: 120), shift: false))
     session.handle(.up(CGPoint(x: 180, y: 120), shift: false))
+    #expect(session.commitCrop())
     let croppedSize = session.document.baseImage.size
     #expect(croppedSize.width < 320)
     #expect(session.document.elements.count == 1)
@@ -364,6 +374,25 @@ import Testing
         return
     }
     #expect(blockSize == 20)
+}
+
+@Test @MainActor func shapeAndPenLineWidthsDefaultToFourPoints() {
+    let suiteName = "ShotTests.AnnotationDefaultLineWidths.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    let settings = AppSettings(defaults: defaults)
+    #expect(settings.annotationPreferences.shapeLineWidth == 4)
+    #expect(settings.annotationPreferences.penLineWidth == 4)
+
+    for tool in [AnnotationToolID.rect, .ellipse, .pen] {
+        let session = EditSession(
+            image: NSImage(size: CGSize(width: 320, height: 180)),
+            settings: settings
+        )
+        session.selectedTool = tool
+        #expect(session.lineWidth == 4)
+    }
 }
 
 @Test @MainActor func highlighterElementRetainsConfiguredOpacity() {

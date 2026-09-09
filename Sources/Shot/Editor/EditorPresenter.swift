@@ -382,6 +382,18 @@ final class EditorPresenter {
                 }
                 return event
             }
+            if self.session?.selectedTool == .crop {
+                if event.keyCode == 53 {
+                    self.session?.cancelCrop()
+                    self.session?.selectedTool = .select
+                    return nil
+                }
+                if !command, (event.keyCode == 36 || event.keyCode == 76) {
+                    _ = self.session?.commitCrop()
+                    self.session?.selectedTool = .select
+                    return nil
+                }
+            }
             if event.keyCode == 53 {
                 self.requestDismissDiscardingAnnotations()
                 return nil
@@ -477,6 +489,7 @@ final class EditorPresenter {
 
     private func performOutput(_ action: EditorOutputAction) {
         commitPendingText()
+        _ = session?.commitCrop()
         guard let session, session.beginExport() else { return }
         let settings = AppSettings.shared
         let format = settings.saveFormat

@@ -613,6 +613,36 @@ import Testing
     #expect(containsRedPixel)
 }
 
+@Test @MainActor func annotationCanvasDrawsFilledRectangleInterior() {
+    let viewSize = CGSize(width: 200, height: 120)
+    var style = AnnotationStyle(color: .systemRed, lineWidth: 4)
+    style.shapeFillOpacity = 1
+    let view = AnnotationCanvasView(frame: CGRect(origin: .zero, size: viewSize))
+    view.image = solidImage(color: .white, size: viewSize)
+    view.annotations = [
+        AnnotationObject(
+            element: .rect(CGRect(x: 40, y: 30, width: 120, height: 60), style: style)
+        )
+    ]
+
+    let window = NSWindow(
+        contentRect: CGRect(origin: .zero, size: viewSize),
+        styleMask: .borderless,
+        backing: .buffered,
+        defer: false
+    )
+    window.contentView = view
+
+    let bitmap = cachedBitmap(for: view, size: viewSize)
+    let interior = bitmap.colorAt(x: 100, y: 60)?.usingColorSpace(.deviceRGB)
+    let outside = bitmap.colorAt(x: 20, y: 20)?.usingColorSpace(.deviceRGB)
+
+    #expect((interior?.redComponent ?? 0) > 0.7)
+    #expect((interior?.greenComponent ?? 1) < 0.6)
+    #expect((outside?.redComponent ?? 0) > 0.9)
+    #expect((outside?.greenComponent ?? 0) > 0.9)
+}
+
 @Test @MainActor func editorHitTestingKeepsCanvasAndToolbarInTheirOwnRegions() {
     let image = solidImage(color: .white, size: CGSize(width: 240, height: 140))
     let session = EditSession(image: image)

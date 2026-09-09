@@ -4,6 +4,7 @@ import ShotKit
 @MainActor
 protocol AnnotationCanvasDelegate: AnyObject {
     func canvasDidReceive(_ event: CanvasEvent)
+    func canvasDidReceive(_ event: CanvasEvent, cropHitTolerance: CGFloat)
     func canvasDidBeginText(at imagePoint: CGPoint, replacing id: UUID?)
     func canvasDidCommitText(_ string: String, at imagePoint: CGPoint, replacing id: UUID?)
     func canvasDidBeginCallout(at rect: CGRect, replacing id: UUID?)
@@ -12,6 +13,10 @@ protocol AnnotationCanvasDelegate: AnyObject {
 }
 
 extension AnnotationCanvasDelegate {
+    func canvasDidReceive(_ event: CanvasEvent, cropHitTolerance: CGFloat) {
+        canvasDidReceive(event)
+    }
+
     func canvasDidBeginCallout(at rect: CGRect, replacing id: UUID?) {}
     func canvasDidCommitCallout(_ string: String, in rect: CGRect, replacing id: UUID?) {}
 }
@@ -27,9 +32,15 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
     var selectedObjectID: UUID? {
         didSet { needsDisplay = true }
     }
+    var cropRect: CGRect? {
+        didSet { needsDisplay = true }
+    }
     var sourceImageSize: CGSize = .zero
     var selectedTool: AnnotationToolID = .pen {
-        didSet { refreshCursor() }
+        didSet {
+            needsDisplay = true
+            refreshCursor()
+        }
     }
     var strokeColor: NSColor = .systemRed {
         didSet { updateTextEditorAppearance() }
@@ -58,6 +69,7 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
     private var isPanningCanvas = false
     private var panStartWindowPoint: CGPoint?
     private var panStartBoundsOrigin: CGPoint?
+    private var cropTrackingArea: NSTrackingArea?
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -69,6 +81,9 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
     override func accessibilityRole() -> NSAccessibility.Role { .image }
     override func accessibilityLabel() -> String? { String(localized: "标注画布") }
     override func accessibilityValue() -> Any? {
+        if selectedTool == .crop {
+            return String(localized: "正在调整裁剪区域，可拖拽边缘或手柄，按 Return 应用")
+        }
         guard selectedTool == .select else { return String(localized: "绘制模式") }
         return selectedObjectID == nil
             ? String(localized: "未选择标注")
@@ -105,7 +120,11 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
             )
             context.restoreGState()
         }
-        drawSelectionOverlay()
+        if selectedTool == .crop {
+            drawCropOverlay()
+        } else {
+            drawSelectionOverlay()
+        }
     }
 
     override func layout() {
@@ -122,6 +141,29 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
     override func resetCursorRects() {
         discardCursorRects()
         addCursorRect(bounds, cursor: cursorForCurrentTool)
+    }
+
+    override func updateTrackingAreas() {
+        if let cropTrackingArea {
+            removeTrackingArea(cropTrackingArea)
+        }
+        let trackingArea = NSTrackingArea(
+            rect: .zero,
+            options: [.activeInKeyWindow, .mouseMoved, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(trackingArea)
+        cropTrackingArea = trackingArea
+        super.updateTrackingAreas()
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        guard selectedTool == .crop else {
+            cursorForCurrentTool.set()
+            return
+        }
+        updateCropCursor(at: imageLocation(in: event))
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -143,6 +185,17 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
             window?.makeFirstResponder(self)
             isTrackingGesture = true
             delegate?.canvasDidReceive(.down(imageLocation(in: event), shift: shiftHeld(in: event)))
+            return
+        }
+        if selectedTool == .crop {
+            window?.makeFirstResponder(self)
+            isTrackingGesture = true
+            let point = imageLocation(in: event)
+            updateCropCursor(at: point)
+            delegate?.canvasDidReceive(
+                .down(point, shift: shiftHeld(in: event)),
+                cropHitTolerance: cropHitTolerance
+            )
             return
         }
         if selectedTool == .select, event.clickCount == 2,
@@ -505,8 +558,153 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         switch selectedTool {
         case .text: return .iBeam
         case .select: return .arrow
+        case .crop: return .arrow
         default: return .crosshair
         }
+    }
+
+    private func updateCropCursor(at imagePoint: CGPoint) {
+        guard let cropRect else {
+            NSCursor.arrow.set()
+            return
+        }
+        let tolerance = cropHitTolerance
+        if let handle = AnnotationGeometry.handle(
+            at: imagePoint,
+            in: cropRect,
+            tolerance: tolerance
+        ) {
+            switch handle {
+            case .top, .bottom:
+                NSCursor.resizeUpDown.set()
+            case .left, .right:
+                NSCursor.resizeLeftRight.set()
+            case .topLeft, .topRight, .bottomRight, .bottomLeft:
+                NSCursor.crosshair.set()
+            }
+        } else if cropRect.insetBy(
+            dx: -tolerance,
+            dy: -tolerance
+        ).contains(imagePoint) {
+            NSCursor.openHand.set()
+        } else {
+            NSCursor.arrow.set()
+        }
+    }
+
+    private func drawCropOverlay() {
+        guard let cropRect else { return }
+        let imageRect = CGRect(origin: .zero, size: mappingImageSize)
+        let cropViewRect = viewRect(for: cropRect)
+        let imageViewRect = viewRect(for: imageRect)
+        guard cropViewRect.width > 0, cropViewRect.height > 0 else { return }
+
+        let mask = NSBezierPath(rect: imageViewRect)
+        mask.append(NSBezierPath(rect: cropViewRect))
+        mask.windingRule = .evenOdd
+        NSColor.black.withAlphaComponent(0.58).setFill()
+        mask.fill()
+
+        if cropViewRect.width >= 30, cropViewRect.height >= 30 {
+            NSColor.white.withAlphaComponent(0.34).setStroke()
+            let grid = NSBezierPath()
+            for fraction in [CGFloat(1.0 / 3.0), CGFloat(2.0 / 3.0)] {
+                let x = cropViewRect.minX + cropViewRect.width * fraction
+                grid.move(to: CGPoint(x: x, y: cropViewRect.minY))
+                grid.line(to: CGPoint(x: x, y: cropViewRect.maxY))
+                let y = cropViewRect.minY + cropViewRect.height * fraction
+                grid.move(to: CGPoint(x: cropViewRect.minX, y: y))
+                grid.line(to: CGPoint(x: cropViewRect.maxX, y: y))
+            }
+            grid.lineWidth = scaledCropPoints(1)
+            grid.stroke()
+        }
+
+        NSColor.black.withAlphaComponent(0.7).setStroke()
+        let border = NSBezierPath(rect: cropViewRect)
+        border.lineWidth = scaledCropPoints(4)
+        border.stroke()
+        NSColor.white.withAlphaComponent(0.95).setStroke()
+        border.lineWidth = scaledCropPoints(2)
+        border.stroke()
+
+        let handleSize = scaledCropPoints(CropInteractionMetrics.handleSize)
+        let handleRadius = scaledCropPoints(CropInteractionMetrics.handleCornerRadius)
+        let centers = cropHandleCenters(in: cropViewRect)
+        for center in centers {
+            let handle = CGRect(
+                x: center.x - handleSize / 2,
+                y: center.y - handleSize / 2,
+                width: handleSize,
+                height: handleSize
+            )
+            let shadow = NSBezierPath(
+                roundedRect: handle.insetBy(
+                    dx: -scaledCropPoints(2),
+                    dy: -scaledCropPoints(2)
+                ),
+                xRadius: handleRadius + scaledCropPoints(1),
+                yRadius: handleRadius + scaledCropPoints(1)
+            )
+            NSColor.black.withAlphaComponent(0.65).setFill()
+            shadow.fill()
+
+            let knob = NSBezierPath(
+                roundedRect: handle,
+                xRadius: handleRadius,
+                yRadius: handleRadius
+            )
+            NSColor.white.setFill()
+            knob.fill()
+            NSColor.controlAccentColor.setStroke()
+            let outline = NSBezierPath(
+                roundedRect: handle,
+                xRadius: CropInteractionMetrics.handleCornerRadius,
+                yRadius: CropInteractionMetrics.handleCornerRadius
+            )
+            outline.lineWidth = scaledCropPoints(1.25)
+            outline.stroke()
+        }
+    }
+
+    private var cropHitTolerance: CGFloat {
+        scaledCropPoints(20)
+    }
+
+    private func scaledCropPoints(_ points: CGFloat) -> CGFloat {
+        points / max(enclosingScrollView?.magnification ?? 1, 0.001)
+    }
+
+    private func cropHandleCenters(in rect: CGRect) -> [CGPoint] {
+        [
+            CGPoint(x: rect.minX, y: rect.minY),
+            CGPoint(x: rect.midX, y: rect.minY),
+            CGPoint(x: rect.maxX, y: rect.minY),
+            CGPoint(x: rect.maxX, y: rect.midY),
+            CGPoint(x: rect.maxX, y: rect.maxY),
+            CGPoint(x: rect.midX, y: rect.maxY),
+            CGPoint(x: rect.minX, y: rect.maxY),
+            CGPoint(x: rect.minX, y: rect.midY)
+        ]
+    }
+
+    private func viewRect(for imageRect: CGRect) -> CGRect {
+        let origin = CanvasMapping.viewPoint(
+            imagePoint: CGPoint(x: imageRect.minX, y: imageRect.minY),
+            viewSize: bounds.size,
+            imageSize: mappingImageSize
+        )
+        let maxPoint = CanvasMapping.viewPoint(
+            imagePoint: CGPoint(x: imageRect.maxX, y: imageRect.maxY),
+            viewSize: bounds.size,
+            imageSize: mappingImageSize
+        )
+        return CGRect(
+            x: origin.x,
+            y: origin.y,
+            width: maxPoint.x - origin.x,
+            height: maxPoint.y - origin.y
+        ).standardized
     }
 
     private func drawSelectionOverlay() {

@@ -96,9 +96,14 @@ enum MosaicShape {
     case brush(points: [CGPoint], width: CGFloat)
 }
 
+enum AnnotationDefaults {
+    static let lineWidth: CGFloat = 4
+    static let lineWidthValue: Double = 4
+}
+
 struct AnnotationStyle {
     var color: NSColor = .systemRed
-    var lineWidth: CGFloat = 4
+    var lineWidth: CGFloat = AnnotationDefaults.lineWidth
     var highlighterOpacity: CGFloat = 0.4
     var mosaicBlockSize: CGFloat = 10
     var mosaicShape: MosaicShapeKind = .rect
@@ -160,8 +165,8 @@ struct AnnotationStoredColor: Codable, Equatable {
 }
 
 struct AnnotationPreferences: Codable, Equatable {
-    var shapeLineWidth: Double = 4
-    var penLineWidth: Double = 4
+    var shapeLineWidth: Double = AnnotationDefaults.lineWidthValue
+    var penLineWidth: Double = AnnotationDefaults.lineWidthValue
     var highlighterLineWidth: Double = 4
     var highlighterOpacity: Double = 0.4
     var textLineWidth: Double = 4
@@ -208,8 +213,8 @@ struct AnnotationPreferences: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        shapeLineWidth = try container.decodeIfPresent(Double.self, forKey: .shapeLineWidth) ?? 4
-        penLineWidth = try container.decodeIfPresent(Double.self, forKey: .penLineWidth) ?? 4
+        shapeLineWidth = try container.decodeIfPresent(Double.self, forKey: .shapeLineWidth) ?? AnnotationDefaults.lineWidthValue
+        penLineWidth = try container.decodeIfPresent(Double.self, forKey: .penLineWidth) ?? AnnotationDefaults.lineWidthValue
         highlighterLineWidth = try container.decodeIfPresent(Double.self, forKey: .highlighterLineWidth) ?? 4
         highlighterOpacity = try container.decodeIfPresent(Double.self, forKey: .highlighterOpacity) ?? 0.4
         textLineWidth = try container.decodeIfPresent(Double.self, forKey: .textLineWidth) ?? 4
@@ -231,8 +236,8 @@ struct AnnotationPreferences: Codable, Equatable {
 
     func validated() -> AnnotationPreferences {
         var copy = self
-        copy.shapeLineWidth = Self.clamped(copy.shapeLineWidth, lower: 1, upper: 24, fallback: 4)
-        copy.penLineWidth = Self.clamped(copy.penLineWidth, lower: 1, upper: 24, fallback: 4)
+        copy.shapeLineWidth = Self.clamped(copy.shapeLineWidth, lower: 1, upper: 24, fallback: AnnotationDefaults.lineWidthValue)
+        copy.penLineWidth = Self.clamped(copy.penLineWidth, lower: 1, upper: 24, fallback: AnnotationDefaults.lineWidthValue)
         copy.highlighterLineWidth = Self.clamped(copy.highlighterLineWidth, lower: 1, upper: 32, fallback: 4)
         copy.highlighterOpacity = Self.clamped(copy.highlighterOpacity, lower: 0.1, upper: 1, fallback: 0.4)
         copy.textLineWidth = Self.clamped(copy.textLineWidth, lower: 1, upper: 12, fallback: 4)
@@ -674,6 +679,25 @@ private enum SelectionInteraction {
     }
 }
 
+enum CropInteractionMetrics {
+    static let handleSize: CGFloat = 14
+    static let handleCornerRadius: CGFloat = 3
+    static let minimumHitTolerance: CGFloat = 18
+    static let maximumHitTolerance: CGFloat = 36
+
+    static func hitTolerance(in rect: CGRect) -> CGFloat {
+        max(
+            minimumHitTolerance,
+            min(maximumHitTolerance, min(rect.width, rect.height) * 0.08)
+        )
+    }
+}
+
+private enum CropInteraction {
+    case moving(start: CGPoint, original: CGRect)
+    case resizing(original: CGRect, handle: AnnotationHandle)
+}
+
 struct AnnotationDocument {
     var baseImage: NSImage
     var style: AnnotationStyle
@@ -682,7 +706,9 @@ struct AnnotationDocument {
     var gestureStart: CGPoint?
     var penPoints: [CGPoint] = []
     private var selectionInteraction: SelectionInteraction?
+    private var cropInteraction: CropInteraction?
     private(set) var selectedID: UUID?
+    private(set) var cropRect: CGRect?
     private var imageUndo: [NSImage] = []
     private var imageRedo: [NSImage] = []
     private var didRememberImageInTransaction = false
@@ -717,6 +743,52 @@ struct AnnotationDocument {
         selectedID = id
         draft = nil
         selectionInteraction = nil
+    }
+
+    /// Starts a non-destructive crop session. The crop frame initially covers
+    /// the whole image, so entering crop mode never silently removes pixels.
+    mutating func beginCrop() {
+        cropRect = imageBounds
+        cropInteraction = nil
+        draft = nil
+        gestureStart = nil
+        penPoints = []
+    }
+
+    mutating func cancelCrop() {
+        cropRect = nil
+        cropInteraction = nil
+    }
+
+    /// Applies the current crop frame as one undoable document mutation.
+    @discardableResult
+    mutating func commitCrop() -> CGSize? {
+        guard let cropRect else { return nil }
+        return crop(to: cropRect)
+    }
+
+    mutating func handleCrop(_ event: CanvasEvent, hitTolerance: CGFloat? = nil) {
+        guard let cropRect else { return }
+        let tolerance = hitTolerance ?? CropInteractionMetrics.hitTolerance(in: cropRect)
+        switch event {
+        case .down(let point, _):
+            cropInteraction = if let handle = AnnotationGeometry.handle(
+                at: point,
+                in: cropRect,
+                tolerance: tolerance
+            ) {
+                .resizing(original: cropRect, handle: handle)
+            } else if cropRect.insetBy(dx: -tolerance, dy: -tolerance).contains(point) {
+                .moving(start: point, original: cropRect)
+            } else {
+                nil
+            }
+        case .drag(let point, let shift):
+            updateCropDraft(at: point, preservingAspectRatio: shift)
+        case .up(let point, let shift):
+            updateCropDraft(at: point, preservingAspectRatio: shift)
+            cropInteraction = nil
+        }
     }
 
     mutating func handleSelection(_ event: CanvasEvent) {
@@ -768,6 +840,8 @@ struct AnnotationDocument {
         selectedID = nil
         draft = nil
         gestureStart = nil
+        cropRect = nil
+        cropInteraction = nil
         return cropped.size
     }
 
@@ -891,6 +965,27 @@ struct AnnotationDocument {
             transformed = original.resized(to: rect)
         }
         draft = transformed
+    }
+
+    private mutating func updateCropDraft(at point: CGPoint, preservingAspectRatio: Bool) {
+        guard let interaction = cropInteraction else { return }
+        switch interaction {
+        case .moving(let start, let original):
+            cropRect = AnnotationGeometry.movedRect(
+                original,
+                by: CGSize(width: point.x - start.x, height: point.y - start.y),
+                inside: imageBounds
+            )
+        case .resizing(let original, let handle):
+            cropRect = AnnotationGeometry.resizedRect(
+                original,
+                handle: handle,
+                to: point,
+                preservingAspectRatio: preservingAspectRatio,
+                inside: imageBounds,
+                minimumSize: 24
+            )
+        }
     }
 
     private mutating func replace(_ object: AnnotationObject) {

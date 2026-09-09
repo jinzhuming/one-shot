@@ -352,9 +352,27 @@ struct AnnotationToolbar: View {
                 valueText: percentageText(session.spotlightOpacity)
             )
         case .crop:
-            Text(String(localized: "拖拽选择要保留的区域"))
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+            HStack(spacing: detailSpacing) {
+                Text(String(localized: "拖拽边缘或手柄调整，拖动框内移动"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Button(String(localized: "应用")) {
+                    _ = session.commitCrop()
+                    session.selectedTool = .select
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .help(String(localized: "应用裁剪（Return）"))
+                .accessibilityLabel(String(localized: "应用裁剪"))
+                Button(String(localized: "取消")) {
+                    session.cancelCrop()
+                    session.selectedTool = .select
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help(String(localized: "取消裁剪（Esc）"))
+                .accessibilityLabel(String(localized: "取消裁剪"))
+            }
         }
     }
 

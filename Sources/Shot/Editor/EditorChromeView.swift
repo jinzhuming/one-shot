@@ -214,6 +214,7 @@ final class EditorChromeView: NSView {
         canvas.image = session.document.baseImage
         canvas.annotations = session.document.visibleElements
         canvas.selectedObjectID = session.document.selectedID
+        canvas.cropRect = session.document.cropRect
         canvas.sourceImageSize = session.document.baseImage.size
         canvas.selectedTool = session.selectedTool
         canvas.strokeColor = NSColor(session.color)
@@ -343,6 +344,10 @@ final class CanvasCoordinator: NSObject, AnnotationCanvasDelegate {
 
     func canvasDidReceive(_ event: CanvasEvent) {
         session.handle(event)
+    }
+
+    func canvasDidReceive(_ event: CanvasEvent, cropHitTolerance: CGFloat) {
+        session.handle(event, cropHitTolerance: cropHitTolerance)
     }
 
     func canvasDidBeginText(at imagePoint: CGPoint, replacing id: UUID?) {

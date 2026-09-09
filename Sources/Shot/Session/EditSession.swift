@@ -5,7 +5,15 @@ import SwiftUI
 final class EditSession: ObservableObject {
     @Published var document: AnnotationDocument
     @Published var selectedTool: AnnotationToolID = .pen {
-        didSet { loadPreferencesForSelectedTool() }
+        didSet {
+            if oldValue == .crop, selectedTool != .crop {
+                _ = document.commitCrop()
+            }
+            if selectedTool == .crop {
+                document.beginCrop()
+            }
+            loadPreferencesForSelectedTool()
+        }
     }
     @Published var color: Color {
         didSet {
@@ -197,6 +205,7 @@ final class EditSession: ObservableObject {
     var canRedo: Bool { document.canRedo }
     var isEditingText: Bool { textEditOrigin != nil }
     var hasSelection: Bool { document.selectedObject != nil }
+    var isCropping: Bool { document.cropRect != nil }
 
     convenience init(image: NSImage) {
         self.init(image: image, settings: AppSettings.shared)
@@ -229,14 +238,18 @@ final class EditSession: ObservableObject {
         document.style.shapeFillOpacity = CGFloat(shapeFillOpacity)
     }
 
-    func handle(_ event: CanvasEvent) {
+    func handle(_ event: CanvasEvent, cropHitTolerance: CGFloat? = nil) {
         guard !isExporting else { return }
         applyStyle()
         if selectedTool == .text {
             return
         }
         let previousSize = document.baseImage.size
-        AnnotationTools.tool(for: selectedTool).handle(event, document: &document)
+        if selectedTool == .crop, let cropHitTolerance {
+            document.handleCrop(event, hitTolerance: cropHitTolerance)
+        } else {
+            AnnotationTools.tool(for: selectedTool).handle(event, document: &document)
+        }
         if selectedTool == .select, case .up = event {
             loadAppearanceFromSelection()
         }
@@ -303,6 +316,22 @@ final class EditSession: ObservableObject {
         calloutEditRect = nil
         objectWillChange.send()
         return true
+    }
+
+    @discardableResult
+    func commitCrop() -> Bool {
+        guard document.cropRect != nil else { return false }
+        let previousSize = document.baseImage.size
+        let result = document.commitCrop()
+        objectWillChange.send()
+        notifyCanvasSizeChange(from: previousSize)
+        return result != nil
+    }
+
+    func cancelCrop() {
+        guard document.cropRect != nil else { return }
+        document.cancelCrop()
+        objectWillChange.send()
     }
 
     func undo() {
