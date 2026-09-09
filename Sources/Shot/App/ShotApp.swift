@@ -106,8 +106,8 @@ struct ShotApp: App {
         Settings {
             SettingsView()
         }
-        .windowResizability(.contentSize)
-        .defaultSize(width: 520, height: 420)
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: InterfaceMetrics.settingsSize.width, height: InterfaceMetrics.settingsSize.height)
         .defaultLaunchBehavior(.suppressed)
     }
 }

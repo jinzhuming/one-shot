@@ -180,7 +180,14 @@ public final class MosaicRasterCache: @unchecked Sendable {
     }
 
     private let lock = NSLock()
-    private var items: [Key: CGImage] = [:]
+    /// Retain the source for as long as its identity is used as a cache key.
+    /// Otherwise Core Graphics can reuse a released image's address and return
+    /// another screenshot's raster for an unrelated image.
+    private struct Entry {
+        let source: CGImage
+        let rendered: CGImage
+    }
+    private var items: [Key: Entry] = [:]
     private let limit = 6
 
     public init() {}
@@ -200,7 +207,7 @@ public final class MosaicRasterCache: @unchecked Sendable {
         lock.lock()
         if let cached = items[key] {
             lock.unlock()
-            return cached
+            return cached.rendered
         }
         lock.unlock()
 
@@ -217,7 +224,7 @@ public final class MosaicRasterCache: @unchecked Sendable {
         if items.count >= limit, items[key] == nil, let evict = items.keys.first {
             items.removeValue(forKey: evict)
         }
-        items[key] = rendered
+        items[key] = Entry(source: base, rendered: rendered)
         lock.unlock()
         return rendered
     }

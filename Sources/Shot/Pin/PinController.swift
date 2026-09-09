@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import ShotKit
 
 @MainActor
@@ -172,16 +173,16 @@ final class PinController: NSObject, NSWindowDelegate {
         window.setFrame(
             CGRect(origin: origin, size: targetSize),
             display: true,
-            animate: true
+            animate: !InterfacePreferences.shared.reduceMotion
         )
         return window.isPinZoomed
     }
 }
 
 enum PinLayout {
-    static let cornerRadius: CGFloat = 10
+    static let cornerRadius = InterfaceMetrics.panelRadius
     static let toolbarInset: CGFloat = 8
-    static let minimumWindowWidth: CGFloat = 176
+    static let minimumWindowWidth: CGFloat = 192
     static let maximumImageWidth: CGFloat = 320
     static let maximumImageHeight: CGFloat = 260
 
@@ -201,9 +202,9 @@ enum PinLayout {
             maximumImageHeight / sourceHeight,
             1
         )
-        return CGSize(
-            width: max(minimumWindowWidth, sourceWidth * scale),
-            height: max(1, sourceHeight * scale)
+        return InterfaceLayout.fittedSize(
+            CGSize(width: max(minimumWindowWidth, sourceWidth * scale), height: max(54, sourceHeight * scale)),
+            in: CGSize(width: availableWidth, height: availableHeight)
         )
     }
 
@@ -229,9 +230,9 @@ enum PinLayout {
             ? max(1, visibleFrame.height - 48)
             : sourceHeight
         let scale = min(availableWidth / sourceWidth, availableHeight / sourceHeight)
-        return CGSize(
-            width: max(1, sourceWidth * scale),
-            height: max(1, sourceHeight * scale)
+        return InterfaceLayout.fittedSize(
+            CGSize(width: max(minimumWindowWidth, sourceWidth * scale), height: max(54, sourceHeight * scale)),
+            in: CGSize(width: availableWidth, height: availableHeight)
         )
     }
 
@@ -259,6 +260,22 @@ final class PinWindow: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    override func becomeKey() {
+        super.becomeKey()
+        (contentView as? PinContentView)?.refreshActions()
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        (contentView as? PinContentView)?.refreshActions()
+    }
+
+    override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
+        let accepted = super.makeFirstResponder(responder)
+        (contentView as? PinContentView)?.refreshActions()
+        return accepted
+    }
+
     override func cancelOperation(_ sender: Any?) {
         onRequestClose?()
     }
@@ -284,6 +301,8 @@ final class PinWindow: NSPanel {
 }
 
 private final class PinContentView: NSView {
+    private var isHovered = false
+    private var voiceOverObserver: AnyCancellable?
     private let imageView = NSImageView()
     private let actionBar: PinActionBarView
     private let onCopy: () -> Void
@@ -318,9 +337,9 @@ private final class PinContentView: NSView {
         layer?.cornerRadius = PinLayout.cornerRadius
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
-        layer?.backgroundColor = NSColor.black.cgColor
+        layer?.backgroundColor = NSColor.underPageBackgroundColor.cgColor
         layer?.borderWidth = 1
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.22).cgColor
+        layer?.borderColor = NSColor.labelColor.withAlphaComponent(0.18).cgColor
 
         imageView.image = image
         imageView.imageScaling = .scaleProportionallyUpOrDown
@@ -332,6 +351,9 @@ private final class PinContentView: NSView {
 
         actionBar.alphaValue = 0
         addSubview(actionBar)
+        voiceOverObserver = NSWorkspace.shared.publisher(for: \.isVoiceOverEnabled)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.refreshActions() }
 
         setAccessibilityElement(false)
         setAccessibilityRole(.group)
@@ -341,6 +363,14 @@ private final class PinContentView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) not implemented")
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = NSColor.underPageBackgroundColor.cgColor
+            layer?.borderColor = NSColor.separatorColor.cgColor
+        }
     }
 
     override func layout() {
@@ -380,14 +410,16 @@ private final class PinContentView: NSView {
     func setExporting(_ exporting: Bool) {
         isExporting = exporting
         actionBar.setExporting(exporting)
-        if exporting { setActionsVisible(true) }
+        refreshActions()
     }
 
     override func mouseEntered(with event: NSEvent) {
+        isHovered = true
         setActionsVisible(true)
     }
 
     override func mouseExited(with event: NSEvent) {
+        isHovered = false
         setActionsVisible(false)
     }
 
@@ -403,8 +435,12 @@ private final class PinContentView: NSView {
     func restoreAnnotation() { onRestore?() }
     func toggleZoom() { actionBar.setZoomed(onZoom()) }
 
+    func refreshActions() {
+        setActionsVisible(isHovered)
+    }
+
     private func setActionsVisible(_ visible: Bool, animated: Bool = true) {
-        let revealed = visible || isExporting || NSWorkspace.shared.isVoiceOverEnabled
+        let revealed = visible || isExporting || window?.isKeyWindow == true || NSWorkspace.shared.isVoiceOverEnabled
         if animated {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = InterfacePreferences.shared.reduceMotion ? 0 : 0.16
@@ -419,7 +455,6 @@ private final class PinContentView: NSView {
 
 private final class PinActionBarView: NSView {
     private let effectView = HUDMaterialView()
-    private let liftView = NSView()
     private let stackView = NSStackView()
     private let copyButton = PinIconButton()
     private let saveButton = PinIconButton()
@@ -446,7 +481,7 @@ private final class PinActionBarView: NSView {
         self.onClose = onClose
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.cornerRadius = 10
+        layer?.cornerRadius = InterfaceMetrics.panelRadius
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
         layer?.borderWidth = 1
@@ -458,16 +493,6 @@ private final class PinActionBarView: NSView {
         effectView.state = .active
         effectView.wantsLayer = true
         addSubview(effectView)
-
-        liftView.wantsLayer = true
-        liftView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.10).cgColor
-        addSubview(liftView)
-
-        if HUDChrome.reduceTransparency {
-            effectView.isHidden = true
-            liftView.isHidden = true
-            layer?.backgroundColor = NSColor.black.withAlphaComponent(0.92).cgColor
-        }
 
         configure(
             copyButton,
@@ -578,7 +603,6 @@ private final class PinActionBarView: NSView {
     override func layout() {
         super.layout()
         effectView.frame = bounds
-        liftView.frame = bounds
         stackView.frame = bounds
     }
 
@@ -595,8 +619,9 @@ private final class PinActionBarView: NSView {
         button.imagePosition = .imageOnly
         button.imageScaling = .scaleProportionallyDown
         button.isBordered = false
+        button.focusRingType = .exterior
         button.bezelStyle = .regularSquare
-        button.contentTintColor = .white
+        button.contentTintColor = .labelColor
         button.target = self
         button.action = action
         button.toolTip = help
@@ -612,6 +637,7 @@ private final class PinActionBarView: NSView {
 
     func setExporting(_ exporting: Bool) {
         saveButton.isEnabled = !exporting
+        restoreButton.isEnabled = !exporting
         saveButton.setAccessibilityValue(exporting ? String(localized: "正在保存") : String(localized: "保存"))
         saveButton.image = NSImage(systemSymbolName: exporting ? "hourglass" : "square.and.arrow.down", accessibilityDescription: nil)
     }
@@ -673,12 +699,20 @@ private final class PinIconButton: NSButton {
 
     override var mouseDownCanMoveWindow: Bool { false }
 
+    override var acceptsFirstResponder: Bool { isEnabled }
+    override var focusRingMaskBounds: NSRect { bounds }
+    override func drawFocusRingMask() {
+        NSBezierPath(roundedRect: bounds, xRadius: InterfaceMetrics.buttonRadius, yRadius: InterfaceMetrics.buttonRadius).fill()
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         let fill: NSColor
-        if isHighlighted {
-            fill = NSColor.white.withAlphaComponent(0.22)
+        if !isEnabled {
+            fill = .clear
+        } else if isHighlighted {
+            fill = NSColor.labelColor.withAlphaComponent(0.18)
         } else if isHovered {
-            fill = NSColor.white.withAlphaComponent(0.14)
+            fill = NSColor.labelColor.withAlphaComponent(0.12)
         } else {
             fill = .clear
         }

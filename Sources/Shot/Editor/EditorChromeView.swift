@@ -48,7 +48,10 @@ final class EditorChromeView: NSView {
                 onPin: onPin,
                 onOCR: onOCR,
                 onClose: onClose,
-                presentation: presentationStyle == .windowed ? .windowAdaptive : .floatingHUD
+                presentation: presentationStyle == .windowed ? .windowAdaptive : .floatingHUD,
+                availableWidth: InterfaceLayout.toolbarWidth(available: presentationStyle == .windowed
+                    ? (windowedLayout?.contentSize.width ?? arrangement.toolbarFrame.width)
+                    : arrangement.toolbarFrame.width)
             )
         )
         super.init(frame: .zero)
@@ -141,6 +144,11 @@ final class EditorChromeView: NSView {
 
     override func layout() {
         super.layout()
+        let available = presentationStyle == .windowed ? bounds.width : min(arrangement.toolbarFrame.width, bounds.width - 4)
+        let width = presentationStyle == .windowed ? available : InterfaceLayout.toolbarWidth(available: available)
+        if abs(toolbarHost.rootView.availableWidth - width) > 0.5 {
+            toolbarHost.rootView.availableWidth = width
+        }
         let layout: (canvas: CGRect, toolbar: CGRect)
         if presentationStyle == .windowed {
             let computed = EditorLayout.windowed(

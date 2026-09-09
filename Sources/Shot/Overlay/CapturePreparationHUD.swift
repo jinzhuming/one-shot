@@ -27,6 +27,7 @@ final class CapturePreparationHUD {
         panel.becomesKeyOnlyIfNeeded = true
 
         let view = CapturePreparationView(frame: panel.contentRect(forFrameRect: panel.frame))
+        panel.setContentSize(InterfaceLayout.fittedSize(view.intrinsicContentSize, in: screen.visibleFrame.size, inset: 8))
         panel.contentView = view
         let mouse = NSEvent.mouseLocation
         let origin = CGPoint(
@@ -60,8 +61,9 @@ private final class CapturePreparationView: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        appearance = NSAppearance(named: .vibrantDark)
         wantsLayer = true
-        layer?.cornerRadius = 10
+        layer?.cornerRadius = InterfaceMetrics.panelRadius
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
 
@@ -79,7 +81,7 @@ private final class CapturePreparationView: NSView {
         addSubview(spinner)
 
         label.font = .systemFont(ofSize: 12, weight: .medium)
-        label.textColor = .white
+        label.textColor = .labelColor
         label.setAccessibilityLabel(String(localized: "正在准备截图"))
         addSubview(label)
         setAccessibilityElement(true)
@@ -92,18 +94,18 @@ private final class CapturePreparationView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: ceil(label.intrinsicContentSize.width) + 52, height: 40)
+    }
+
     override func layout() {
         super.layout()
         effectView.frame = bounds
-        spinner.frame = CGRect(x: 12, y: 10, width: 16, height: 16)
-        label.frame = CGRect(x: 36, y: 8, width: bounds.width - 46, height: 20)
+        spinner.frame = CGRect(x: 12, y: (bounds.height - 16) / 2, width: 16, height: 16)
+        label.frame = CGRect(x: 36, y: (bounds.height - 20) / 2, width: bounds.width - 46, height: 20)
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if HUDChrome.reduceTransparency {
-            effectView.isHidden = true
-            layer?.backgroundColor = NSColor.black.withAlphaComponent(0.92).cgColor
-        }
     }
 }

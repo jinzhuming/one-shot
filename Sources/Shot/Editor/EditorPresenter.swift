@@ -112,7 +112,7 @@ final class EditorPresenter {
             ? [.titled, .closable, .miniaturizable, .resizable]
             : [.borderless, .fullSizeContentView]
         let estimatedToolbar = CGSize(
-            width: EditorLayout.minContentWidth,
+            width: InterfaceLayout.toolbarWidth(available: vis.width - EditorLayout.chromePadding * 2 - 16),
             height: EditorLayout.estimatedToolbarHeight
         )
         var arrangement: EditorArrangement
@@ -234,7 +234,7 @@ final class EditorPresenter {
             )
             window.minSize = Self.windowFrameSize(
                 forContentSize: CGSize(
-                    width: min(maxContentSize.width, max(EditorLayout.minContentWidth, measured.width)),
+                    width: min(maxContentSize.width, EditorLayout.minContentWidth),
                     height: min(
                         maxContentSize.height,
                         measured.height

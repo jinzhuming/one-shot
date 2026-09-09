@@ -1,5 +1,34 @@
 import CoreGraphics
+import Foundation
 import Testing
+
+private final class SourceImageLifetime {
+    var released = false
+}
+
+@Test func mosaicCacheRetainsItsSourceIdentityUntilEviction() throws {
+    let lifetime = SourceImageLifetime()
+    var cache: MosaicRasterCache? = MosaicRasterCache()
+    try autoreleasepool {
+        let bytes = UnsafeMutableRawPointer.allocate(byteCount: 16 * 16 * 4, alignment: 4)
+        bytes.initializeMemory(as: UInt8.self, repeating: 255, count: 16 * 16 * 4)
+        let info = Unmanaged.passRetained(lifetime).toOpaque()
+        let provider = try #require(CGDataProvider(dataInfo: info, data: bytes, size: 16 * 16 * 4) { info, data, _ in
+            let probe = Unmanaged<SourceImageLifetime>.fromOpaque(info!).takeRetainedValue()
+            probe.released = true
+            UnsafeMutableRawPointer(mutating: data).deallocate()
+        })
+        let image = try #require(CGImage(width: 16, height: 16, bitsPerComponent: 8, bitsPerPixel: 32,
+                                        bytesPerRow: 64, space: CGColorSpaceCreateDeviceRGB(),
+                                        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                                        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent))
+        _ = try #require(cache?.image(for: image, effect: .pixelate, blockSizePoints: 4,
+                                     imagePointSize: CGSize(width: 16, height: 16)))
+    }
+    #expect(!lifetime.released, "A live cache key must keep the original image's address from being reused")
+    cache = nil
+    #expect(lifetime.released, "The bounded cache must release its source when the entry is removed")
+}
 @testable import ShotKit
 
 @Test func mosaicPixelateKeepsIntegerBlocksOnNonDivisibleEdges() {

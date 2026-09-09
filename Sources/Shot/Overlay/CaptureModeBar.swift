@@ -16,6 +16,7 @@ final class OverlayModeState: ObservableObject {
 struct CaptureModeBar: View {
     @ObservedObject var state: OverlayModeState
     var onSelect: (CaptureMode) -> Void
+    var availableWidth: CGFloat = 300
 
     @ObservedObject private var settings = AppSettings.shared
 
@@ -48,12 +49,15 @@ struct CaptureModeBar: View {
             if let caption {
                 Text(caption)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.primary.opacity(0.72))
-                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
+        .frame(width: availableWidth)
         .background {
             HUDChrome.PanelBackground(
                 cornerRadius: InterfaceMetrics.panelRadius,

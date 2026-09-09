@@ -52,7 +52,7 @@ private final class RecordingCountdownView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.cornerRadius = 16
+        layer?.cornerRadius = InterfaceMetrics.panelRadius
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
         appearance = NSAppearance(named: .vibrantDark)
@@ -61,7 +61,7 @@ private final class RecordingCountdownView: NSView {
         effectView.state = .active
         addSubview(effectView)
         label.font = .monospacedDigitSystemFont(ofSize: 36, weight: .semibold)
-        label.textColor = .white
+        label.textColor = .labelColor
         label.alignment = .center
         addSubview(label)
         setAccessibilityElement(true)

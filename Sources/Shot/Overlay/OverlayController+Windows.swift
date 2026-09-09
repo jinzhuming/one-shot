@@ -158,11 +158,11 @@ extension OverlayController {
     }
 
     func positionModeBar(_ bar: NSWindow, on screen: NSScreen) {
-        let origin = CGPoint(
-            x: screen.visibleFrame.midX - Self.modeBarSize.width / 2,
-            y: screen.visibleFrame.minY + 16
-        )
-        bar.setFrameOrigin(origin)
+        guard let hosting = bar.contentView as? CaptureChromeHostingView<CaptureModeBar> else { return }
+        let width = min(300, max(1, screen.visibleFrame.width - 32))
+        if hosting.rootView.availableWidth != width { hosting.rootView.availableWidth = width }
+        let size = NSSize(width: width, height: max(64, ceil(hosting.fittingSize.height)))
+        bar.setFrame(InterfaceLayout.bottomFrame(size: size, in: screen.visibleFrame), display: true)
     }
 
     static let modeBarSize = NSSize(width: 268, height: 86)

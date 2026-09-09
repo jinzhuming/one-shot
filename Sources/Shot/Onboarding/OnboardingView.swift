@@ -8,34 +8,50 @@ struct OnboardingView: View {
     @ObservedObject private var settings = AppSettings.shared
     @State private var step = 0
 
+    init(initialStep: Int = 0, onFinished: @escaping () -> Void) {
+        self.onFinished = onFinished
+        _step = State(initialValue: min(2, max(0, initialStep)))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Shot")
-                .font(.largeTitle.bold())
-            stepContent
-            Spacer()
-            HStack {
+            HStack(alignment: .center) {
+                Label("Shot", systemImage: "viewfinder")
+                    .font(.title2.weight(.semibold))
+                Spacer()
+                Text(String(localized: "第 \(step + 1) 步，共 3 步"))
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            ProgressView(value: Double(step + 1), total: 3)
+                .accessibilityLabel(String(localized: "设置进度"))
+                .accessibilityValue(String(localized: "第 \(step + 1) 步，共 3 步"))
+            ScrollView {
+                stepContent
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+            }
+            Divider()
+            HStack(spacing: 8) {
                 Button(String(localized: "跳过")) { onFinished() }
                     .keyboardShortcut(.cancelAction)
+                    .help(String(localized: "稍后在设置中完成配置"))
                 if step > 0 {
                     Button(String(localized: "上一步")) { step -= 1 }
                 }
                 Spacer()
-                Button(primaryTitle) {
-                    advance()
-                }
-                .keyboardShortcut(.defaultAction)
+                Button(primaryTitle) { advance() }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(28)
-        .frame(width: 520, height: 430)
+        .scenePadding()
+        .frame(width: 520, height: 460)
         .onAppear {
             permissions.refresh()
             permissions.startPolling()
         }
-        .onDisappear {
-            permissions.stopPolling()
-        }
+        .onDisappear { permissions.stopPolling() }
     }
 
     @ViewBuilder
@@ -60,19 +76,16 @@ struct OnboardingView: View {
                     .font(.title2)
                 Text(String(localized: "截取其他窗口内容需要系统「屏幕录制」权限。请在系统设置中允许 Shot 访问屏幕内容。"))
                     .foregroundStyle(.secondary)
-                HStack {
-                    Circle()
-                        .fill(permissions.hasScreenRecording ? Color.green : Color.orange)
-                        .frame(width: 10, height: 10)
-                        .accessibilityHidden(true)
-                    Text(permissionStatus)
-                }
+                Label(permissionStatus, systemImage: permissions.hasScreenRecording
+                      ? "checkmark.circle" : "exclamationmark.circle")
+                    .font(.headline)
+                    .fixedSize(horizontal: false, vertical: true)
                 HStack {
                     if permissions.screenRecordingNeedsRestart {
                         Button(String(localized: "退出并重新打开 Shot")) {
                             permissions.quitForPermissionRestart()
                         }
-                    } else {
+                    } else if !permissions.hasScreenRecording {
                         Button(String(localized: "请求权限")) {
                             permissions.requestScreenRecording()
                         }
@@ -86,7 +99,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text(String(localized: "保存位置与快捷键"))
                     .font(.title2)
-                Text(String(localized: "默认保存到「图片/Shot」。主快捷键为 ⌃⌘A，截取上次区域为 ⌃⌘L，录屏为 ⌘⇧6，可在设置里更改。"))
+                Text(String(localized: "选择保存文件夹，并设置常用快捷键。之后也可以在设置中更改。"))
                     .foregroundStyle(.secondary)
                 HStack {
                     Text(settings.saveDirectoryURL.path)
@@ -94,7 +107,10 @@ struct OnboardingView: View {
                         .truncationMode(.middle)
                     Button(String(localized: "选择…")) { pickDirectory() }
                 }
+                Divider()
                 HotkeyRecorder(action: .allInOne)
+                HotkeyRecorder(action: .capturePreviousRegion)
+                HotkeyRecorder(action: .recording)
             }
         }
     }

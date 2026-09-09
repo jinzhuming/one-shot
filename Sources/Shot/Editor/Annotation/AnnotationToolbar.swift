@@ -15,7 +15,7 @@ enum AnnotationChromeMetrics {
     static let symbolSize = InterfaceMetrics.symbolSize
     static let buttonCornerRadius = InterfaceMetrics.buttonRadius
     static let windowPrimaryRowHeight: CGFloat = 44
-    static let windowDetailRowHeight: CGFloat = 36
+    static let windowDetailRowHeight: CGFloat = 44
     static let windowSeparatorHeight: CGFloat = 1
     static let windowToolbarHeight = windowPrimaryRowHeight
         + windowSeparatorHeight
@@ -31,154 +31,132 @@ struct AnnotationToolbar: View {
     var onClose: () -> Void
     var presentation: AnnotationToolbarPresentation = .floatingHUD
 
-    @State private var reduceTransparency = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+    var availableWidth: CGFloat = 820
+    @State private var showsParameters = false
 
     var body: some View {
         Group {
-            switch presentation {
-            case .floatingHUD:
-                floatingToolbar
-            case .windowAdaptive:
-                windowToolbar
-            }
-        }
-        .onReceive(
-            NSWorkspace.shared.notificationCenter.publisher(
-                for: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
-            )
-        ) { _ in
-            reduceTransparency = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
-        }
-    }
-
-    private var floatingToolbar: some View {
-        VStack(spacing: 5) {
-            floatingPrimaryToolbar
-            detailToolbar
-        }
-        .environment(\.colorScheme, .dark)
-        .shadow(color: .black.opacity(0.22), radius: 1)
-        .shadow(
-            color: .black.opacity(0.42),
-            radius: EditorLayout.toolbarShadowRadius,
-            y: EditorLayout.toolbarShadowOffsetY
-        )
-    }
-
-    private var windowToolbar: some View {
-        VStack(spacing: 0) {
-            windowPrimaryToolbar
-                .frame(height: AnnotationChromeMetrics.windowPrimaryRowHeight)
-            Rectangle()
-                .fill(Color(nsColor: .separatorColor))
-                .frame(height: AnnotationChromeMetrics.windowSeparatorHeight)
-                .accessibilityHidden(true)
-            windowDetailToolbar
-                .frame(height: AnnotationChromeMetrics.windowDetailRowHeight)
-        }
-        .background {
-            if reduceTransparency {
-                Color(nsColor: .windowBackgroundColor)
+            if presentation.isFloating {
+                toolbarRows
+                    .background { HUDChrome.PanelBackground(cornerRadius: InterfaceMetrics.panelRadius) }
+                    .environment(\.colorScheme, .dark)
+                    .shadow(color: .black.opacity(0.28), radius: EditorLayout.toolbarShadowRadius,
+                            y: EditorLayout.toolbarShadowOffsetY)
             } else {
-                WindowHeaderVisualEffect()
+                toolbarRows
+                    .background { WindowHeaderVisualEffect() }
             }
         }
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color(nsColor: .separatorColor))
-                .frame(height: AnnotationChromeMetrics.windowSeparatorHeight)
-                .accessibilityHidden(true)
-        }
+        .frame(width: availableWidth, height: AnnotationChromeMetrics.windowToolbarHeight)
+        .controlSize(.small)
+        .onChange(of: session.selectedTool) { _, _ in showsParameters = false }
     }
 
-    private var floatingPrimaryToolbar: some View {
-        HStack(spacing: 8) {
-            ForEach(Array(AnnotationToolID.groups.enumerated()), id: \.offset) { index, group in
-                if index > 0 { divider }
-                toolCluster(group)
+    private var toolbarRows: some View {
+        VStack(spacing: 0) {
+            ViewThatFits(in: .horizontal) {
+                primaryRow(compact: false).fixedSize(horizontal: true, vertical: false)
+                primaryRow(compact: true)
             }
-            divider
-            floatingStyleGroup
-            divider
-            historyGroup
-            divider
-            floatingActionGroup
+            .padding(.horizontal, 10)
+            .frame(height: AnnotationChromeMetrics.windowPrimaryRowHeight)
+            Divider().accessibilityHidden(true)
+            HStack(spacing: 8) {
+                toolIdentity
+                divider
+                ViewThatFits(in: .horizontal) {
+                    detailControls().fixedSize(horizontal: true, vertical: false)
+                    HStack(spacing: 12) {
+                        compactPrimaryParameter
+                        parameterButton
+                    }
+                }
+                Spacer(minLength: 0)
+                if session.selectedTool == .select, session.hasSelection {
+                    selectionActionGroup
+                }
+            }
+            .padding(.horizontal, 10)
+            .frame(height: AnnotationChromeMetrics.windowDetailRowHeight)
+            .disabled(session.isExporting)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(String(localized: "工具详细设置"))
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .contentShape(Rectangle())
-        .background {
-            HUDChrome.PanelBackground(cornerRadius: InterfaceMetrics.panelRadius)
-        }
-    }
-
-    private var windowPrimaryToolbar: some View {
-        ViewThatFits(in: .horizontal) {
-            primaryRow(compact: false)
-            primaryRow(compact: true)
-        }
-        .padding(.horizontal, 10)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(String(localized: "标注工具"))
+        .frame(width: availableWidth)
     }
 
     private func primaryRow(compact: Bool) -> some View {
         HStack(spacing: 8) {
             if compact {
-                Menu {
-                    ForEach(AnnotationToolID.allCases) { tool in
-                        Button(tool.title) { session.selectedTool = tool }
-                    }
-                } label: {
-                    Label(session.selectedTool.title, systemImage: session.selectedTool.systemImage)
-                }
-                .help(String(localized: "选择标注工具"))
+                toolCluster([.select, .crop])
+                compactToolMenu([.arrow, .rect, .ellipse, .line], title: String(localized: "形状"), symbol: "square.on.circle")
+                compactToolMenu([.pen, .highlighter], title: String(localized: "绘制"), symbol: "pencil.tip")
+                compactToolMenu([.text, .callout, .counter], title: String(localized: "文字"), symbol: "textformat")
+                compactToolMenu([.mosaic, .spotlight], title: String(localized: "遮挡"), symbol: "square.grid.3x3")
             } else {
-                HStack(spacing: 4) {
-                    ForEach(Array(AnnotationToolID.groups.enumerated()), id: \.offset) { _, group in
-                        toolCluster(group)
-                    }
+                ForEach(Array(AnnotationToolID.groups.enumerated()), id: \.offset) { index, group in
+                    if index > 0 { divider }
+                    toolCluster(group)
                 }
             }
             Spacer(minLength: 8)
             historyGroup
             divider
             exportActions(compact: compact)
-        }
-    }
-
-    private var detailToolbar: some View {
-        HStack(spacing: 10) {
-            toolIdentity
-            divider
-            detailControls
-        }
-        .frame(minHeight: 34)
-        .padding(.horizontal, 10)
-        .contentShape(Rectangle())
-        .background {
-            HUDChrome.PanelBackground(cornerRadius: 10)
+            if presentation.isFloating { closeButton }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(String(localized: "工具详细设置"))
+        .accessibilityLabel(String(localized: "标注工具"))
     }
 
-    private var windowDetailToolbar: some View {
-        HStack(spacing: 8) {
-            toolIdentity
-            divider
-            detailControls
-                .layoutPriority(1)
-            Spacer(minLength: 8)
-            if session.selectedTool == .select, session.hasSelection {
-                selectionActionGroup
+    private func compactToolMenu(_ tools: [AnnotationToolID], title: String, symbol: String) -> some View {
+        let selected = tools.contains(session.selectedTool)
+        return Menu {
+            ForEach(tools) { tool in
+                Button { session.selectedTool = tool } label: {
+                    Label(tool.title, systemImage: tool.systemImage)
+                }
             }
+        } label: {
+            Image(systemName: selected ? session.selectedTool.systemImage : symbol)
+                .font(.system(size: InterfaceMetrics.symbolSize))
+                .frame(width: InterfaceMetrics.controlSize, height: InterfaceMetrics.controlSize)
+                .background(selected ? Color.accentColor.opacity(0.22) : .clear,
+                            in: RoundedRectangle(cornerRadius: InterfaceMetrics.buttonRadius))
         }
-        .padding(.horizontal, 10)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(String(localized: "工具详细设置"))
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(title)
+        .accessibilityLabel(title)
+        .accessibilityValue(selected ? session.selectedTool.title : title)
+        .disabled(session.isExporting)
+    }
+
+    private var parameterButton: some View {
+        Button { showsParameters.toggle() } label: {
+            Label(String(localized: "调整参数…"), systemImage: "slider.horizontal.3")
+        }
+        .buttonStyle(.bordered)
+        .help(String(localized: "调整当前工具的颜色与样式"))
+        .popover(isPresented: $showsParameters) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(session.selectedTool.title).font(.headline)
+                detailControls(stacked: true)
+            }
+            .padding(16)
+            .frame(width: 360, alignment: .leading)
+        }
+    }
+
+    private var closeButton: some View {
+        Button(action: onClose) {
+            Image(systemName: "xmark")
+                .frame(width: InterfaceMetrics.controlSize, height: InterfaceMetrics.controlSize)
+        }
+        .buttonStyle(AnnotationIconButtonStyle(presentation: presentation))
+        .help(String(localized: "关闭编辑器（Esc）"))
+        .accessibilityLabel(String(localized: "关闭"))
     }
 
     private var toolIdentity: some View {
@@ -194,12 +172,12 @@ struct AnnotationToolbar: View {
     }
 
     @ViewBuilder
-    private var detailControls: some View {
+    private func detailControls(stacked: Bool = false) -> some View {
         switch session.selectedTool {
         case .select:
-            selectionDetailControls
+            selectionDetailControls(stacked: stacked)
         case .arrow:
-            HStack(spacing: detailSpacing) {
+            parameterLayout(stacked: stacked) {
                 windowColorControls
                 arrowHeadPicker
                 detailSlider(
@@ -218,7 +196,7 @@ struct AnnotationToolbar: View {
                 )
             }
         case .rect, .ellipse:
-            HStack(spacing: detailSpacing) {
+            parameterLayout(stacked: stacked) {
                 windowColorControls
                 detailSlider(
                     label: String(localized: "填充"),
@@ -236,7 +214,7 @@ struct AnnotationToolbar: View {
                 )
             }
         case .line:
-            HStack(spacing: detailSpacing) {
+            parameterLayout(stacked: stacked) {
                 windowColorControls
                 linePatternPicker
                 detailSlider(
@@ -248,7 +226,7 @@ struct AnnotationToolbar: View {
                 )
             }
         case .pen:
-            HStack(spacing: detailSpacing) {
+            parameterLayout(stacked: stacked) {
                 windowColorControls
                 detailSlider(
                     label: String(localized: "画笔粗细（pt）"),
@@ -273,7 +251,7 @@ struct AnnotationToolbar: View {
                 )
             }
         case .highlighter:
-            HStack(spacing: detailSpacing) {
+            parameterLayout(stacked: stacked) {
                 windowColorControls
                 detailSlider(
                     label: String(localized: "荧光笔粗细（pt）"),
@@ -291,7 +269,7 @@ struct AnnotationToolbar: View {
                 )
             }
         case .text:
-            HStack(spacing: detailSpacing) {
+            parameterLayout(stacked: stacked) {
                 windowColorControls
                 detailSlider(
                     label: String(localized: "文字大小（pt）"),
@@ -302,7 +280,7 @@ struct AnnotationToolbar: View {
                 )
             }
         case .callout:
-            HStack(spacing: detailSpacing) {
+            parameterLayout(stacked: stacked) {
                 windowColorControls
                 detailSlider(
                     label: String(localized: "气泡填充"),
@@ -321,7 +299,7 @@ struct AnnotationToolbar: View {
                 calloutWrapToggle
             }
         case .counter:
-            HStack(spacing: detailSpacing) {
+            parameterLayout(stacked: stacked) {
                 windowColorControls
                 detailSlider(
                     label: String(localized: "序号大小"),
@@ -332,7 +310,7 @@ struct AnnotationToolbar: View {
                 )
             }
         case .mosaic:
-            HStack(spacing: detailSpacing) {
+            parameterLayout(stacked: stacked) {
                 mosaicShapePicker
                 mosaicEffectPicker
                 detailSlider(
@@ -352,7 +330,7 @@ struct AnnotationToolbar: View {
                 valueText: percentageText(session.spotlightOpacity)
             )
         case .crop:
-            HStack(spacing: detailSpacing) {
+            parameterLayout(stacked: stacked) {
                 Text(String(localized: "拖拽边缘或手柄调整，拖动框内移动"))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
@@ -377,9 +355,9 @@ struct AnnotationToolbar: View {
     }
 
     @ViewBuilder
-    private var selectionDetailControls: some View {
+    private func selectionDetailControls(stacked: Bool) -> some View {
         if let selected = session.document.selectedObject {
-            HStack(spacing: detailSpacing) {
+            parameterLayout(stacked: stacked) {
                 Text(String(localized: "已选择"))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
@@ -529,13 +507,35 @@ struct AnnotationToolbar: View {
 
     @ViewBuilder
     private var windowColorControls: some View {
-        if presentation == .windowAdaptive {
-            colorSwatches
-        }
+        colorSwatches
     }
 
-    private var detailSpacing: CGFloat {
-        presentation.isFloating ? 12 : 8
+    private func parameterLayout<Content: View>(stacked: Bool, @ViewBuilder content: () -> Content) -> some View {
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 8))
+        return layout { content() }
+    }
+
+    @ViewBuilder
+    private var compactPrimaryParameter: some View {
+        switch session.selectedTool {
+        case .arrow, .rect, .ellipse, .line, .pen, .highlighter, .callout:
+            NativeAnnotationColorWell(color: $session.color, accessibilityLabel: String(localized: "颜色"))
+                .frame(width: 28, height: 28)
+                .help(String(localized: "选择自定义颜色"))
+            detailSlider(label: String(localized: "线宽（pt）"), value: $session.lineWidth,
+                         range: session.selectedTool == .highlighter ? 1...32 : 1...24,
+                         step: 1, valueText: numberText(session.lineWidth))
+        case .text, .counter:
+            NativeAnnotationColorWell(color: $session.color, accessibilityLabel: String(localized: "颜色"))
+                .frame(width: 28, height: 28)
+                .help(String(localized: "选择自定义颜色"))
+        case .mosaic:
+            detailSlider(label: mosaicSizeLabel, value: $session.mosaicBlockSize,
+                         range: 2...32, step: 1, valueText: numberText(session.mosaicBlockSize))
+        case .spotlight, .select, .crop:
+            EmptyView()
+        }
     }
 
     private var arrowHeadPicker: some View {
@@ -648,7 +648,7 @@ struct AnnotationToolbar: View {
                     session.endStyleAdjustment()
                 }
             })
-            .frame(width: presentation.isFloating ? 120 : 84)
+            .frame(width: 84)
             .help(label)
             .accessibilityLabel(label)
             .accessibilityValue(valueText)
@@ -695,19 +695,13 @@ struct AnnotationToolbar: View {
             presentation: presentation,
             isSelected: session.selectedTool == tool
         ))
+        .disabled(session.isExporting)
         .help(tool.helpText)
         .accessibilityLabel(tool.title)
         .accessibilityHint(tool.helpText)
         .accessibilityAddTraits(session.selectedTool == tool ? [.isSelected] : [])
         .background {
             NativeToolTip(text: tool.helpText)
-        }
-    }
-
-    private var floatingStyleGroup: some View {
-        HStack(spacing: 12) {
-            colorSwatches
-            strokePresets
         }
     }
 
@@ -756,37 +750,6 @@ struct AnnotationToolbar: View {
         .padding(.horizontal, presentation.isFloating ? 6 : 4)
     }
 
-    private var strokePresets: some View {
-        HStack(spacing: 2) {
-            ForEach(Array(Self.strokeSizes.enumerated()), id: \.offset) { _, size in
-                Button {
-                    session.lineWidth = size.width
-                } label: {
-                    Circle()
-                        .strokeBorder(Color.primary, lineWidth: 1.5)
-                        .background(
-                            Circle().fill(
-                                Color.primary.opacity(session.lineWidth == size.width ? 0.9 : 0.15)
-                            )
-                        )
-                        .frame(width: size.dot, height: size.dot)
-                        .frame(
-                            width: AnnotationChromeMetrics.controlSize,
-                            height: AnnotationChromeMetrics.controlSize
-                        )
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(AnnotationIconButtonStyle(
-                    presentation: presentation,
-                    isSelected: session.lineWidth == size.width
-                ))
-                .help(size.help)
-                .accessibilityLabel(size.help)
-                .accessibilityAddTraits(session.lineWidth == size.width ? [.isSelected] : [])
-            }
-        }
-    }
-
     private var historyGroup: some View {
         HStack(spacing: presentation.isFloating ? 2 : 1) {
             Button {
@@ -801,7 +764,7 @@ struct AnnotationToolbar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(AnnotationIconButtonStyle(presentation: presentation))
-            .disabled(!session.canUndo)
+            .disabled(!session.canUndo || session.isExporting)
             .help(String(localized: "撤销（⌘Z）"))
             .accessibilityLabel(String(localized: "撤销"))
 
@@ -817,7 +780,7 @@ struct AnnotationToolbar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(AnnotationIconButtonStyle(presentation: presentation))
-            .disabled(!session.canRedo)
+            .disabled(!session.canRedo || session.isExporting)
             .help(String(localized: "重做（⇧⌘Z）"))
             .accessibilityLabel(String(localized: "重做"))
         }
@@ -829,31 +792,6 @@ struct AnnotationToolbar: View {
             deleteButton
         }
     }
-
-    private var floatingActionGroup: some View {
-        HStack(spacing: 6) {
-            duplicateButton
-            deleteButton
-            exportActionGroup
-            Button {
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(
-                        width: AnnotationChromeMetrics.controlSize,
-                        height: AnnotationChromeMetrics.controlSize
-                    )
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(AnnotationIconButtonStyle(presentation: presentation))
-            .help(String(localized: "关闭编辑器（Esc）"))
-            .accessibilityLabel(String(localized: "关闭"))
-        }
-        .controlSize(.small)
-    }
-
-    private var exportActionGroup: some View { exportActions(compact: false) }
 
     private func exportActions(compact: Bool) -> some View {
         HStack(spacing: presentation.isFloating ? 6 : 4) {
@@ -999,12 +937,6 @@ struct AnnotationToolbar: View {
         (.white, String(localized: "使用白色")),
         (.black, String(localized: "使用黑色"))
     ]
-
-    private static let strokeSizes: [(width: CGFloat, dot: CGFloat, help: String)] = [
-        (AnnotationMath.strokePresets[0], 8, String(localized: "使用细线（2 pt）")),
-        (AnnotationMath.strokePresets[1], 12, String(localized: "使用中等线宽（4 pt）")),
-        (AnnotationMath.strokePresets[2], 16, String(localized: "使用粗线（8 pt）"))
-    ]
 }
 
 /// The minimal AppKit color well uses the control itself as the popover anchor.
@@ -1022,6 +954,20 @@ enum AnnotationColorPickerController {
     }
 }
 
+private final class AnnotationColorWell: NSColorWell {
+    override func activate(_ exclusive: Bool) {
+        AnnotationColorPickerController.activeWell = self
+        super.activate(exclusive)
+    }
+
+    override func deactivate() {
+        super.deactivate()
+        if AnnotationColorPickerController.activeWell === self {
+            AnnotationColorPickerController.activeWell = nil
+        }
+    }
+}
+
 private struct NativeAnnotationColorWell: NSViewRepresentable {
     @Binding var color: Color
     let accessibilityLabel: String
@@ -1031,17 +977,16 @@ private struct NativeAnnotationColorWell: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSColorWell {
-        let well = NSColorWell(style: .minimal)
+        let well = AnnotationColorWell(style: .minimal)
         well.color = NSColor(color)
         well.supportsAlpha = false
         well.isContinuous = true
-        well.focusRingType = .none
+        well.focusRingType = .exterior
         well.target = context.coordinator
         well.action = #selector(Coordinator.colorChanged(_:))
         well.setAccessibilityElement(true)
         well.setAccessibilityRole(NSAccessibility.Role.button)
         well.setAccessibilityLabel(accessibilityLabel)
-        AnnotationColorPickerController.activeWell = well
         return well
     }
 
@@ -1052,7 +997,6 @@ private struct NativeAnnotationColorWell: NSViewRepresentable {
         if !well.color.isEqual(newColor) {
             well.color = newColor
         }
-        AnnotationColorPickerController.activeWell = well
     }
 
     static func dismantleNSView(_ well: NSColorWell, coordinator: Coordinator) {
@@ -1100,6 +1044,7 @@ private struct AnnotationIconButtonBody: View {
     @State private var isHovered = false
     @ObservedObject private var preferences = InterfacePreferences.shared
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isFocused) private var isFocused
 
     var body: some View {
         label
@@ -1116,7 +1061,11 @@ private struct AnnotationIconButtonBody: View {
                     style: .continuous
                 )
             )
-            .opacity(isEnabled ? 1 : 0.38)
+            .overlay {
+                RoundedRectangle(cornerRadius: InterfaceMetrics.buttonRadius, style: .continuous)
+                    .strokeBorder(isFocused ? Color.accentColor : .clear, lineWidth: 2)
+            }
+            .opacity(isEnabled ? 1 : 0.5)
             .onHover { hovering in
                 isHovered = isEnabled && hovering
             }
@@ -1168,7 +1117,9 @@ private struct AnnotationIconButtonBody: View {
 
 private struct WindowHeaderVisualEffect: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
+        let view = HUDMaterialView()
+        view.surface = .windowHeader
+        view.cornerRadius = 0
         view.material = .headerView
         view.blendingMode = .withinWindow
         view.state = .followsWindowActiveState

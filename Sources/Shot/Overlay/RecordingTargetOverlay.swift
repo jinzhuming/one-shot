@@ -465,11 +465,7 @@ final class RecordingStatusHUDView: NSView {
         effectView.blendingMode = .withinWindow
         effectView.state = .active
         effectView.wantsLayer = true
-        effectView.isHidden = HUDChrome.reduceTransparency
         addSubview(effectView)
-        if HUDChrome.reduceTransparency {
-            layer?.backgroundColor = NSColor.black.withAlphaComponent(0.92).cgColor
-        }
 
         dotView.wantsLayer = true
         dotView.layer?.cornerRadius = 4
@@ -477,7 +473,7 @@ final class RecordingStatusHUDView: NSView {
         dotView.setAccessibilityElement(false)
 
         statusLabel.font = NSFont.systemFont(ofSize: 12, weight: .medium)
-        statusLabel.textColor = .white
+        statusLabel.textColor = .labelColor
         statusLabel.setAccessibilityElement(false)
 
         elapsedLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)

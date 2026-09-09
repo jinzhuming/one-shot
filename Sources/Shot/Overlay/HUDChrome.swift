@@ -14,13 +14,13 @@ enum HUDChrome {
 
     static var solidFill: Color { Color(nsColor: .windowBackgroundColor) }
 
-    static var liftFill: Color { Color.white.opacity(0.10) }
+    static var liftFill: Color { Color.primary.opacity(0.04) }
 
-    static var hairline: Color { Color.white.opacity(InterfacePreferences.shared.increaseContrast ? 0.65 : 0.26) }
+    static var hairline: Color { Color.primary.opacity(InterfacePreferences.shared.increaseContrast ? 0.65 : 0.16) }
 
-    static var hoverFill: Color { Color.white.opacity(0.14) }
+    static var hoverFill: Color { Color.primary.opacity(0.12) }
 
-    static var pressFill: Color { Color.white.opacity(0.22) }
+    static var pressFill: Color { Color.primary.opacity(0.18) }
 
     static var selectedFill: Color { Color.accentColor.opacity(0.82) }
 
@@ -79,12 +79,17 @@ private struct IconButtonBody: View {
     @State private var isHovered = false
     @ObservedObject private var preferences = InterfacePreferences.shared
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isFocused) private var isFocused
 
     var body: some View {
         label
             .background(fill, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .opacity(isEnabled ? 1 : 0.38)
+            .overlay {
+                RoundedRectangle(cornerRadius: InterfaceMetrics.buttonRadius, style: .continuous)
+                    .strokeBorder(isFocused ? Color.accentColor : .clear, lineWidth: 2)
+            }
+            .opacity(isEnabled ? 1 : 0.5)
             .onHover { hovering in
                 isHovered = isEnabled && hovering
             }
@@ -151,7 +156,7 @@ private struct VisualEffect: NSViewRepresentable {
         view.state = .active
         view.alphaValue = opacity
         view.appearance = NSAppearance(named: .vibrantDark)
-        view.layer?.cornerRadius = cornerRadius
+        (view as? HUDMaterialView)?.cornerRadius = cornerRadius
         view.layer?.cornerCurve = .continuous
     }
 }

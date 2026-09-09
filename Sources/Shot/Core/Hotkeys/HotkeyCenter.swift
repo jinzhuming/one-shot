@@ -71,6 +71,7 @@ struct HotkeyRecorder: View {
                     .frame(minWidth: 96)
             }
             .buttonStyle(.bordered)
+            .help(String(localized: "点击录制快捷键，按 Esc 取消"))
             .accessibilityLabel(String(localized: "\(action.title)快捷键"))
             .accessibilityValue(buttonTitle)
             .accessibilityHint(String(localized: "点击录制新的快捷键"))
@@ -78,8 +79,9 @@ struct HotkeyRecorder: View {
                 Button(String(localized: "清除")) {
                     center.set(nil, for: action)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
                 .foregroundStyle(.secondary)
+                .frame(minWidth: 28, minHeight: 28)
                 .accessibilityLabel(String(localized: "清除\(action.title)快捷键"))
                 .accessibilityValue(String(localized: "清除"))
             }
@@ -134,8 +136,9 @@ struct OverlayToggleHotkeyRecorder: View {
                 Button(String(localized: "重置")) {
                     settings.areaWindowToggleHotkey = .defaultAreaWindowToggle
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
                 .foregroundStyle(.secondary)
+                .frame(minWidth: 28, minHeight: 28)
                 .accessibilityLabel(String(localized: "重置区域与窗口切换快捷键"))
                 .accessibilityValue(String(localized: "重置"))
             }

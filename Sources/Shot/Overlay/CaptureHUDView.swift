@@ -82,20 +82,16 @@ final class CaptureHUDView: NSView {
         layer?.masksToBounds = true
         appearance = NSAppearance(named: .vibrantDark)
 
-        let reduce = HUDChrome.reduceTransparency
+        effectView.cornerRadius = InterfaceMetrics.compactPanelRadius
         effectView.material = .hudWindow
         effectView.blendingMode = .withinWindow
         effectView.state = .active
         effectView.wantsLayer = true
-        effectView.isHidden = reduce
         addSubview(effectView)
 
-        if reduce {
-            layer?.backgroundColor = NSColor.black.withAlphaComponent(0.92).cgColor
-        }
 
         label.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-        label.textColor = .white
+        label.textColor = .labelColor
         label.alignment = .center
         label.drawsBackground = false
         label.isBezeled = false

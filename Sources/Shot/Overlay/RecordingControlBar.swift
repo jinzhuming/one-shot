@@ -86,6 +86,7 @@ final class RecordingControlBarController: NSObject {
 
     func update(state: RecordingState, elapsed: TimeInterval?) {
         view?.update(state: state, elapsed: elapsed)
+        relayout()
     }
 
     func dismiss() {
@@ -105,31 +106,17 @@ final class RecordingControlBarController: NSObject {
             state: view?.state ?? .idle,
             elapsed: elapsedProvider?()
         )
+        relayout()
     }
 
     private func position(on screen: NSScreen) {
-        guard let window else { return }
-        window.setFrameOrigin(Self.frame(on: screen).origin)
+        guard let window, let view else { return }
+        let frame = InterfaceLayout.bottomFrame(size: view.intrinsicContentSize, in: screen.visibleFrame)
+        if window.frame != frame { window.setFrame(frame, display: true) }
     }
 
     static func frame(on screen: NSScreen) -> CGRect {
-        let visibleFrame = screen.visibleFrame
-        let horizontalInset: CGFloat = 12
-        let maximumX = max(
-            visibleFrame.minX + horizontalInset,
-            visibleFrame.maxX - Self.size.width - horizontalInset
-        )
-        let x = min(
-            max(visibleFrame.minX + horizontalInset, visibleFrame.midX - Self.size.width / 2),
-            maximumX
-        )
-        let y = visibleFrame.minY + 18
-        return CGRect(
-            x: x,
-            y: y,
-            width: Self.size.width,
-            height: Self.size.height
-        )
+        InterfaceLayout.bottomFrame(size: Self.size, in: screen.visibleFrame)
     }
 
     private func relayout() {
@@ -187,7 +174,10 @@ final class RecordingControlBarView: NSView {
         self.state = state
         statusLabel.stringValue = statusText(for: state)
         elapsedLabel.stringValue = formatElapsed(elapsed ?? 0)
-        elapsedLabel.isHidden = state == .stopping
+        elapsedLabel.isHidden = false
+
+        stopButton.isEnabled = state == .recording || state == .paused
+        cancelButton.isEnabled = state == .recording || state == .paused
 
         switch state {
         case .recording:
@@ -218,7 +208,16 @@ final class RecordingControlBarView: NSView {
             cancelButton.isEnabled = false
         }
 
+        invalidateIntrinsicContentSize()
         setAccessibilityValue(statusText(for: state))
+    }
+
+    override var intrinsicContentSize: NSSize {
+        let statusWidth = [RecordingState.recording, .paused, .starting, .pausing, .stopping]
+            .map { (statusText(for: $0) as NSString).size(withAttributes: [.font: statusLabel.font!]).width }.max() ?? 0
+        let labels = statusWidth + max(52, elapsedLabel.intrinsicContentSize.width)
+        let buttons = [pauseButton, stopButton, cancelButton].reduce(CGFloat(0)) { $0 + max(28, $1.fittingSize.width) }
+        return NSSize(width: ceil(labels + buttons + 24 + 8 * 4), height: 58)
     }
 
     override func layout() {
@@ -242,7 +241,7 @@ final class RecordingControlBarView: NSView {
 
     private func setup() {
         wantsLayer = true
-        layer?.cornerRadius = 10
+        layer?.cornerRadius = InterfaceMetrics.panelRadius
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
         appearance = NSAppearance(named: .vibrantDark)
@@ -251,20 +250,16 @@ final class RecordingControlBarView: NSView {
         effectView.blendingMode = .withinWindow
         effectView.state = .active
         effectView.wantsLayer = true
-        effectView.isHidden = HUDChrome.reduceTransparency
         effectView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(effectView)
-        if HUDChrome.reduceTransparency {
-            layer?.backgroundColor = NSColor.black.withAlphaComponent(0.92).cgColor
-        }
 
-        statusLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        statusLabel.textColor = .white
+        statusLabel.font = NSFont.systemFont(ofSize: InterfaceMetrics.bodySize, weight: .medium)
+        statusLabel.textColor = .labelColor
         statusLabel.setAccessibilityLabel(String(localized: "录屏状态"))
         statusLabel.setAccessibilityRole(.staticText)
 
-        elapsedLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
-        elapsedLabel.textColor = .white.withAlphaComponent(0.86)
+        elapsedLabel.font = NSFont.monospacedDigitSystemFont(ofSize: InterfaceMetrics.bodySize, weight: .medium)
+        elapsedLabel.textColor = .secondaryLabelColor
         elapsedLabel.alignment = .right
         elapsedLabel.setAccessibilityLabel(String(localized: "录屏时长"))
         elapsedLabel.setAccessibilityRole(.staticText)
@@ -279,14 +274,14 @@ final class RecordingControlBarView: NSView {
         configure(
             stopButton,
             action: #selector(stopPressed),
-            title: String(localized: "停止"),
+            title: String(localized: "停止并保存"),
             symbolName: "stop.fill",
             help: String(localized: "停止并保存录屏")
         )
         configure(
             cancelButton,
             action: #selector(cancelPressed),
-            title: String(localized: "取消"),
+            title: String(localized: "放弃"),
             symbolName: "xmark",
             help: String(localized: "取消录屏并删除当前文件")
         )
@@ -294,7 +289,7 @@ final class RecordingControlBarView: NSView {
         stackView.orientation = .horizontal
         stackView.alignment = .centerY
         stackView.spacing = 8
-        stackView.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
+        stackView.edgeInsets = NSEdgeInsets(top: 10, left: InterfaceMetrics.panelInset, bottom: 10, right: InterfaceMetrics.panelInset)
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.addArrangedSubview(statusLabel)
         stackView.addArrangedSubview(elapsedLabel)
@@ -313,7 +308,7 @@ final class RecordingControlBarView: NSView {
             stackView.topAnchor.constraint(equalTo: topAnchor),
             stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
             statusLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 68),
-            elapsedLabel.widthAnchor.constraint(equalToConstant: 42)
+            elapsedLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 52)
         ])
 
         setAccessibilityRole(.group)
@@ -335,7 +330,7 @@ final class RecordingControlBarView: NSView {
         button.imageScaling = .scaleProportionallyDown
         button.bezelStyle = .texturedRounded
         button.controlSize = .small
-        button.contentTintColor = .white
+        button.contentTintColor = .labelColor
         button.toolTip = help
         button.setAccessibilityLabel(title)
         button.setAccessibilityHelp(help)

@@ -64,10 +64,9 @@ public enum EditorLayout {
     public static let chromePadding: CGFloat = 28
     public static let chromeGap: CGFloat = 10
     public static let minToolbarHeight: CGFloat = 44
-    /// The window toolbar has a 44 pt primary row, a one-point separator, and
-    /// a stable 36 pt contextual row so switching tools never moves the canvas.
-    public static let estimatedToolbarHeight: CGFloat = 81
-    public static let minContentWidth: CGFloat = 760
+    /// Stable primary and contextual rows prevent tool changes moving the canvas.
+    public static let estimatedToolbarHeight: CGFloat = 89
+    public static let minContentWidth: CGFloat = 640
     /// The standard editor uses a full-width toolbar at the top of the content
     /// view and a neutral workspace with a modest inset around the screenshot.
     public static let windowedWorkspacePadding: CGFloat = 16

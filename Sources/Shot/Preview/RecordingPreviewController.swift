@@ -141,7 +141,7 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
             do {
                 try await VideoExporter.copy(sourceURL, to: destinationURL)
                 guard !Task.isCancelled, self?.windows[id] != nil else { return }
-                SaveLocationPresenter.showSaved(at: destinationURL, on: window?.screen)
+                SaveLocationPresenter.showSaved(at: destinationURL, on: window?.screen, media: .video)
             } catch is CancellationError {
                 return
             } catch {
@@ -170,6 +170,7 @@ final class RecordingPreviewView: NSView {
     private let effectView = HUDMaterialView()
     private let playerView = AVPlayerView()
     private let actionGroup = NSStackView()
+    private let progress = NSProgressIndicator()
     private let copyButton = NSButton(title: "", target: nil, action: nil)
     private let saveButton = NSButton(title: "", target: nil, action: nil)
     private let revealButton = NSButton(title: "", target: nil, action: nil)
@@ -233,6 +234,8 @@ final class RecordingPreviewView: NSView {
 
         playerView.player = player
         playerView.controlsStyle = .inline
+        playerView.videoGravity = .resizeAspect
+        playerView.setAccessibilityLabel(String(localized: "录制视频"))
         playerView.showsFullScreenToggleButton = true
         playerView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(playerView)
@@ -241,6 +244,15 @@ final class RecordingPreviewView: NSView {
         configure(saveButton, title: String(localized: "保存"), action: #selector(saveVideo))
         configure(revealButton, title: String(localized: "在访达中显示"), action: #selector(revealVideo))
         configure(closeButton, title: String(localized: "关闭"), action: #selector(closePreview))
+        revealButton.image = NSImage(systemSymbolName: "folder", accessibilityDescription: String(localized: "在访达中显示"))
+        revealButton.imagePosition = .imageOnly
+        closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "关闭"))
+        closeButton.imagePosition = .imageOnly
+        progress.style = .spinning
+        progress.controlSize = .small
+        progress.isIndeterminate = true
+        progress.isHidden = true
+        progress.setAccessibilityLabel(String(localized: "正在保存视频"))
         copyButton.bezelColor = .controlAccentColor
         copyButton.keyEquivalent = "\r"
         closeButton.keyEquivalent = "\u{1b}"
@@ -248,6 +260,7 @@ final class RecordingPreviewView: NSView {
         actionGroup.orientation = .horizontal
         actionGroup.alignment = .centerY
         actionGroup.spacing = 8
+        actionGroup.addArrangedSubview(progress)
         actionGroup.addArrangedSubview(copyButton)
         actionGroup.addArrangedSubview(saveButton)
         actionGroup.addArrangedSubview(revealButton)
@@ -280,9 +293,15 @@ final class RecordingPreviewView: NSView {
         button.toolTip = title
         button.setAccessibilityLabel(title)
         button.translatesAutoresizingMaskIntoConstraints = false
+        button.heightAnchor.constraint(greaterThanOrEqualToConstant: InterfaceMetrics.controlSize).isActive = true
+        button.widthAnchor.constraint(greaterThanOrEqualToConstant: InterfaceMetrics.controlSize).isActive = true
     }
 
     func setExporting(_ exporting: Bool) {
+        progress.isHidden = !exporting
+        if exporting { progress.startAnimation(nil) } else { progress.stopAnimation(nil) }
+        closeButton.toolTip = exporting ? String(localized: "取消保存并关闭预览") : String(localized: "关闭")
+        closeButton.setAccessibilityHelp(closeButton.toolTip)
         saveButton.isEnabled = !exporting
         saveButton.title = exporting ? String(localized: "正在保存") : String(localized: "保存")
         saveButton.setAccessibilityValue(saveButton.title)

@@ -21,7 +21,7 @@ final class SettingsIdentityView: NSView {
         guard let window else { return }
         window.title = String(localized: "设置")
         window.identifier = NSUserInterfaceItemIdentifier(SettingsWindowIdentity.identifier)
-        window.minSize = NSSize(width: 520, height: 400)
+        window.contentMinSize = InterfaceMetrics.settingsMinimumSize
         window.isRestorable = false
         window.collectionBehavior.insert(.moveToActiveSpace)
         window.isReleasedWhenClosed = false

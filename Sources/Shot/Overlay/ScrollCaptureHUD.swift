@@ -5,9 +5,23 @@ import ShotKit
 final class ScrollCaptureHUD {
     private var panel: NSPanel?
     private var contentView: ScrollCaptureHUDView?
+    private var displayID: CGDirectDisplayID?
+    private var screenObserver: NSObjectProtocol?
+
+    init() {
+        screenObserver = NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
+                                                               object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.relayout() }
+        }
+    }
+
+    deinit {
+        if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+    }
 
     func show(on screen: NSScreen, onFinish: @escaping @MainActor () -> Void) {
         hide()
+        displayID = screen.displayID
 
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 332, height: 64),
@@ -30,18 +44,25 @@ final class ScrollCaptureHUD {
             onFinish: onFinish
         )
         panel.contentView = view
-        let visible = screen.visibleFrame
-        panel.setFrameOrigin(CGPoint(
-            x: visible.midX - panel.frame.width / 2,
-            y: visible.minY + 16
-        ))
-        panel.orderFrontRegardless()
         self.panel = panel
         self.contentView = view
+        relayout()
+        panel.orderFrontRegardless()
+    }
+
+    private func relayout() {
+        guard let panel, let contentView, let displayID else { return }
+        guard let screen = NSScreen.screens.first(where: { $0.displayID == displayID }) else {
+            hide()
+            return
+        }
+        let size = contentView.preferredSize(maxWidth: max(1, screen.visibleFrame.width - 32))
+        panel.setFrame(InterfaceLayout.bottomFrame(size: size, in: screen.visibleFrame), display: true)
     }
 
     func update(progress: ScrollCaptureProgress) {
         contentView?.update(progress: progress)
+        relayout()
     }
 
     func hide() {
@@ -50,6 +71,7 @@ final class ScrollCaptureHUD {
         panel?.close()
         panel = nil
         contentView = nil
+        displayID = nil
     }
 }
 
@@ -64,6 +86,7 @@ private final class ScrollCaptureHUDView: NSView {
     init(frame frameRect: NSRect, onFinish: @escaping @MainActor () -> Void) {
         self.onFinish = onFinish
         super.init(frame: frameRect)
+        appearance = NSAppearance(named: .vibrantDark)
         wantsLayer = true
         layer?.cornerRadius = 12
         layer?.cornerCurve = .continuous
@@ -76,12 +99,14 @@ private final class ScrollCaptureHUDView: NSView {
         addSubview(effectView)
 
         titleLabel.font = .systemFont(ofSize: 12, weight: .semibold)
-        titleLabel.textColor = .white
+        titleLabel.textColor = .labelColor
         titleLabel.setAccessibilityLabel(String(localized: "正在采集滚动截图"))
         addSubview(titleLabel)
 
+        detailLabel.maximumNumberOfLines = 0
+        detailLabel.lineBreakMode = .byWordWrapping
         detailLabel.font = .systemFont(ofSize: 11, weight: .regular)
-        detailLabel.textColor = NSColor.white.withAlphaComponent(0.75)
+        detailLabel.textColor = .secondaryLabelColor
         detailLabel.setAccessibilityLabel(String(localized: "滚动内容，完成后按 Return"))
         addSubview(detailLabel)
 
@@ -137,19 +162,20 @@ private final class ScrollCaptureHUDView: NSView {
         onFinish()
     }
 
+    func preferredSize(maxWidth: CGFloat) -> CGSize {
+        let width = min(maxWidth, max(360, titleLabel.intrinsicContentSize.width + 100))
+        let textWidth = max(1, width - 104)
+        let textHeight = (detailLabel.stringValue as NSString).boundingRect(
+            with: CGSize(width: textWidth, height: 1000), options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: detailLabel.font!]).height
+        return CGSize(width: width, height: max(72, ceil(textHeight) + 44))
+    }
+
     override func layout() {
         super.layout()
         effectView.frame = bounds
-        finishButton.frame = CGRect(x: bounds.maxX - 72, y: 16, width: 60, height: 28)
-        titleLabel.frame = CGRect(x: 14, y: 34, width: bounds.width - 98, height: 18)
-        detailLabel.frame = CGRect(x: 14, y: 12, width: bounds.width - 98, height: 18)
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if HUDChrome.reduceTransparency {
-            effectView.isHidden = true
-            layer?.backgroundColor = NSColor.black.withAlphaComponent(0.92).cgColor
-        }
+        finishButton.frame = CGRect(x: bounds.maxX - 76, y: (bounds.height - 28) / 2, width: 60, height: 28)
+        titleLabel.frame = CGRect(x: 14, y: bounds.height - 30, width: max(1, bounds.width - 104), height: 18)
+        detailLabel.frame = CGRect(x: 14, y: 12, width: max(1, bounds.width - 104), height: max(18, bounds.height - 44))
     }
 }

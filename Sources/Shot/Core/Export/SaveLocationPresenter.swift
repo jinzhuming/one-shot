@@ -1,4 +1,15 @@
 import AppKit
+import ShotKit
+
+enum ExportMediaKind {
+    case screenshot, video
+    var savedTitle: String {
+        switch self {
+        case .screenshot: String(localized: "截图已保存")
+        case .video: String(localized: "视频已保存")
+        }
+    }
+}
 
 @MainActor
 enum SaveLocationPresenter {
@@ -13,16 +24,16 @@ enum SaveLocationPresenter {
         panel = nil
     }
 
-    static func showSaved(at url: URL, on screen: NSScreen? = nil) {
+    static func showSaved(at url: URL, on screen: NSScreen? = nil, media: ExportMediaKind = .screenshot) {
         dismissTask?.cancel()
 
         let panel = panel ?? makePanel()
-        panel.configureSaved(fileURL: url)
+        panel.configureSaved(fileURL: url, media: media)
         if let screen = screen ?? screenUnderPointer() {
             panel.position(on: screen)
         }
         panel.orderFrontRegardless()
-        panel.announce(String(localized: "截图已保存"))
+        panel.announce(media.savedTitle)
 
         dismissTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(4))
@@ -116,9 +127,9 @@ private final class SaveConfirmationPanel: NSPanel {
         }
     }
 
-    func configureSaved(fileURL: URL) {
+    func configureSaved(fileURL: URL, media: ExportMediaKind) {
         self.fileURL = fileURL
-        confirmationView.configureSaved(fileURL: fileURL)
+        confirmationView.configureSaved(fileURL: fileURL, media: media)
         setContentSize(confirmationView.preferredContentSize)
     }
 
@@ -137,13 +148,8 @@ private final class SaveConfirmationPanel: NSPanel {
     }
 
     func position(on screen: NSScreen) {
-        let visible = screen.visibleFrame
-        let size = frame.size
-        let origin = CGPoint(
-            x: visible.maxX - size.width - 20,
-            y: visible.minY + 20
-        )
-        setFrame(CGRect(origin: origin, size: size), display: false)
+        setFrame(InterfaceLayout.bottomFrame(size: confirmationView.preferredContentSize,
+                                             in: screen.visibleFrame, margin: 20, trailing: true), display: false)
     }
 }
 
@@ -151,8 +157,6 @@ private final class SaveConfirmationPanel: NSPanel {
 private final class SaveConfirmationView: NSView {
     var onOpenFolder: (() -> Void)?
 
-    private static let savedSize = NSSize(width: 404, height: 82)
-    private static let copiedSize = NSSize(width: 276, height: 66)
 
     private let effectView = HUDMaterialView()
     private let statusImageView = NSImageView()
@@ -171,14 +175,10 @@ private final class SaveConfirmationView: NSView {
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
 
-        effectView.material = .popover
+        effectView.surface = .adaptive
         effectView.blendingMode = .behindWindow
         effectView.state = .active
-        effectView.alphaValue = 0.92
-        if HUDChrome.reduceTransparency {
-            effectView.isHidden = true
-            layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-        }
+        effectView.alphaValue = 1
         addSubview(effectView)
 
         statusImageView.imageScaling = .scaleProportionallyUpOrDown
@@ -216,7 +216,7 @@ private final class SaveConfirmationView: NSView {
         openButton.target = self
         openButton.action = #selector(openFolder)
         openButton.setAccessibilityLabel(String(localized: "打开文件夹"))
-        openButton.setAccessibilityHelp(String(localized: "在访达中显示截图文件"))
+        openButton.setAccessibilityHelp(String(localized: "在访达中显示保存的文件"))
         addSubview(openButton)
     }
 
@@ -225,13 +225,13 @@ private final class SaveConfirmationView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configureSaved(fileURL: URL) {
-        titleLabel.stringValue = String(localized: "截图已保存")
-        titleLabel.setAccessibilityLabel(String(localized: "截图已保存"))
-        setAccessibilityLabel(String(localized: "截图已保存"))
+    func configureSaved(fileURL: URL, media: ExportMediaKind) {
+        titleLabel.stringValue = media.savedTitle
+        titleLabel.setAccessibilityLabel(media.savedTitle)
+        setAccessibilityLabel(media.savedTitle)
         statusImageView.image = NSImage(
             systemSymbolName: "checkmark.circle.fill",
-            accessibilityDescription: String(localized: "截图已保存")
+            accessibilityDescription: media.savedTitle
         )
         fileLabel.stringValue = fileURL.lastPathComponent
         fileLabel.isHidden = false
@@ -256,7 +256,9 @@ private final class SaveConfirmationView: NSView {
     }
 
     var preferredContentSize: NSSize {
-        openButton.isHidden ? Self.copiedSize : Self.savedSize
+        let textWidth = max(titleLabel.intrinsicContentSize.width, min(240, fileLabel.intrinsicContentSize.width))
+        let actionWidth = openButton.isHidden ? 0 : openButton.fittingSize.width + 16
+        return NSSize(width: ceil(textWidth + actionWidth + 88), height: openButton.isHidden ? 64 : 82)
     }
 
     override func layout() {

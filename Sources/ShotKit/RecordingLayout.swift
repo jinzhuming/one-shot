@@ -34,7 +34,10 @@ public enum RecordingLayout {
                 x: visibleFrame.minX + margin + CGFloat(column) * (width + gap),
                 y: visibleFrame.minY + margin + CGFloat(row) * (height + gap)
             )
-            return CGRect(origin: origin, size: CGSize(width: width, height: height))
+            let size = CGSize(width: width, height: height)
+            let safe = visibleFrame.insetBy(dx: min(margin, visibleFrame.width / 4),
+                                           dy: min(margin, visibleFrame.height / 4))
+            return CGRect(origin: RectMath.clampedOrigin(origin, size: size, in: safe), size: size)
         }
     }
 }
