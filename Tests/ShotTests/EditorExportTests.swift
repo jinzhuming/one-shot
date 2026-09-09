@@ -802,6 +802,66 @@ import Testing
     #expect(abs(content.toolbarFittingSize.height - initialToolbarHeight) < 0.5)
 }
 
+@Test @MainActor func windowedEditorFitsLargeImageInsideTheCanvas() {
+    let image = solidImage(color: .white, size: CGSize(width: 2400, height: 1600))
+    let session = EditSession(image: image)
+    let layout = EditorLayout.windowed(
+        imageSize: image.size,
+        toolbarSize: CGSize(width: 720, height: 88),
+        contentSize: CGSize(width: 900, height: 620)
+    )
+    let arrangement = EditorArrangement(
+        windowFrame: CGRect(origin: .zero, size: layout.contentSize),
+        canvasFrame: layout.canvasFrame,
+        toolbarFrame: layout.toolbarFrame,
+        imageSize: layout.imageSize,
+        toolbarAnchor: .above,
+        keepsCaptureAligned: false
+    )
+    let content = EditorChromeView(
+        session: session,
+        arrangement: arrangement,
+        presentationStyle: .windowed,
+        windowedLayout: layout,
+        onCopy: {},
+        onSave: {},
+        onPin: {},
+        onOCR: {},
+        onClose: {}
+    )
+    content.frame = CGRect(origin: .zero, size: layout.contentSize)
+    let window = NSWindow(
+        contentRect: content.frame,
+        styleMask: [.titled, .closable, .resizable],
+        backing: .buffered,
+        defer: false
+    )
+    window.contentView = content
+    content.layoutSubtreeIfNeeded()
+
+    guard let canvasScrollView = content.subviews.compactMap({ $0 as? NSScrollView }).first else {
+        Issue.record("The editor should install a scroll view for the canvas")
+        return
+    }
+    func expectedFit() -> CGFloat {
+        CanvasZoom.fittedMagnification(
+            imageSize: image.size,
+            viewportSize: canvasScrollView.bounds.size
+        )
+    }
+    #expect(expectedFit() < 1)
+    #expect(abs(canvasScrollView.magnification - expectedFit()) < 0.02)
+    #expect(image.size.width * canvasScrollView.magnification <= canvasScrollView.bounds.width + 1)
+    #expect(image.size.height * canvasScrollView.magnification <= canvasScrollView.bounds.height + 1)
+
+    content.apply(layout)
+    content.layoutSubtreeIfNeeded()
+    content.layoutSubtreeIfNeeded()
+    #expect(abs(canvasScrollView.magnification - expectedFit()) < 0.02)
+    #expect(image.size.width * canvasScrollView.magnification <= canvasScrollView.bounds.width + 1)
+    #expect(image.size.height * canvasScrollView.magnification <= canvasScrollView.bounds.height + 1)
+}
+
 @Test @MainActor func annotationCanvasMapsMouseEventsThroughOffsetFlippedCanvas() {
     let canvas = AnnotationCanvasView(frame: CGRect(x: 50, y: 40, width: 200, height: 100))
     canvas.sourceImageSize = CGSize(width: 400, height: 200)

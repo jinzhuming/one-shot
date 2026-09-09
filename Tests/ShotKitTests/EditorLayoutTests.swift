@@ -18,12 +18,27 @@ import Testing
     #expect(CanvasZoom.clamped(0.01) == CanvasZoom.minimumMagnification)
     #expect(CanvasZoom.clamped(8) == CanvasZoom.maximumMagnification)
     #expect(CanvasZoom.clamped(.nan) == 1)
+    #expect(abs(CanvasZoom.clamped(0.05, min: 0.04, max: 4) - 0.05) < 0.0001)
 
     let fitted = CanvasZoom.fittedMagnification(
         imageSize: CGSize(width: 1600, height: 900),
         viewportSize: CGSize(width: 800, height: 700)
     )
     #expect(abs(fitted - 0.5) < 0.001)
+
+    let tall = CanvasZoom.fittedMagnification(
+        imageSize: CGSize(width: 800, height: 20_000),
+        viewportSize: CGSize(width: 1200, height: 800)
+    )
+    #expect(abs(tall - 0.04) < 0.0001)
+    #expect(tall < CanvasZoom.minimumMagnification)
+    #expect(abs(CanvasZoom.minimumMagnification(fitting: tall) - tall) < 0.0001)
+
+    let clipViewBoundsAfterFit = CGSize(width: 1600, height: 900)
+    #expect(CanvasZoom.fittedMagnification(
+        imageSize: CGSize(width: 1600, height: 900),
+        viewportSize: clipViewBoundsAfterFit
+    ) == 1)
 }
 
 @Test func canvasZoomSeparatesTrackpadPanFromMouseZoom() {

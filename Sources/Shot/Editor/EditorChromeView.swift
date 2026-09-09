@@ -16,7 +16,7 @@ final class EditorChromeView: NSView {
     private let session: EditSession
     private let presentationStyle: EditorPresentationStyle
     private let canvasScrollView: ZoomableCanvasScrollView
-    private var didSetInitialScrollMagnification = false
+    private var hasUserAdjustedZoom = false
     private var arrangement: EditorArrangement
     private var windowedLayout: EditorWindowLayout?
     private let coordinator: CanvasCoordinator
@@ -74,6 +74,9 @@ final class EditorChromeView: NSView {
         canvasScrollView.maxMagnification = CanvasZoom.maximumMagnification
         canvasScrollView.commandScrollZoomEnabled = AppSettings.shared.annotationZoomWithCommandScroll
         canvasScrollView.documentView = canvas
+        canvasScrollView.onUserMagnify = { [weak self] in
+            self?.hasUserAdjustedZoom = true
+        }
         canvasChrome.setAccessibilityElement(false)
         toolbarHost.wantsLayer = true
         toolbarHost.layer?.isOpaque = false
@@ -122,14 +125,14 @@ final class EditorChromeView: NSView {
 
     func apply(_ arrangement: EditorArrangement) {
         self.arrangement = arrangement
-        didSetInitialScrollMagnification = false
+        hasUserAdjustedZoom = false
         setFrameSize(arrangement.windowFrame.size)
         needsLayout = true
     }
 
     func apply(_ layout: EditorWindowLayout) {
         windowedLayout = layout
-        didSetInitialScrollMagnification = false
+        hasUserAdjustedZoom = false
         setFrameSize(layout.contentSize)
         needsLayout = true
     }
@@ -179,18 +182,29 @@ final class EditorChromeView: NSView {
 
         let imageSize = session.document.baseImage.size
         canvas.frame = CGRect(origin: .zero, size: imageSize)
-        if !didSetInitialScrollMagnification {
-            let viewportSize = canvasScrollView.contentView.bounds.size
-            let fittedSize = CGSize(
-                width: max(1, viewportSize.width),
-                height: max(1, viewportSize.height)
-            )
-            canvasScrollView.magnification = CanvasZoom.fittedMagnification(
-                imageSize: imageSize,
-                viewportSize: fittedSize
-            )
-            didSetInitialScrollMagnification = true
+        applyFittedMagnificationIfNeeded(
+            viewportSize: layout.canvas.size,
+            imageSize: imageSize
+        )
+    }
+
+    private func applyFittedMagnificationIfNeeded(viewportSize: CGSize, imageSize: CGSize) {
+        guard !hasUserAdjustedZoom else { return }
+        guard viewportSize.width > 1, viewportSize.height > 1,
+              imageSize.width > 0, imageSize.height > 0 else { return }
+        let fit = CanvasZoom.fittedMagnification(
+            imageSize: imageSize,
+            viewportSize: viewportSize
+        )
+        let minMagnification = CanvasZoom.minimumMagnification(fitting: fit)
+        if abs(canvasScrollView.minMagnification - minMagnification) > 0.0001 {
+            canvasScrollView.minMagnification = minMagnification
         }
+        guard abs(canvasScrollView.magnification - fit) > 0.0005 else { return }
+        canvasScrollView.setMagnification(
+            fit,
+            centeredAt: CGPoint(x: imageSize.width / 2, y: imageSize.height / 2)
+        )
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -249,6 +263,7 @@ final class EditorChromeView: NSView {
 
 private final class ZoomableCanvasScrollView: NSScrollView {
     var commandScrollZoomEnabled = false
+    var onUserMagnify: (() -> Void)?
 
     override func scrollWheel(with event: NSEvent) {
         let action = CanvasZoom.scrollAction(
@@ -268,8 +283,13 @@ private final class ZoomableCanvasScrollView: NSScrollView {
             : event.scrollingDeltaX
         guard delta != 0 else { return }
         let factor = CGFloat(pow(1.01, Double(delta)))
+        onUserMagnify?()
         setMagnification(
-            CanvasZoom.clamped(magnification * factor),
+            CanvasZoom.clamped(
+                magnification * factor,
+                min: minMagnification,
+                max: maxMagnification
+            ),
             centeredAt: point
         )
     }
@@ -281,8 +301,13 @@ private final class ZoomableCanvasScrollView: NSScrollView {
             return
         }
         let factor = max(0.01, 1 + event.magnification)
+        onUserMagnify?()
         setMagnification(
-            CanvasZoom.clamped(magnification * factor),
+            CanvasZoom.clamped(
+                magnification * factor,
+                min: minMagnification,
+                max: maxMagnification
+            ),
             centeredAt: point
         )
     }
