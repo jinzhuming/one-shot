@@ -60,6 +60,7 @@ final class RecordingClickHighlightController {
             NSEvent.removeMonitor(monitor)
         }
         monitors.removeAll()
+        view?.stop()
         window?.orderOut(nil)
         window?.contentView = nil
         window?.close()
@@ -84,6 +85,12 @@ private final class ClickHighlightView: NSView {
     }
 
     override var isOpaque: Bool { false }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        ripples.removeAll()
+    }
 
     func addRipple(at point: CGPoint) {
         ripples.append(Ripple(center: point, start: CACurrentMediaTime()))
@@ -122,5 +129,6 @@ private final class ClickHighlightView: NSView {
 
     deinit {
         timer?.invalidate()
+        timer = nil
     }
 }

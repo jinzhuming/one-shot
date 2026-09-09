@@ -173,6 +173,8 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
     func enterDimOnly() {
         hidePreparationHUD()
         removeModeShortcutMonitor()
+        destroyModeBars()
+        destroyActionBars()
         if overlayWindows.isEmpty {
             presentDimBackdrop()
             return
@@ -188,8 +190,6 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         for window in overlayWindows.values {
             window.ignoresMouseEvents = true
         }
-        hideModeBars()
-        hideActionBars()
         hideHUDs()
         applyVisuals()
         stopCatalogRefresh()
@@ -200,8 +200,8 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         isSelectionConfirmed = false
         activeHandle = nil
         removeModeShortcutMonitor()
-        hideModeBars()
-        hideActionBars()
+        destroyModeBars()
+        destroyActionBars()
         stopCatalogRefresh()
     }
 
@@ -209,7 +209,8 @@ final class OverlayController: NSObject, SelectionOverlayDelegate {
         hidePreparationHUD()
         removeModeShortcutMonitor()
         overlayWindows.values.forEach { $0.orderOut(nil) }
-        modeBarWindows.values.forEach { $0.orderOut(nil) }
+        destroyModeBars()
+        destroyActionBars()
     }
 
     func resumeAfterModal() {

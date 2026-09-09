@@ -41,12 +41,54 @@ import Testing
             }
         }
     }
-    let recording = RecordingControlBarView(onPause: {}, onStop: {}, onCancel: {})
-    for state: RecordingState in [.recording, .paused, .starting, .stopping] {
-        recording.update(state: state, elapsed: 65)
-        try render(recording, size: recording.intrinsicContentSize, appearance: .darkAqua,
-                   to: output.appendingPathComponent("recording-\(state).png"))
+    try renderRecordingComponents(to: output)
+}
+
+@Test @MainActor func renderRecordingGallery() throws {
+    guard let directory = ProcessInfo.processInfo.environment["SHOT_RECORDING_GALLERY_DIR"] else { return }
+    let output = URL(fileURLWithPath: directory, isDirectory: true)
+    try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+    try renderRecordingComponents(to: output)
+}
+
+@MainActor private func renderRecordingComponents(to output: URL) throws {
+    for dark in [false, true] {
+        let appearance: NSAppearance.Name = dark ? .darkAqua : .aqua
+        let suffix = dark ? "dark" : "light"
+        for accessible in [false, true] {
+            let variant = accessible ? "-accessible" : ""
+            let recording = RecordingControlBarView(onPause: {}, onStop: {}, onCancel: {})
+            for state: RecordingState in [.recording, .paused, .starting, .pausing, .resuming, .stopping] {
+                recording.update(state: state, elapsed: 3665)
+                applyGalleryAccessibility(to: recording, enabled: accessible)
+                try render(recording, size: recording.intrinsicContentSize, appearance: appearance,
+                           to: output.appendingPathComponent("recording-\(state)-\(suffix)\(variant).png"))
+                let status = RecordingStatusHUDView(frame: .zero)
+                status.update(state: state, elapsed: 3665)
+                applyGalleryAccessibility(to: status, enabled: accessible)
+                try render(status, size: status.intrinsicContentSize, appearance: appearance,
+                           to: output.appendingPathComponent("recording-status-\(state)-\(suffix)\(variant).png"))
+            }
+            let countdown = RecordingCountdownView(frame: .zero)
+            countdown.update(3)
+            applyGalleryAccessibility(to: countdown, enabled: accessible)
+            try render(countdown, size: CGSize(width: 88, height: 88), appearance: appearance,
+                       to: output.appendingPathComponent("recording-countdown-\(suffix)\(variant).png"))
+            let preview = RecordingPreviewView(url: output.appendingPathComponent("preview.mov"),
+                                               onCopy: {}, onSave: {}, onReveal: {}, onClose: {})
+            for exporting in [false, true] {
+                preview.setExporting(exporting)
+                applyGalleryAccessibility(to: preview, enabled: accessible)
+                try render(preview, size: CGSize(width: 380, height: 284), appearance: appearance,
+                           to: output.appendingPathComponent("recording-preview-\(exporting ? "saving" : "ready")-\(suffix)\(variant).png"))
+            }
+        }
     }
+}
+
+@MainActor private func applyGalleryAccessibility(to view: NSView, enabled: Bool) {
+    (view as? HUDMaterialView)?.applyAccessibility(reduceTransparency: enabled, increaseContrast: enabled)
+    for subview in view.subviews { applyGalleryAccessibility(to: subview, enabled: enabled) }
 }
 
 @MainActor private func render(_ view: NSView, size: CGSize, appearance: NSAppearance.Name, to url: URL) throws {

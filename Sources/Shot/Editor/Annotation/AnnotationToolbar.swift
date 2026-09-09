@@ -64,13 +64,7 @@ struct AnnotationToolbar: View {
             HStack(spacing: 8) {
                 toolIdentity
                 divider
-                ViewThatFits(in: .horizontal) {
-                    detailControls().fixedSize(horizontal: true, vertical: false)
-                    HStack(spacing: 12) {
-                        compactPrimaryParameter
-                        parameterButton
-                    }
-                }
+                secondaryToolbarControls
                 Spacer(minLength: 0)
                 if session.selectedTool == .select, session.hasSelection {
                     selectionActionGroup
@@ -133,12 +127,86 @@ struct AnnotationToolbar: View {
         .disabled(session.isExporting)
     }
 
-    private var parameterButton: some View {
+    @ViewBuilder
+    private var secondaryToolbarControls: some View {
+        switch session.selectedTool {
+        case .crop:
+            detailControls()
+        case .select:
+            if session.hasSelection {
+                toolbarParameterControls
+            } else {
+                Text(String(localized: "点击标注以选择"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+        default:
+            toolbarParameterControls
+        }
+    }
+
+    @ViewBuilder
+    private var toolbarParameterControls: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                quickControls
+                parameterControlsButton
+            }
+            .fixedSize(horizontal: true, vertical: false)
+
+            HStack(spacing: 8) {
+                compactQuickControls
+                compactParameterControlsButton
+            }
+            .fixedSize(horizontal: true, vertical: false)
+        }
+    }
+
+    @ViewBuilder
+    private var quickControls: some View {
+        if supportsColorQuickSelection {
+            colorSwatches
+        }
+        if session.selectedTool == .pen || selectedObjectIsPen {
+            penBrushSizeControl(compact: false)
+        }
+    }
+
+    @ViewBuilder
+    private var compactQuickControls: some View {
+        if supportsColorQuickSelection {
+            colorSwatches
+        }
+        if session.selectedTool == .pen || selectedObjectIsPen {
+            penBrushSizeControl(compact: true)
+        }
+    }
+
+    private var parameterControlsButton: some View {
         Button { showsParameters.toggle() } label: {
             Label(String(localized: "调整参数…"), systemImage: "slider.horizontal.3")
         }
         .buttonStyle(.bordered)
-        .help(String(localized: "调整当前工具的颜色与样式"))
+        .help(String(localized: "调整参数…"))
+        .accessibilityLabel(String(localized: "调整参数…"))
+        .popover(isPresented: $showsParameters) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(session.selectedTool.title).font(.headline)
+                detailControls(stacked: true)
+            }
+            .padding(16)
+            .frame(width: 360, alignment: .leading)
+        }
+    }
+
+    private var compactParameterControlsButton: some View {
+        Button { showsParameters.toggle() } label: {
+            Image(systemName: "slider.horizontal.3")
+                .frame(width: InterfaceMetrics.controlSize, height: InterfaceMetrics.controlSize)
+        }
+        .buttonStyle(AnnotationIconButtonStyle(presentation: presentation))
+        .help(String(localized: "调整参数…"))
+        .accessibilityLabel(String(localized: "调整参数…"))
         .popover(isPresented: $showsParameters) {
             VStack(alignment: .leading, spacing: 16) {
                 Text(session.selectedTool.title).font(.headline)
@@ -178,7 +246,6 @@ struct AnnotationToolbar: View {
             selectionDetailControls(stacked: stacked)
         case .arrow:
             parameterLayout(stacked: stacked) {
-                windowColorControls
                 arrowHeadPicker
                 detailSlider(
                     label: String(localized: "箭头大小"),
@@ -197,7 +264,6 @@ struct AnnotationToolbar: View {
             }
         case .rect, .ellipse:
             parameterLayout(stacked: stacked) {
-                windowColorControls
                 detailSlider(
                     label: String(localized: "填充"),
                     value: $session.shapeFillOpacity,
@@ -215,7 +281,6 @@ struct AnnotationToolbar: View {
             }
         case .line:
             parameterLayout(stacked: stacked) {
-                windowColorControls
                 linePatternPicker
                 detailSlider(
                     label: String(localized: "线宽（pt）"),
@@ -227,7 +292,6 @@ struct AnnotationToolbar: View {
             }
         case .pen:
             parameterLayout(stacked: stacked) {
-                windowColorControls
                 detailSlider(
                     label: String(localized: "画笔粗细（pt）"),
                     value: $session.lineWidth,
@@ -252,7 +316,6 @@ struct AnnotationToolbar: View {
             }
         case .highlighter:
             parameterLayout(stacked: stacked) {
-                windowColorControls
                 detailSlider(
                     label: String(localized: "荧光笔粗细（pt）"),
                     value: $session.lineWidth,
@@ -270,7 +333,6 @@ struct AnnotationToolbar: View {
             }
         case .text:
             parameterLayout(stacked: stacked) {
-                windowColorControls
                 detailSlider(
                     label: String(localized: "文字大小（pt）"),
                     value: $session.lineWidth,
@@ -281,7 +343,6 @@ struct AnnotationToolbar: View {
             }
         case .callout:
             parameterLayout(stacked: stacked) {
-                windowColorControls
                 detailSlider(
                     label: String(localized: "气泡填充"),
                     value: $session.calloutFillOpacity,
@@ -300,7 +361,6 @@ struct AnnotationToolbar: View {
             }
         case .counter:
             parameterLayout(stacked: stacked) {
-                windowColorControls
                 detailSlider(
                     label: String(localized: "序号大小"),
                     value: $session.lineWidth,
@@ -380,7 +440,6 @@ struct AnnotationToolbar: View {
                         valueText: percentageText(session.spotlightOpacity)
                     )
                 case .highlighter(_, _):
-                    windowColorControls
                     detailSlider(
                         label: String(localized: "荧光笔粗细（pt）"),
                         value: $session.lineWidth,
@@ -396,7 +455,6 @@ struct AnnotationToolbar: View {
                         valueText: percentageText(session.highlighterOpacity)
                     )
                 case .text(_, _, _):
-                    windowColorControls
                     detailSlider(
                         label: String(localized: "文字大小（pt）"),
                         value: $session.lineWidth,
@@ -405,7 +463,6 @@ struct AnnotationToolbar: View {
                         valueText: numberText(AnnotationMath.fontSize(lineWidth: CGFloat(session.lineWidth)))
                     )
                 case .callout(_, _, _):
-                    windowColorControls
                     detailSlider(
                         label: String(localized: "气泡填充"),
                         value: $session.calloutFillOpacity,
@@ -422,7 +479,6 @@ struct AnnotationToolbar: View {
                     )
                     calloutWrapToggle
                 case .counter(_, _, _):
-                    windowColorControls
                     detailSlider(
                         label: String(localized: "序号大小"),
                         value: $session.lineWidth,
@@ -431,7 +487,6 @@ struct AnnotationToolbar: View {
                         valueText: numberText(max(10, session.lineWidth * 10))
                     )
                 case .arrow(_, _, _):
-                    windowColorControls
                     arrowHeadPicker
                     detailSlider(
                         label: String(localized: "箭头大小"),
@@ -448,7 +503,6 @@ struct AnnotationToolbar: View {
                         valueText: numberText(session.lineWidth)
                     )
                 case .line(_, _, _):
-                    windowColorControls
                     linePatternPicker
                     detailSlider(
                         label: String(localized: "线宽（pt）"),
@@ -458,7 +512,6 @@ struct AnnotationToolbar: View {
                         valueText: numberText(session.lineWidth)
                     )
                 case .pen(_, _):
-                    windowColorControls
                     detailSlider(
                         label: String(localized: "线宽（pt）"),
                         value: $session.lineWidth,
@@ -481,7 +534,6 @@ struct AnnotationToolbar: View {
                         valueText: percentageText(session.penOpacity)
                     )
                 case .rect(_, _), .ellipse(_, _):
-                    windowColorControls
                     detailSlider(
                         label: String(localized: "填充"),
                         value: $session.shapeFillOpacity,
@@ -505,37 +557,85 @@ struct AnnotationToolbar: View {
         }
     }
 
-    @ViewBuilder
-    private var windowColorControls: some View {
-        colorSwatches
-    }
-
     private func parameterLayout<Content: View>(stacked: Bool, @ViewBuilder content: () -> Content) -> some View {
         let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
             : AnyLayout(HStackLayout(spacing: 8))
         return layout { content() }
     }
 
-    @ViewBuilder
-    private var compactPrimaryParameter: some View {
+    private var supportsColorQuickSelection: Bool {
         switch session.selectedTool {
-        case .arrow, .rect, .ellipse, .line, .pen, .highlighter, .callout:
-            NativeAnnotationColorWell(color: $session.color, accessibilityLabel: String(localized: "颜色"))
-                .frame(width: 28, height: 28)
-                .help(String(localized: "选择自定义颜色"))
-            detailSlider(label: String(localized: "线宽（pt）"), value: $session.lineWidth,
-                         range: session.selectedTool == .highlighter ? 1...32 : 1...24,
-                         step: 1, valueText: numberText(session.lineWidth))
-        case .text, .counter:
-            NativeAnnotationColorWell(color: $session.color, accessibilityLabel: String(localized: "颜色"))
-                .frame(width: 28, height: 28)
-                .help(String(localized: "选择自定义颜色"))
-        case .mosaic:
-            detailSlider(label: mosaicSizeLabel, value: $session.mosaicBlockSize,
-                         range: 2...32, step: 1, valueText: numberText(session.mosaicBlockSize))
-        case .spotlight, .select, .crop:
-            EmptyView()
+        case .arrow, .rect, .ellipse, .line, .pen, .highlighter, .text, .callout, .counter:
+            return true
+        case .select:
+            guard let selected = session.document.selectedObject else { return false }
+            switch selected.element {
+            case .arrow, .rect, .ellipse, .line, .pen, .highlighter, .text, .callout, .counter:
+                return true
+            case .mosaic, .spotlight:
+                return false
+            }
+        case .mosaic, .spotlight, .crop:
+            return false
         }
+    }
+
+    private var selectedObjectIsPen: Bool {
+        guard session.selectedTool == .select,
+              let selected = session.document.selectedObject else { return false }
+        if case .pen = selected.element { return true }
+        return false
+    }
+
+    @ViewBuilder
+    private func penBrushSizeControl(compact: Bool) -> some View {
+        if compact {
+            Menu {
+                ForEach(Self.penBrushSizes, id: \.self) { size in
+                    Button {
+                        session.lineWidth = size
+                    } label: {
+                        Text(numberText(size))
+                    }
+                }
+            } label: {
+                Text(numberText(nearestPenBrushSize))
+                    .font(.system(size: 11, design: .monospaced))
+                    .frame(width: AnnotationChromeMetrics.controlSize,
+                           height: AnnotationChromeMetrics.controlSize)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .font(.system(size: 11, design: .monospaced))
+            .help(String(localized: "画笔粗细（pt）"))
+            .accessibilityLabel(String(localized: "画笔粗细（pt）"))
+            .accessibilityValue(numberText(session.lineWidth))
+        } else {
+            Picker(String(localized: "画笔粗细（pt）"), selection: penBrushPresetBinding) {
+                ForEach(Self.penBrushSizes, id: \.self) { size in
+                    Text(numberText(size)).tag(size)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(width: 116)
+            .help(String(localized: "画笔粗细（pt）"))
+            .accessibilityLabel(String(localized: "画笔粗细（pt）"))
+            .accessibilityValue(numberText(session.lineWidth))
+        }
+    }
+
+    private var penBrushPresetBinding: Binding<Double> {
+        Binding(
+            get: { nearestPenBrushSize },
+            set: { session.lineWidth = $0 }
+        )
+    }
+
+    private var nearestPenBrushSize: Double {
+        Self.penBrushSizes.min {
+            abs($0 - session.lineWidth) < abs($1 - session.lineWidth)
+        } ?? AnnotationDefaults.lineWidthValue
     }
 
     private var arrowHeadPicker: some View {
@@ -927,6 +1027,8 @@ struct AnnotationToolbar: View {
         let db = lhs.blueComponent - rhs.blueComponent
         return sqrt(dr * dr + dg * dg + db * db)
     }
+
+    private static let penBrushSizes: [Double] = [2, 4, 8, 12]
 
     private static let swatches: [(color: NSColor, help: String)] = [
         (.systemRed, String(localized: "使用红色")),

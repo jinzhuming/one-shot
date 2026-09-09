@@ -209,7 +209,8 @@ extension CaptureSession {
 
     func presentEditor(_ result: CaptureResult) {
         machine.startEditing()
-        StatusItemMenu.reload()
+        WindowCatalog.shared.markSessionIdle()
+        StatusItemMenu.reload(recordingActive: false)
         if result.kind == .scrolling || result.hasAppliedBackground {
             editor.presentCentered(result: result, overlay: overlay)
             return
@@ -225,15 +226,17 @@ extension CaptureSession {
     func restorePinnedCapture(_ result: CaptureResult) {
         guard prepareSession() else { return }
         machine.startEditing()
-        StatusItemMenu.reload()
+        WindowCatalog.shared.markSessionIdle()
+        StatusItemMenu.reload(recordingActive: false)
         editor.presentCentered(result: result, overlay: overlay)
     }
 
     func restoreEditorSession(_ session: EditSession, on screen: NSScreen) {
         guard prepareSession() else { return }
         machine.startEditing()
+        WindowCatalog.shared.markSessionIdle()
         editor.restoreAnnotation(session, on: screen)
-        StatusItemMenu.reload()
+        StatusItemMenu.reload(recordingActive: false)
     }
 
     func applyingScreenshotBackground(to result: CaptureResult) async -> CaptureResult {

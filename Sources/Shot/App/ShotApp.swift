@@ -63,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PinController.shared.closeAll()
         RecordingPreviewController.shared.closeAll()
         SaveLocationPresenter.dismiss()
+        VideoExporter.removeOrphanedTemporaryRecordings()
         terminationFinishTask?.cancel()
         terminationWatchdogTask?.cancel()
         CaptureSession.shared.forceTeardownForTermination()

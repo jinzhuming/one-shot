@@ -22,6 +22,7 @@ final class AppCoordinator: NSObject, NSWindowDelegate {
         HotkeyCenter.shared.register()
         PermissionService.shared.refresh()
         AppLifecycle.shared.start()
+        VideoExporter.removeOrphanedTemporaryRecordings()
         Task { await ScreenshotHistoryStore.repository.reconcile() }
         if PermissionService.shared.hasScreenRecording {
             WindowCatalog.prewarm()

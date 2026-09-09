@@ -28,7 +28,7 @@ final class CaptureSession: OverlayControllerDelegate {
     var isRecording: Bool { recordingService.isRecording }
     var recordingElapsed: TimeInterval? { recordingService.elapsed }
     var hasRecordingActivity: Bool {
-        recordingService.isRecording || recordingService.isStarting || isFinishingRecording
+        recordingService.isBusy || isFinishingRecording || recordingCountdown.isVisible
     }
     var isScrollingCapture: Bool {
         intent == .scrolling && machine.phase == .capturing
@@ -48,13 +48,9 @@ final class CaptureSession: OverlayControllerDelegate {
         overlay.delegate = self
         self.recordingService.onFailure = { [weak self] error in
             guard let self else { return }
-            self.recordingControls.dismiss()
-            self.recordingTargetOverlay.dismiss()
-            self.recordingCountdown.hide()
-            self.recordingClickHighlight.dismiss()
             self.isFinishingRecording = false
             self.fail(error)
-            StatusItemMenu.reload()
+            StatusItemMenu.reload(recordingActive: self.recordingService.isRecording)
         }
         self.recordingService.onStateChange = { [weak self] _ in
             guard let self else { return }
@@ -66,7 +62,7 @@ final class CaptureSession: OverlayControllerDelegate {
                 state: self.recordingService.state,
                 elapsed: self.recordingService.elapsed
             )
-            StatusItemMenu.reload()
+            StatusItemMenu.reload(recordingActive: self.recordingService.isRecording)
         }
         editor.onFinish = { [weak self] in
             self?.removeEscapeToCancel()
@@ -125,7 +121,9 @@ final class CaptureSession: OverlayControllerDelegate {
     func toggleRecording() {
         if recordingService.isRecording {
             stopRecording()
-        } else if !isFinishingRecording {
+        } else if recordingService.isStarting || recordingCountdown.isVisible || isFinishingRecording {
+            cancel()
+        } else {
             begin(.allInOne, intent: .recording)
         }
     }
@@ -182,26 +180,24 @@ final class CaptureSession: OverlayControllerDelegate {
 
     func cancel() {
         guard !isFinishingRecording else { return }
-        if recordingService.isRecording || recordingService.isStarting {
+        if recordingService.isBusy {
             invalidatePendingCapture()
             isFinishingRecording = true
-            recordingControls.dismiss()
-            recordingTargetOverlay.dismiss()
-            recordingCountdown.hide()
-            recordingClickHighlight.dismiss()
-            Task { @MainActor [weak self] in
+            dismissRecordingChrome()
+            overlay.dismiss()
+            captureTask = Task { @MainActor [weak self] in
                 guard let self else { return }
                 await self.recordingService.cancel()
                 self.isFinishingRecording = false
                 self.removeEscapeToCancel()
                 self.resetMachine()
+                self.captureTask = nil
             }
             return
         }
         invalidatePendingCapture()
         scrollCaptureCoordinator = nil
-        recordingCountdown.hide()
-        recordingClickHighlight.dismiss()
+        dismissRecordingChrome()
         removeEscapeToCancel()
         overlay.dismiss()
         editor.dismiss()
@@ -220,7 +216,7 @@ final class CaptureSession: OverlayControllerDelegate {
 
     func overlayDidPickWindow(id: CGWindowID) {
         overlay.showPreparationHUD()
-        runCapture { [weak self] operation in
+        runCapture(timeout: recordingCaptureTimeout) { [weak self] operation in
             await self?.captureWindow(id: id, operation: operation)
         }
     }
@@ -232,7 +228,7 @@ final class CaptureSession: OverlayControllerDelegate {
                 return
             }
             overlay.showPreparationHUD()
-            runCapture { [weak self] operation in
+            runCapture(timeout: recordingCaptureTimeout) { [weak self] operation in
                 await self?.captureRegion(selection, operation: operation)
             }
             return
@@ -245,7 +241,7 @@ final class CaptureSession: OverlayControllerDelegate {
 
     func overlayDidPickFullscreen(screen: NSScreen) {
         overlay.showPreparationHUD()
-        runCapture { [weak self] operation in
+        runCapture(timeout: recordingCaptureTimeout) { [weak self] operation in
             await self?.captureScreen(screen, operation: operation)
         }
     }
@@ -261,9 +257,9 @@ final class CaptureSession: OverlayControllerDelegate {
 
     @discardableResult
     func prepareSession(for requestedIntent: CaptureIntent) -> Bool {
-        if recordingService.isRecording
-            || recordingService.isStarting
-            || isFinishingRecording {
+        if recordingService.isBusy
+            || isFinishingRecording
+            || recordingCountdown.isVisible {
             return false
         }
         if machine.isBusy {
@@ -279,7 +275,7 @@ final class CaptureSession: OverlayControllerDelegate {
         sessionGeneration &+= 1
         intent = requestedIntent
         machine.startCapture()
-        StatusItemMenu.reload()
+        StatusItemMenu.reload(recordingActive: false)
         return true
     }
 
@@ -350,10 +346,7 @@ final class CaptureSession: OverlayControllerDelegate {
         recordingService.abandon()
         isFinishingRecording = false
         invalidatePendingCapture()
-        recordingControls.dismiss()
-        recordingTargetOverlay.dismiss()
-        recordingCountdown.hide()
-        recordingClickHighlight.dismiss()
+        dismissRecordingChrome()
         scrollCaptureCoordinator = nil
         removeEscapeToCancel()
         overlay.dismiss()
@@ -364,17 +357,27 @@ final class CaptureSession: OverlayControllerDelegate {
 
     func fail(_ error: Error, operation: UInt64? = nil) {
         if let operation, !isCurrent(operation) { return }
+        recordingService.abandon()
+        isFinishingRecording = false
         invalidatePendingCapture()
-        recordingControls.dismiss()
-        recordingTargetOverlay.dismiss()
-        recordingCountdown.hide()
-        recordingClickHighlight.dismiss()
+        dismissRecordingChrome()
         removeEscapeToCancel()
         overlay.dismiss()
         editor.dismiss()
         resetMachine()
         NSCursor.arrow.set()
         if !AppLifecycle.shared.isSuspended { presentError(error) }
+    }
+
+    func dismissRecordingChrome() {
+        recordingControls.dismiss()
+        recordingTargetOverlay.dismiss()
+        recordingCountdown.hide()
+        recordingClickHighlight.dismiss()
+    }
+
+    private var recordingCaptureTimeout: Duration? {
+        intent == .recording ? nil : .seconds(30)
     }
 
     func resetMachine() {
@@ -387,7 +390,7 @@ final class CaptureSession: OverlayControllerDelegate {
         machine.reset()
         intent = .screenshot
         WindowCatalog.shared.markSessionIdle()
-        StatusItemMenu.reload()
+        StatusItemMenu.reload(recordingActive: recordingService.isRecording)
     }
 
     func isCurrent(_ operation: UInt64) -> Bool {

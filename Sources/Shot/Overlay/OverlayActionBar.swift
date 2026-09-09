@@ -9,8 +9,7 @@ struct OverlayActionBar: View {
             actionButton(
                 title: String(localized: "开始"),
                 systemImage: "play.fill",
-                action: .start,
-                prominent: true
+                action: .start
             )
         }
         .padding(.horizontal, 10)
@@ -26,8 +25,7 @@ struct OverlayActionBar: View {
     private func actionButton(
         title: String,
         systemImage: String,
-        action: OverlayRegionAction,
-        prominent: Bool
+        action: OverlayRegionAction
     ) -> some View {
         Button {
             onAction(action)
@@ -36,11 +34,10 @@ struct OverlayActionBar: View {
                 .font(.system(size: 12, weight: .semibold))
                 .labelStyle(.titleAndIcon)
                 .padding(.horizontal, 8)
-                .frame(height: 28)
+                .frame(height: InterfaceMetrics.controlSize)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.borderedProminent)
-        .tint(prominent ? Color.accentColor : Color.white.opacity(0.16))
+        .buttonStyle(HUDChrome.ProminentButtonStyle())
         .help(help(for: action))
         .accessibilityLabel(title)
         .accessibilityHint(help(for: action))

@@ -6,15 +6,41 @@ import UniformTypeIdentifiers
 enum VideoExporter {
     static let fileExtension = "mp4"
     private static let segmentMergeTimeout: Duration = .seconds(30)
+    static let temporaryRecordingDirectory: URL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("ShotRecordings", isDirectory: true)
 
     /// ScreenCaptureKit writes synchronously enough during startup that the
     /// live recording should not depend on access to the user's protected
     /// folders. The finished file is moved to the configured directory after
     /// the stream has stopped.
     static func temporaryRecordingURL(date: Date = Date()) throws -> URL {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ShotRecordings", isDirectory: true)
-        return try temporaryRecordingURL(in: directory, date: date)
+        try temporaryRecordingURL(in: temporaryRecordingDirectory, date: date)
+    }
+
+    static func isTemporaryRecording(_ url: URL) -> Bool {
+        url.standardizedFileURL.deletingLastPathComponent() == temporaryRecordingDirectory.standardizedFileURL
+    }
+
+    static func removeIfTemporary(_ url: URL) {
+        guard isTemporaryRecording(url) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    static func removeOrphanedTemporaryRecordings(
+        in directory: URL = temporaryRecordingDirectory,
+        keeping urls: [URL] = []
+    ) {
+        let directory = directory.standardizedFileURL
+        guard FileManager.default.fileExists(atPath: directory.path) else { return }
+        let keep = Set(urls.map { $0.standardizedFileURL.path })
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return }
+        for fileURL in contents where !keep.contains(fileURL.standardizedFileURL.path) {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
     }
 
     static func temporaryRecordingURL(in directory: URL, date: Date = Date()) throws -> URL {

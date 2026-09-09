@@ -23,6 +23,34 @@ import Testing
     #expect(!stop.isEnabled && !pause.isEnabled && !cancel.isEnabled)
 }
 
+@Test @MainActor func recordingCountdownVisibilityTracksPanelLifetime() {
+    let hud = RecordingCountdownHUD()
+    #expect(!hud.isVisible)
+    guard let screen = NSScreen.main else { return }
+    hud.show(seconds: 3, on: screen)
+    #expect(hud.isVisible)
+    hud.hide()
+    #expect(!hud.isVisible)
+}
+
+@Test @MainActor func statusItemIconStateTracksRecordingLifecycle() {
+    let icon = StatusItemIconState()
+    let menu = StatusItemMenuState()
+    let revision = menu.revision
+
+    #expect(!icon.recordingActive)
+    icon.update(recordingActive: true)
+    #expect(icon.recordingActive)
+    icon.update(recordingActive: true)
+    #expect(icon.recordingActive)
+    icon.update(recordingActive: false)
+    #expect(!icon.recordingActive)
+
+    menu.reload()
+    #expect(menu.revision == revision &+ 1)
+    #expect(!icon.recordingActive)
+}
+
 @Test @MainActor func thinAndTallPinsReserveRoomForTheirControls() {
     let display = CGRect(x: -640, y: 40, width: 640, height: 480)
     for image in [CGSize(width: 5000, height: 1), CGSize(width: 1, height: 5000)] {

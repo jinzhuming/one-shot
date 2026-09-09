@@ -59,6 +59,7 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
             defer: false
         )
         window.recordingID = id
+        window.recordingURL = result.url
         window.onRequestClose = { [weak self] in
             self?.close(id: id)
         }
@@ -89,6 +90,9 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
         window.contentView = nil
         windows.removeValue(forKey: id)
         order.removeAll { $0 == id }
+        if let url = window.recordingURL {
+            VideoExporter.removeIfTemporary(url)
+        }
         relayout()
     }
 
@@ -155,6 +159,7 @@ final class RecordingPreviewController: NSObject, NSWindowDelegate {
 
 final class RecordingPreviewWindow: NSWindow {
     var recordingID: UUID?
+    var recordingURL: URL?
     var displayID: CGDirectDisplayID = 0
     var onRequestClose: (() -> Void)?
 
@@ -221,7 +226,7 @@ final class RecordingPreviewView: NSView {
         layer?.cornerRadius = InterfaceMetrics.panelRadius
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
-        appearance = NSAppearance(named: .vibrantDark)
+        appearance = NSAppearance(named: .darkAqua)
         setAccessibilityElement(false)
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "录制视频预览"))
@@ -244,22 +249,32 @@ final class RecordingPreviewView: NSView {
         configure(saveButton, title: String(localized: "保存"), action: #selector(saveVideo))
         configure(revealButton, title: String(localized: "在访达中显示"), action: #selector(revealVideo))
         configure(closeButton, title: String(localized: "关闭"), action: #selector(closePreview))
+        copyButton.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil)
+        copyButton.imagePosition = .imageLeading
+        saveButton.image = NSImage(systemSymbolName: "square.and.arrow.down", accessibilityDescription: nil)
+        saveButton.imagePosition = .imageLeading
         revealButton.image = NSImage(systemSymbolName: "folder", accessibilityDescription: String(localized: "在访达中显示"))
         revealButton.imagePosition = .imageOnly
         closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "关闭"))
         closeButton.imagePosition = .imageOnly
+        for button in [revealButton, closeButton] {
+            button.bezelStyle = .recessed
+            button.showsBorderOnlyWhileMouseInside = true
+            button.widthAnchor.constraint(equalToConstant: InterfaceMetrics.controlSize).isActive = true
+        }
         progress.style = .spinning
         progress.controlSize = .small
         progress.isIndeterminate = true
         progress.isHidden = true
         progress.setAccessibilityLabel(String(localized: "正在保存视频"))
         copyButton.bezelColor = .controlAccentColor
+        copyButton.font = .systemFont(ofSize: InterfaceMetrics.bodySize, weight: .semibold)
         copyButton.keyEquivalent = "\r"
         closeButton.keyEquivalent = "\u{1b}"
 
         actionGroup.orientation = .horizontal
         actionGroup.alignment = .centerY
-        actionGroup.spacing = 8
+        actionGroup.spacing = InterfaceMetrics.spacing
         actionGroup.addArrangedSubview(progress)
         actionGroup.addArrangedSubview(copyButton)
         actionGroup.addArrangedSubview(saveButton)
@@ -273,13 +288,13 @@ final class RecordingPreviewView: NSView {
             effectView.trailingAnchor.constraint(equalTo: trailingAnchor),
             effectView.topAnchor.constraint(equalTo: topAnchor),
             effectView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            playerView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            playerView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            playerView.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            playerView.bottomAnchor.constraint(equalTo: actionGroup.topAnchor, constant: -8),
-            actionGroup.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
-            actionGroup.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -10),
-            actionGroup.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            playerView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: InterfaceMetrics.panelInset),
+            playerView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -InterfaceMetrics.panelInset),
+            playerView.topAnchor.constraint(equalTo: topAnchor, constant: InterfaceMetrics.panelInset),
+            playerView.bottomAnchor.constraint(equalTo: actionGroup.topAnchor, constant: -InterfaceMetrics.spacing),
+            actionGroup.leadingAnchor.constraint(equalTo: leadingAnchor, constant: InterfaceMetrics.panelInset),
+            actionGroup.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -InterfaceMetrics.panelInset),
+            actionGroup.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -InterfaceMetrics.panelInset),
             actionGroup.heightAnchor.constraint(equalToConstant: 28)
         ])
     }
@@ -287,11 +302,14 @@ final class RecordingPreviewView: NSView {
     private func configure(_ button: NSButton, title: String, action: Selector) {
         button.title = title
         button.bezelStyle = .rounded
-        button.controlSize = .small
+        button.controlSize = .regular
+        button.font = .systemFont(ofSize: InterfaceMetrics.bodySize)
+        button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
         button.target = self
         button.action = action
         button.toolTip = title
         button.setAccessibilityLabel(title)
+        button.setAccessibilityHelp(title)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.heightAnchor.constraint(greaterThanOrEqualToConstant: InterfaceMetrics.controlSize).isActive = true
         button.widthAnchor.constraint(greaterThanOrEqualToConstant: InterfaceMetrics.controlSize).isActive = true

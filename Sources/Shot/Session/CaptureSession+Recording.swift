@@ -5,6 +5,8 @@ import ShotKit
 extension CaptureSession {
     func startRecording(_ target: RecordingTarget, operation: UInt64) async {
         guard isCurrent(operation) else { return }
+        captureWatchdogTask?.cancel()
+        captureWatchdogTask = nil
         overlay.dismiss()
         do {
             let screen = try recordingScreen(for: target)
@@ -79,12 +81,10 @@ extension CaptureSession {
             )
             StatusItemMenu.reload()
         } catch is CancellationError {
-            recordingCountdown.hide()
-            recordingClickHighlight.dismiss()
+            dismissRecordingChrome()
             return
         } catch {
-            recordingCountdown.hide()
-            recordingClickHighlight.dismiss()
+            dismissRecordingChrome()
             fail(error, operation: operation)
         }
     }
@@ -133,7 +133,7 @@ extension CaptureSession {
     }
 
     func stopRecording() {
-        guard recordingService.canStop, !isFinishingRecording else { return }
+        guard recordingService.isRecording, !isFinishingRecording else { return }
         isFinishingRecording = true
         recordingControls.update(state: .stopping, elapsed: recordingService.elapsed)
         recordingTargetOverlay.dismiss()
@@ -142,20 +142,20 @@ extension CaptureSession {
         captureTask?.cancel()
         captureTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            defer { self.captureTask = nil }
             do {
+                await self.waitUntilRecordingCanStop()
+                try Task.checkCancellation()
+                guard self.recordingService.canStop else {
+                    await self.recordingService.cancel()
+                    self.finishStoppedRecording()
+                    return
+                }
                 let result = try await self.recordingService.stop()
-                self.isFinishingRecording = false
-                self.recordingControls.dismiss()
-                self.removeEscapeToCancel()
-                self.resetMachine()
+                self.finishStoppedRecording()
                 if !AppLifecycle.shared.isSuspended { RecordingPreviewController.shared.present(result) }
-                StatusItemMenu.reload()
             } catch is CancellationError {
-                self.isFinishingRecording = false
-                self.recordingControls.dismiss()
-                self.removeEscapeToCancel()
-                self.resetMachine()
-                StatusItemMenu.reload()
+                self.finishStoppedRecording()
             } catch {
                 self.isFinishingRecording = false
                 self.recordingControls.dismiss()
@@ -169,32 +169,41 @@ extension CaptureSession {
             await captureTask?.value
             return
         }
-        guard recordingService.isRecording || recordingService.isStarting else { return }
+        guard recordingService.isBusy || recordingCountdown.isVisible else { return }
 
         isFinishingRecording = true
-        recordingControls.dismiss()
-        recordingTargetOverlay.dismiss()
-        recordingCountdown.hide()
-        recordingClickHighlight.dismiss()
+        dismissRecordingChrome()
         overlay.dismiss()
         captureTask?.cancel()
-        if recordingService.isStarting {
-            await recordingService.cancel()
-        } else {
-            while !recordingService.canStop, recordingService.isRecording, !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(50))
-            }
+        if recordingService.isRecording {
+            await waitUntilRecordingCanStop()
             if recordingService.canStop {
                 do { _ = try await recordingService.stop() }
                 catch { Diagnostics.lifecycle.error("Recording could not finish during interruption") }
             } else {
                 await recordingService.cancel()
             }
+        } else {
+            await recordingService.cancel()
         }
         isFinishingRecording = false
         removeEscapeToCancel()
         captureTask = nil
         resetMachine()
+    }
+
+    private func waitUntilRecordingCanStop() async {
+        while !recordingService.canStop, recordingService.isBusy, !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
+    private func finishStoppedRecording() {
+        isFinishingRecording = false
+        recordingControls.dismiss()
+        removeEscapeToCancel()
+        resetMachine()
+        StatusItemMenu.reload()
     }
 
 }

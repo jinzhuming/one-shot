@@ -448,7 +448,9 @@ final class RecordingStatusHUDView: NSView {
     func update(state: RecordingState, elapsed: TimeInterval) {
         statusLabel.stringValue = statusText(for: state)
         elapsedLabel.stringValue = RecordingLayout.formattedDuration(elapsed)
-        dotView.layer?.backgroundColor = dotColor(for: state).cgColor
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            dotView.layer?.backgroundColor = dotColor(for: state).cgColor
+        }
         setAccessibilityValue("\(statusLabel.stringValue) \(elapsedLabel.stringValue)")
         invalidateIntrinsicContentSize()
         needsLayout = true
@@ -456,13 +458,14 @@ final class RecordingStatusHUDView: NSView {
 
     private func setup() {
         wantsLayer = true
-        layer?.cornerRadius = 7
+        layer?.cornerRadius = InterfaceMetrics.compactPanelRadius
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
-        appearance = NSAppearance(named: .vibrantDark)
+        appearance = NSAppearance(named: .darkAqua)
 
         effectView.material = .hudWindow
-        effectView.blendingMode = .withinWindow
+        effectView.blendingMode = .behindWindow
+        effectView.cornerRadius = InterfaceMetrics.compactPanelRadius
         effectView.state = .active
         effectView.wantsLayer = true
         addSubview(effectView)
@@ -477,7 +480,7 @@ final class RecordingStatusHUDView: NSView {
         statusLabel.setAccessibilityElement(false)
 
         elapsedLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-        elapsedLabel.textColor = .white.withAlphaComponent(0.88)
+        elapsedLabel.textColor = .labelColor
         elapsedLabel.alignment = .right
         elapsedLabel.setAccessibilityElement(false)
 
@@ -493,7 +496,7 @@ final class RecordingStatusHUDView: NSView {
         NSLayoutConstraint.activate([
             dotView.widthAnchor.constraint(equalToConstant: 8),
             dotView.heightAnchor.constraint(equalToConstant: 8),
-            elapsedLabel.widthAnchor.constraint(equalToConstant: 42)
+            elapsedLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 42)
         ])
 
         setAccessibilityElement(true)

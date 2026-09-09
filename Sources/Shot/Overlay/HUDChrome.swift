@@ -24,6 +24,8 @@ enum HUDChrome {
 
     static var selectedFill: Color { Color.accentColor.opacity(0.82) }
 
+    static var prominentHoverOverlay: Color { Color.white.opacity(0.08) }
+
     struct PanelBackground: View {
         @ObservedObject private var preferences = InterfacePreferences.shared
         var cornerRadius: CGFloat
@@ -57,7 +59,7 @@ enum HUDChrome {
 
     struct IconButtonStyle: ButtonStyle {
         var isSelected = false
-        var cornerRadius: CGFloat = 6
+        var cornerRadius: CGFloat = InterfaceMetrics.buttonRadius
         var tintsLabel = true
 
         func makeBody(configuration: Configuration) -> some View {
@@ -66,6 +68,17 @@ enum HUDChrome {
                 isSelected: isSelected,
                 cornerRadius: cornerRadius,
                 tintsLabel: tintsLabel
+            )
+        }
+    }
+
+    struct ProminentButtonStyle: ButtonStyle {
+        var cornerRadius: CGFloat = InterfaceMetrics.buttonRadius
+
+        func makeBody(configuration: Configuration) -> some View {
+            ProminentButtonBody(
+                configuration: configuration,
+                cornerRadius: cornerRadius
             )
         }
     }
@@ -121,6 +134,52 @@ private struct IconButtonBody: View {
         }
         if isHovered {
             return HUDChrome.hoverFill
+        }
+        return .clear
+    }
+}
+
+private struct ProminentButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    var cornerRadius: CGFloat
+    @State private var isHovered = false
+    @ObservedObject private var preferences = InterfacePreferences.shared
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isFocused) private var isFocused
+
+    var body: some View {
+        configuration.label
+            .foregroundStyle(Color(nsColor: .alternateSelectedControlTextColor))
+            .background {
+                shape.fill(Color.accentColor)
+                    .overlay { shape.fill(stateOverlay) }
+            }
+            .overlay {
+                shape.strokeBorder(isFocused ? Color.primary : .clear, lineWidth: 2)
+            }
+            .clipShape(shape)
+            .contentShape(shape)
+            .opacity(isEnabled ? 1 : 0.5)
+            .onHover { hovering in
+                isHovered = isEnabled && hovering
+            }
+            .animation(preferences.animation(0.12), value: isHovered)
+            .animation(preferences.animation(0.08), value: configuration.isPressed)
+    }
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    }
+
+    private var stateOverlay: Color {
+        if !isEnabled {
+            return .clear
+        }
+        if configuration.isPressed {
+            return Color.black.opacity(preferences.increaseContrast ? 0.34 : 0.22)
+        }
+        if isHovered {
+            return HUDChrome.prominentHoverOverlay
         }
         return .clear
     }

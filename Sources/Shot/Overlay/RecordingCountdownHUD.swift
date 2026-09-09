@@ -4,6 +4,7 @@ import ShotKit
 @MainActor
 final class RecordingCountdownHUD {
     private var panel: NSPanel?
+    var isVisible: Bool { panel != nil }
 
     func show(seconds: Int, on screen: NSScreen) {
         hide()
@@ -45,7 +46,7 @@ final class RecordingCountdownHUD {
     }
 }
 
-private final class RecordingCountdownView: NSView {
+final class RecordingCountdownView: NSView {
     let label = NSTextField(labelWithString: "")
     private let effectView = HUDMaterialView()
 
@@ -55,7 +56,7 @@ private final class RecordingCountdownView: NSView {
         layer?.cornerRadius = InterfaceMetrics.panelRadius
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
-        appearance = NSAppearance(named: .vibrantDark)
+        appearance = NSAppearance(named: .darkAqua)
         effectView.material = .hudWindow
         effectView.blendingMode = .behindWindow
         effectView.state = .active
@@ -81,6 +82,7 @@ private final class RecordingCountdownView: NSView {
     override func layout() {
         super.layout()
         effectView.frame = bounds
-        label.frame = bounds
+        let height = label.intrinsicContentSize.height
+        label.frame = NSRect(x: 0, y: (bounds.height - height) / 2, width: bounds.width, height: height)
     }
 }

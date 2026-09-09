@@ -13,42 +13,39 @@ final class StatusItemMenuState: ObservableObject {
     }
 }
 
-enum StatusItemMenu {
-    @MainActor
-    static func reload() {
-        StatusItemMenuState.shared.reload()
+/// Isolated from menu reloads. MenuBarExtra retains previous label views, so
+/// the icon host must not rebuild when screenshot sessions start or end.
+@MainActor
+final class StatusItemIconState: ObservableObject {
+    static let shared = StatusItemIconState()
+
+    @Published private(set) var recordingActive = false
+
+    func update(recordingActive: Bool) {
+        guard self.recordingActive != recordingActive else { return }
+        self.recordingActive = recordingActive
     }
 }
 
-private enum StatusItemIcon {
+enum StatusItemMenu {
     @MainActor
-    static let template: NSImage = {
-        let image = NSImage(systemSymbolName: "viewfinder", accessibilityDescription: "Shot") ?? NSImage()
-        image.isTemplate = true
-        return image
-    }()
-
-    @MainActor
-    static var current: NSImage {
-        if CaptureSession.shared.isRecording {
-            let image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: String(localized: "正在录屏"))
-                ?? template
-            image.isTemplate = true
-            return image
+    static func reload(recordingActive: Bool? = nil) {
+        if let recordingActive {
+            StatusItemIconState.shared.update(recordingActive: recordingActive)
         }
-        return template
+        StatusItemMenuState.shared.reload()
     }
 }
 
 struct StatusItemLabel: View {
     @Environment(\.openSettings) private var openSettings
-    @ObservedObject private var menuState = StatusItemMenuState.shared
+    @ObservedObject private var iconState = StatusItemIconState.shared
 
     var body: some View {
-        let _ = menuState.revision
-        Image(nsImage: StatusItemIcon.current)
-            .accessibilityLabel("Shot")
-            .help("Shot")
+        let isRecording = iconState.recordingActive
+        Image(systemName: isRecording ? "record.circle" : "viewfinder")
+            .accessibilityLabel(isRecording ? String(localized: "正在录屏") : "Shot")
+            .help(isRecording ? String(localized: "正在录屏") : "Shot")
             .onAppear {
                 AppCoordinator.shared.installOpenSettingsAction(openSettings)
             }

@@ -17,6 +17,7 @@ protocol RecordingServicing: AnyObject {
     var state: RecordingState { get }
     var isRecording: Bool { get }
     var isStarting: Bool { get }
+    var isBusy: Bool { get }
     var canStop: Bool { get }
     var elapsed: TimeInterval? { get }
     var recordingScreen: NSScreen? { get }

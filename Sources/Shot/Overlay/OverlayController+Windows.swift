@@ -55,12 +55,20 @@ extension OverlayController {
         let overlays = Array(overlayWindows.values)
         overlayWindows.removeAll()
         overlays.forEach(tearDown)
+        destroyModeBars()
+        destroyActionBars()
+    }
+
+    func destroyModeBars() {
         let bars = Array(modeBarWindows.values)
         modeBarWindows.removeAll()
         bars.forEach(tearDown)
-        let actions = Array(actionBarWindows.values)
+    }
+
+    func destroyActionBars() {
+        let bars = Array(actionBarWindows.values)
         actionBarWindows.removeAll()
-        actions.forEach(tearDown)
+        bars.forEach(tearDown)
     }
 
     func overlayWindow(for screen: NSScreen) -> OverlayWindow {

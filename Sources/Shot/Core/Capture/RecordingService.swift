@@ -159,6 +159,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
     private var outputStartGates: [ObjectIdentifier: RecordingOutputStartGate] = [:]
     private var startFailure: Error?
     private var stopRequested = false
+    private var discarding = false
     private var pausedAt: Date?
     private var accumulatedPauseDuration: TimeInterval = 0
 
@@ -174,6 +175,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
 
     var isRecording: Bool { state == .recording || state == .pausing || state == .paused || state == .resuming }
     var isStarting: Bool { state == .starting }
+    var isBusy: Bool { state != .idle || discarding }
     var isPaused: Bool { state == .paused }
     var canStop: Bool { state == .recording || state == .paused }
     var recordingScreen: NSScreen? { outputScreen }
@@ -192,7 +194,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         options: RecordingOptions = RecordingOptions(),
         exceptingWindowIDs: [CGWindowID] = []
     ) async throws -> NSScreen {
-        guard state == .idle else { throw RecordingError.alreadyRecording }
+        guard state == .idle, !discarding else { throw RecordingError.alreadyRecording }
         generation &+= 1
         let operation = generation
         state = .starting
@@ -247,6 +249,7 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         stopRequested = true
         outputStartGates.values.forEach { $0.resume(throwing: CancellationError()) }
         resumeFinish(with: CancellationError())
+        if discarding { return }
         await cleanupAfterFailure()
     }
 
@@ -746,7 +749,10 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
 
     func abandon() {
         let resources = detachResources()
-        Task { await discard(resources) }
+        for url in resources.urls {
+            try? FileManager.default.removeItem(at: url)
+        }
+        Task { await discard(resources, deleteFiles: false) }
     }
 
     private struct RetiredRecording {
@@ -762,11 +768,18 @@ final class RecordingService: NSObject, SCRecordingOutputDelegate, SCStreamDeleg
         return resources
     }
 
-    private func cleanupAfterFailure() async { await discard(detachResources()) }
+    private func cleanupAfterFailure() async {
+        if discarding { return }
+        discarding = true
+        let resources = detachResources()
+        await discard(resources)
+        discarding = false
+    }
 
-    private func discard(_ resources: RetiredRecording) async {
+    private func discard(_ resources: RetiredRecording, deleteFiles: Bool = true) async {
         if let stream = resources.stream, let output = resources.output { try? stream.removeRecordingOutput(output) }
         if let stream = resources.stream { try? await stopCapture(stream, timeout: .seconds(2)) }
+        guard deleteFiles else { return }
         // Cleanup must outlive cancellation of the operation it is retiring.
         await Task.detached(priority: .utility) {
             for url in resources.urls { try? FileManager.default.removeItem(at: url) }

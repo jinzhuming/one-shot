@@ -287,6 +287,37 @@ import Testing
     #expect(secondURL.pathExtension == "mp4")
 }
 
+@Test func temporaryRecordingCleanupOnlyDeletesShotRecordings() throws {
+    let url = try VideoExporter.temporaryRecordingURL()
+    try Data([0x01]).write(to: url)
+    defer { VideoExporter.removeIfTemporary(url) }
+    #expect(VideoExporter.isTemporaryRecording(url))
+    VideoExporter.removeIfTemporary(url)
+    #expect(!FileManager.default.fileExists(atPath: url.path))
+
+    let outside = FileManager.default.temporaryDirectory
+        .appendingPathComponent("shot-not-recording-\(UUID().uuidString).mp4")
+    try Data([0x01]).write(to: outside)
+    defer { try? FileManager.default.removeItem(at: outside) }
+    #expect(!VideoExporter.isTemporaryRecording(outside))
+    VideoExporter.removeIfTemporary(outside)
+    #expect(FileManager.default.fileExists(atPath: outside.path))
+}
+
+@Test func orphanedTemporaryRecordingsAreRemovedExceptKeepList() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("ShotRecordingOrphanTests-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let keep = try VideoExporter.temporaryRecordingURL(in: directory)
+    let orphan = try VideoExporter.temporaryRecordingURL(in: directory)
+    try Data([0x01]).write(to: keep)
+    try Data([0x02]).write(to: orphan)
+
+    VideoExporter.removeOrphanedTemporaryRecordings(in: directory, keeping: [keep])
+    #expect(FileManager.default.fileExists(atPath: keep.path))
+    #expect(!FileManager.default.fileExists(atPath: orphan.path))
+}
+
 @Test @MainActor func asyncTimeoutReturnsWhenAnOperationExceedsItsDeadline() async {
     do {
         try await AsyncTimeout.run(
